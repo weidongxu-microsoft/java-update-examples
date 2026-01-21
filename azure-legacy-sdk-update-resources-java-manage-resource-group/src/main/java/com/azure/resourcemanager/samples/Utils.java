@@ -18,7 +18,7 @@ public final class Utils {
      * @return the random resource name
      */
     public static String randomResourceName(AzureResourceManager azureResourceManager, String prefix, int maxLen) {
-        return azureResourceManager.resourceManager().internalContext().randomResourceName(prefix, maxLen);
+        return azureResourceManager.resourceGroups().manager().internalContext().randomResourceName(prefix, maxLen);
     }
 
     private Utils() {
