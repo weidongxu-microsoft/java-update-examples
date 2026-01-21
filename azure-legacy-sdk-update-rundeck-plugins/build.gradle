@@ -1,0 +1,168 @@
+plugins {
+    id 'java'
+    id 'groovy'
+    id 'idea'
+    alias(libs.plugins.axionRelease)
+    alias(libs.plugins.nexusPublish)
+}
+
+group = 'org.rundeck.plugins'
+ext.pluginClassNames=
+        'com.rundeck.plugins.azure.plugin.AzureResourceModelSourceFactory,com.rundeck.plugins.azure.plugin.AzureFileStoragePlugin,com.rundeck.plugins.azure.plugin.AzureStorageCopyStepPlugin,com.rundeck.plugins.azure.plugin.AzureStorageListStepPlugin,com.rundeck.plugins.azure.plugin.AzureStorageDeleteStepPlugin,com.rundeck.plugins.azure.plugin.AzureVMCreatePlugin,com.rundeck.plugins.azure.plugin.AzureVmStartPlugin,com.rundeck.plugins.azure.plugin.AzureVmStopPlugin,com.rundeck.plugins.azure.plugin.AzureVmListPlugin'
+ext.pluginName = 'Azure Rundeck Plugin'
+ext.pluginDescription = 'Azure Plugin integrates Rundeck with Azure Virtual Machines and Azure Storage. The plugin contains a Resource Model plugin, an Execution Log Storage plugin, and others plugin steps like Create/Start/Stop Azure VMs.'
+ext.publishName = "Azure Rundeck Plugin ${project.version}"
+ext.githubSlug = 'rundeck-plugins/azure-plugin'
+ext.developers = [
+        [id: 'gschueler', name: 'Greg Schueler', email: 'greg@rundeck.com']
+]
+
+ext.rundeckPluginVersion = '1.2'
+
+scmVersion {
+    tag {
+        prefix = 'v'
+        versionSeparator = ''
+    }
+    ignoreUncommittedChanges = true
+}
+
+allprojects {
+    project.version = scmVersion.version
+    apply from: "${rootDir}/gradle/java.gradle"
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+// Force resolution of json-smart to mitigate CVE-2023-1370
+configurations.all {
+    resolutionStrategy {
+        force 'net.minidev:json-smart:2.5.2'
+        dependencySubstitution {
+            substitute module('net.minidev:json-smart:2.4.2') using module('net.minidev:json-smart:2.5.2') because 'CVE-2023-1370'
+        }
+        // Explicitly reject vulnerable versions
+        componentSelection {
+            withModule('net.minidev:json-smart') { ComponentSelection selection ->
+                if (selection.candidate.version == '2.4.2') {
+                    selection.reject('Vulnerable to CVE-2023-1370')
+                }
+            }
+        }
+    }
+}
+
+
+configurations {
+    pluginLibs
+
+    implementation {
+        extendsFrom pluginLibs
+    }
+}
+
+dependencies {
+    implementation libs.rundeckCore
+    implementation libs.groovyAll
+
+    implementation libs.commonsIo
+    pluginLibs libs.commonsNet
+
+    pluginLibs(libs.azure) {
+        exclude group: "com.fasterxml.jackson.core"
+        exclude group: 'com.google.guava', module: 'guava'
+        exclude group: 'net.minidev', module: 'json-smart'
+    }
+    pluginLibs libs.jsonSmart
+    pluginLibs(libs.azureStorage) {
+        exclude group: "com.fasterxml.jackson.core"
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    pluginLibs(libs.azureKeyvaultCore) {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+
+    testImplementation libs.bundles.testLibs
+
+    constraints {
+        implementation(libs.retrofitAdapterRxjava) {
+            because "retrofit version by azure affected by CVE-2018-1000844"
+        }
+        implementation(libs.nimbusJoseJwt) {
+            because "CVE-2023-1370, CVE-2021-31684, CVE-2023-52428"
+        }
+        implementation(libs.oauth2OidcSdk) {
+            because "CVE-2023-1370 - upgrade to version that doesn't depend on vulnerable json-smart"
+        }
+        implementation(libs.jsonSmart) {
+            because "CVE-2023-1370 - upgrade from 2.4.2 to 2.5.2"
+        }
+        implementation(libs.okhttp) {
+            because "CVE-2023-3635"
+        }
+        pluginLibs(libs.retrofitAdapterRxjava) {
+            because "retrofit version by azure affected by CVE-2018-1000844"
+        }
+        pluginLibs(libs.nimbusJoseJwt) {
+            because "CVE-2023-1370, CVE-2021-31684, CVE-2023-52428"
+        }
+        pluginLibs(libs.oauth2OidcSdk) {
+            because "CVE-2023-1370 - upgrade to version that doesn't depend on vulnerable json-smart"
+        }
+        pluginLibs(libs.jsonSmart) {
+            because "CVE-2023-1370 - upgrade from 2.4.2 to 2.5.2"
+        }
+        // Pins the version to avoid a dependency on okhttp 3.14.9 that suffers from the CVE.
+        // This version of okhttp is inline with the one used in Rundeck 5.9.x
+        pluginLibs(libs.okhttp) {
+            because "CVE-2023-3635"
+        }
+    }
+}
+
+task copyToLib(type: Copy) {
+    into "$buildDir/output/lib"
+    from configurations.pluginLibs
+}
+
+jar {
+    from "$buildDir/output"
+    manifest {
+        def libList = configurations.pluginLibs.collect{'lib/' + it.name}.join(' ')
+        attributes 'Rundeck-Plugin-Name' : pluginName
+        attributes 'Rundeck-Plugin-Description' : pluginDescription
+        attributes 'Rundeck-Plugin-Rundeck-Compatibility-Version': '4.17.0+'
+        attributes 'Rundeck-Plugin-Tags': 'java,executor file storage,resource model,workflow step,azure'
+        attributes 'Rundeck-Plugin-License': 'Apache 2.0'
+        attributes 'Rundeck-Plugin-Source-Link': 'https://github.com/rundeck-plugins/rundeck-azure-plugin'
+        attributes 'Rundeck-Plugin-Target-Host-Compatibility': 'all'
+        attributes 'Rundeck-Plugin-Author': 'Rundeck, Inc.'
+        attributes 'Rundeck-Plugin-Classnames': pluginClassNames
+        attributes 'Rundeck-Plugin-File-Version': project.version
+        attributes 'Rundeck-Plugin-Version': rundeckPluginVersion
+        attributes 'Rundeck-Plugin-Archive': 'true'
+        attributes 'Rundeck-Plugin-Libs': "${libList}"
+    }
+    dependsOn(copyToLib)
+}
+
+jar.dependsOn(copyToLib)
+
+test {
+    useJUnitPlatform()
+}
+
+nexusPublishing {
+    packageGroup = 'org.rundeck.plugins'
+    repositories {
+        sonatype {
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+        }
+    }
+}
+
+apply from: "${rootDir}/gradle/publishing.gradle"
