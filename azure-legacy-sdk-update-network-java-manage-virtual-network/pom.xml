@@ -7,7 +7,7 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>ManageVirtualNetwork.java</name>
   <description></description>
-  <url>https://github.com/Azure/network-java-manage-virtual-network</url>
+  <url>https://github.com/Azure-Samples/network-java-manage-virtual-network</url>
   <build>
     <plugins>
       <plugin>

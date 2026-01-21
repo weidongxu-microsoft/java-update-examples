@@ -1,6 +1,0 @@
-instance_id,description,repo_url
-azure-legacy-sdk-update-compute-java-manage-vm,"Azure Compute sample for managing virtual machines",https://github.com/Azure-Samples/compute-java-manage-vm
-azure-legacy-sdk-update-rundeck-plugins,"Rundeck plugins for Azure integration",https://github.com/rundeck-plugins/azure-storage-plugins
-azure-legacy-sdk-update-network-java-manage-virtual-network,"Azure Network sample for managing virtual networks",https://github.com/Azure-Samples/network-java-manage-virtual-network
-azure-legacy-sdk-update-aks-java-manage-kubernetes-cluster,"Azure Container Service (AKS) sample for managing Kubernetes clusters",https://github.com/Azure-Samples/aks-java-manage-kubernetes-cluster
-azure-legacy-sdk-update-resources-java-manage-resource-group,"Azure Resource sample for managing resource groups",https://github.com/Azure-Samples/resources-java-manage-resource-group

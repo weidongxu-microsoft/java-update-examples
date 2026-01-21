@@ -7,7 +7,7 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>ManageKubernetesCluster.java</name>
   <description></description>
-  <url>https://github.com/Azure/aks-java-manage-kubernetes-cluster</url>
+  <url>https://github.com/Azure-Samples/aks-java-manage-kubernetes-cluster</url>
   <build>
     <plugins>
       <plugin>
