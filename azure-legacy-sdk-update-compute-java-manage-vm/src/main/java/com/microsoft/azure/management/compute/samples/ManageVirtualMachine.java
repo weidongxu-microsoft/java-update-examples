@@ -43,9 +43,12 @@ public final class ManageVirtualMachine {
      */
     public static boolean runSample(Azure azure) {
         final Region region = Region.US_WEST_CENTRAL;
-        final String windowsVMName = Utils.createRandomName("wVM");
-        final String linuxVMName = Utils.createRandomName("lVM");
-        final String rgName = Utils.createRandomName("rgCOMV");
+        // Descriptive names keep sample output readable; update these if a name collision occurs in your subscription.
+        final String windowsVMName = "samplewindowsvm";
+        final String linuxVMName = "samplelinuxvm";
+        final String rgName = "SampleComputeResources";
+        final String dataDiskNameCreatable = "samplecreatabledisk";
+        final String dataDiskName = "sampleattachdisk";
         final String userName = "tirekicker";
         // [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Serves as an example, not for deployment. Please change when using this in your code.")]
         final String password = "12NewPA$$w0rd!";
@@ -57,41 +60,41 @@ public final class ManageVirtualMachine {
 
             // Prepare a creatable data disk for VM
             //
-            Creatable<Disk> dataDiskCreatable = azure.disks().define(Utils.createRandomName("dsk-"))
-                    .withRegion(region)
-                    .withExistingResourceGroup(rgName)
-                    .withData()
-                    .withSizeInGB(100);
+            Creatable<Disk> dataDiskCreatable = azure.disks().define(dataDiskNameCreatable)
+                .withRegion(region)
+                .withExistingResourceGroup(rgName)
+                .withData()
+                .withSizeInGB(100);
 
             // Create a data disk to attach to VM
             //
             Disk dataDisk = azure.disks()
-                    .define(Utils.createRandomName("dsk-"))
-                        .withRegion(region)
-                        .withNewResourceGroup(rgName)
-                        .withData()
-                        .withSizeInGB(50)
-                        .create();
+                .define(dataDiskName)
+                    .withRegion(region)
+                    .withNewResourceGroup(rgName)
+                    .withData()
+                    .withSizeInGB(50)
+                    .create();
 
             System.out.println("Creating a Windows VM");
 
             Date t1 = new Date();
 
             VirtualMachine windowsVM = azure.virtualMachines()
-                    .define(windowsVMName)
-                        .withRegion(region)
-                        .withNewResourceGroup(rgName)
-                        .withNewPrimaryNetwork("10.0.0.0/28")
-                        .withPrimaryPrivateIPAddressDynamic()
-                        .withoutPrimaryPublicIPAddress()
-                        .withPopularWindowsImage(KnownWindowsVirtualMachineImage.WINDOWS_SERVER_2012_R2_DATACENTER)
-                        .withAdminUsername(userName)
-                        .withAdminPassword(password)
-                        .withNewDataDisk(10)
-                        .withNewDataDisk(dataDiskCreatable)
-                        .withExistingDataDisk(dataDisk)
-                        .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
-                        .create();
+                .define(windowsVMName)
+                    .withRegion(region)
+                    .withNewResourceGroup(rgName)
+                    .withNewPrimaryNetwork("10.0.0.0/28")
+                    .withPrimaryPrivateIPAddressDynamic()
+                    .withoutPrimaryPublicIPAddress()
+                    .withPopularWindowsImage(KnownWindowsVirtualMachineImage.WINDOWS_SERVER_2012_R2_DATACENTER)
+                    .withAdminUsername(userName)
+                    .withAdminPassword(password)
+                    .withNewDataDisk(10)
+                    .withNewDataDisk(dataDiskCreatable)
+                    .withExistingDataDisk(dataDisk)
+                    .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
+                    .create();
 
             Date t2 = new Date();
             System.out.println("Created VM: (took " + ((t2.getTime() - t1.getTime()) / 1000) + " seconds) " + windowsVM.id());
