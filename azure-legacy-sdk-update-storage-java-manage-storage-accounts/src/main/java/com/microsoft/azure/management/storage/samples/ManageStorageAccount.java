@@ -37,10 +37,11 @@ public final class ManageStorageAccount {
      * @return true if sample runs successfully
      */
     public static boolean runSample(Azure azure) {
-        final String storageAccountName = Utils.createRandomName("sa");
-        final String storageAccountName2 = Utils.createRandomName("sa2");
-        final String storageAccountName3 = Utils.createRandomName("sa3");
-        final String rgName = Utils.createRandomName("rgSTMS");
+        // Descriptive names keep sample output readable; update if a name collision occurs in your subscription.
+        final String storageAccountName = "sampleprimarystorage";
+        final String storageAccountName2 = "samplesecondaryacct";
+        final String storageAccountName3 = "samplegpv2storage";
+        final String rgName = "SampleStorageResources";
         try {
 
             // ============================================================

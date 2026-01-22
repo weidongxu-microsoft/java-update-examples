@@ -9,7 +9,6 @@ package com.microsoft.azure.management.samples;
 import com.microsoft.azure.management.compute.DataDisk;
 import com.microsoft.azure.management.compute.VirtualMachine;
 import com.microsoft.azure.management.compute.VirtualMachineExtension;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 
 import java.util.Map;
 
@@ -154,12 +153,4 @@ public final class Utils {
                 .toString());
     }
 
-    /**
-     * Creates and returns a randomized name based on the prefix file for use by the sample.
-     * @param namePrefix The prefix string to be used in generating the name.
-     * @return a random name
-     * */
-    public static String createRandomName(String namePrefix) {
-        return SdkContext.randomResourceName(namePrefix, 30);
-    }
 }

@@ -6,7 +6,6 @@
 
 package com.microsoft.azure.management.samples;
 
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.storage.StorageAccount;
 import com.microsoft.azure.management.storage.StorageAccountKey;
 
@@ -17,19 +16,7 @@ import java.util.List;
  */
 public final class Utils {
 
-    private static final int RANDOM_NAME_MAX_LENGTH = 24;
-
     private Utils() {
-    }
-
-    /**
-     * Creates a deterministic-length random resource name that matches the legacy samples.
-     *
-     * @param prefix prefix to start the resource name with
-     * @return generated resource name
-     */
-    public static String createRandomName(String prefix) {
-        return SdkContext.randomResourceName(prefix, RANDOM_NAME_MAX_LENGTH);
     }
 
     /**
