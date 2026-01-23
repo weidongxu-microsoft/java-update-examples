@@ -1,6 +1,7 @@
 # java-update-examples
 
 - **azure-legacy-sdk-update-aks-java-manage-kubernetes-cluster** – AKS cluster lifecycle sample (create/update).
+- **azure-legacy-sdk-update-batch-java-manage-batch-accounts** – Batch account management sample.
 - **azure-legacy-sdk-update-app-service-java-manage-functions** – Function App provisioning and management.
 - **azure-legacy-sdk-update-azure-client-initialization** – Shared snippets for initializing Azure clients.
 - **azure-legacy-sdk-update-compute-java-manage-vm** – Virtual machine creation and management walkthrough.
