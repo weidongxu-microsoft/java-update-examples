@@ -14,7 +14,6 @@ import com.microsoft.azure.management.network.Network;
 import com.microsoft.azure.management.network.NetworkSecurityGroup;
 import com.microsoft.azure.management.network.SecurityRuleProtocol;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.samples.Utils;
 import com.microsoft.rest.LogLevel;
 
@@ -39,18 +38,18 @@ public final class ManageVirtualNetwork {
      * @return true if sample runs successfully
      */
     public static boolean runSample(Azure azure) {
-        final String vnetName1 = SdkContext.randomResourceName("vnet1", 20);
-        final String vnetName2 = SdkContext.randomResourceName("vnet2", 20);
+        final String vnetName1 = "sample-network-one";
+        final String vnetName2 = "sample-network-two";
         final String vnet1FrontEndSubnetName = "frontend";
         final String vnet1BackEndSubnetName = "backend";
         final String vnet1FrontEndSubnetNsgName = "frontendnsg";
         final String vnet1BackEndSubnetNsgName = "backendnsg";
-        final String frontEndVMName = SdkContext.randomResourceName("fevm", 24);
-        final String backEndVMName = SdkContext.randomResourceName("bevm", 24);
-        final String publicIPAddressLeafDnsForFrontEndVM = SdkContext.randomResourceName("pip1", 24);
+        final String frontEndVMName = "sample-frontend-vm";
+        final String backEndVMName = "sample-backend-vm";
+        final String publicIPAddressLeafDnsForFrontEndVM = "frontend-pip";
         final String userName = "tirekicker";
         final String sshKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfSPC2K7LZcFKEO+/t3dzmQYtrJFZNxOsbVgOVKietqHyvmYGHEC0J2wPdAqQ/63g/hhAEFRoyehM+rbeDri4txB3YFfnOK58jqdkyXzupWqXzOrlKY4Wz9SKjjN765+dqUITjKRIaAip1Ri137szRg71WnrmdP3SphTRlCx1Bk2nXqWPsclbRDCiZeF8QOTi4JqbmJyK5+0UqhqYRduun8ylAwKKQJ1NJt85sYIHn9f1Rfr6Tq2zS0wZ7DHbZL+zB5rSlAr8QyUdg/GQD+cmSs6LvPJKL78d6hMGk84ARtFo4A79ovwX/Fj01znDQkU6nJildfkaolH2rWFG/qttD azjava@javalib.com";
-        final String rgName = SdkContext.randomResourceName("rgNEMV", 24);
+        final String rgName = "sample-network-rg";
 
         try {
             //============================================================

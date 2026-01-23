@@ -10,7 +10,6 @@ import com.microsoft.azure.management.appservice.AppServicePlan;
 import com.microsoft.azure.management.appservice.FunctionApp;
 import com.microsoft.azure.management.appservice.PricingTier;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.samples.Utils;
 import com.microsoft.rest.LogLevel;
 
@@ -33,11 +32,11 @@ public final class ManageFunctionAppBasic {
      */
     public static boolean runSample(Azure azure) {
         // New resources
-        final String app1Name       = SdkContext.randomResourceName("webapp1-", 20);
-        final String app2Name       = SdkContext.randomResourceName("webapp2-", 20);
-        final String app3Name       = SdkContext.randomResourceName("webapp3-", 20);
-        final String rg1Name        = SdkContext.randomResourceName("rg1NEMV_", 24);
-        final String rg2Name        = SdkContext.randomResourceName("rg2NEMV_", 24);
+        final String app1Name       = "sample-function-app-one";
+        final String app2Name       = "sample-function-app-two";
+        final String app3Name       = "sample-function-app-three";
+        final String rg1Name        = "sample-functions-rg-one";
+        final String rg2Name        = "sample-functions-rg-two";
 
         try {
 

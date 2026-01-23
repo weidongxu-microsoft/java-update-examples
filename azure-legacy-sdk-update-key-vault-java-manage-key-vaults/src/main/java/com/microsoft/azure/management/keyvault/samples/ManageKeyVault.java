@@ -12,7 +12,6 @@ import com.microsoft.azure.management.keyvault.KeyPermissions;
 import com.microsoft.azure.management.keyvault.SecretPermissions;
 import com.microsoft.azure.management.keyvault.Vault;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.samples.Utils;
 import com.microsoft.rest.LogLevel;
 
@@ -38,9 +37,9 @@ public final class ManageKeyVault {
      * @return true if sample runs successfully
      */
     public static boolean runSample(Azure azure, String clientId) {
-        final String vaultName1 = SdkContext.randomResourceName("vault1", 20);
-        final String vaultName2 = SdkContext.randomResourceName("vault2", 20);
-        final String rgName = SdkContext.randomResourceName("rgNEMV", 24);
+        final String vaultName1 = "sample-key-vault-west";
+        final String vaultName2 = "sample-key-vault-east";
+        final String rgName = "sample-key-vault-rg";
 
         try {
             //============================================================

@@ -9,7 +9,6 @@ package com.microsoft.azure.management.resources.samples;
 import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.resources.ResourceGroup;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.rest.LogLevel;
 
 import java.io.File;
@@ -30,10 +29,10 @@ public final class ManageResourceGroup {
      * @return true if sample runs successfully
      */
     public static boolean runSample(Azure azure) {
-        final String rgName = SdkContext.randomResourceName("rgRSMA", 24);
-        final String rgName2 = SdkContext.randomResourceName("rgRSMA", 24);
-        final String resourceTagName = SdkContext.randomResourceName("rgRSTN", 24);
-        final String resourceTagValue = SdkContext.randomResourceName("rgRSTV", 24);
+        final String rgName = "sample-resource-group-primary";
+        final String rgName2 = "sample-resource-group-secondary";
+        final String resourceTagName = "sample-tag";
+        final String resourceTagValue = "sample-tag-value";
         try {
 
 

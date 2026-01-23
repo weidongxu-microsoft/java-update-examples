@@ -9,7 +9,6 @@ import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.containerservice.ContainerServiceVMSizeTypes;
 import com.microsoft.azure.management.containerservice.KubernetesCluster;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.azure.management.samples.SSHShell;
 import com.microsoft.azure.management.samples.Utils;
 import com.microsoft.rest.LogLevel;
@@ -36,8 +35,8 @@ public class ManageKubernetesCluster {
      * @return true if sample runs successfully
      */
     public static boolean runSample(Azure azure, String clientId, String secret) {
-        final String rgName = SdkContext.randomResourceName("rgaks", 15);
-        final String aksName = SdkContext.randomResourceName("akssample", 30);
+        final String rgName = "aks-java-sample-rg";
+        final String aksName = "aks-java-sample-cluster";
         final Region region = Region.US_EAST;
         String servicePrincipalClientId = clientId; // replace with a real service principal client id
         String servicePrincipalSecret = secret; // and corresponding secret
