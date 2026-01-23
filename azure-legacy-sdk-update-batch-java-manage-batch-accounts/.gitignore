@@ -1,6 +1,6 @@
 *.class
 
-# Auth filed
+# Auth files
 *.auth
 *.azureauth
 

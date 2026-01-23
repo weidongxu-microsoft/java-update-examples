@@ -40,7 +40,7 @@
               </descriptorRefs>
               <archive>
                 <manifest>
-                  <mainClass>com.microsoft.azure.management.batch.samples.ManageBatchAccount.java</mainClass>
+                  <mainClass>com.microsoft.azure.management.batch.samples.ManageBatchAccount</mainClass>
                 </manifest>
               </archive>
             </configuration>
