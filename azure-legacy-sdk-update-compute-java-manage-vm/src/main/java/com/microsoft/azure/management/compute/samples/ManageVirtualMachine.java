@@ -12,6 +12,7 @@ import com.microsoft.azure.management.compute.KnownLinuxVirtualMachineImage;
 import com.microsoft.azure.management.compute.KnownWindowsVirtualMachineImage;
 import com.microsoft.azure.management.compute.VirtualMachine;
 import com.microsoft.azure.management.compute.VirtualMachineSizeTypes;
+import com.microsoft.azure.management.compute.VirtualMachines;
 import com.microsoft.azure.management.network.Network;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
 import com.microsoft.azure.management.resources.fluentcore.model.Creatable;
@@ -80,21 +81,15 @@ public final class ManageVirtualMachine {
 
             Date t1 = new Date();
 
-            VirtualMachine windowsVM = azure.virtualMachines()
-                .define(windowsVMName)
-                    .withRegion(region)
-                    .withNewResourceGroup(rgName)
-                    .withNewPrimaryNetwork("10.0.0.0/28")
-                    .withPrimaryPrivateIPAddressDynamic()
-                    .withoutPrimaryPublicIPAddress()
-                    .withPopularWindowsImage(KnownWindowsVirtualMachineImage.WINDOWS_SERVER_2012_R2_DATACENTER)
-                    .withAdminUsername(userName)
-                    .withAdminPassword(password)
-                    .withNewDataDisk(10)
-                    .withNewDataDisk(dataDiskCreatable)
-                    .withExistingDataDisk(dataDisk)
-                    .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
-                    .create();
+            VirtualMachine windowsVM = createWindowsVirtualMachine(
+                azure.virtualMachines(),
+                region,
+                rgName,
+                windowsVMName,
+                userName,
+                password,
+                dataDiskCreatable,
+                dataDisk);
 
             Date t2 = new Date();
             System.out.println("Created VM: (took " + ((t2.getTime() - t1.getTime()) / 1000) + " seconds) " + windowsVM.id());
@@ -106,9 +101,9 @@ public final class ManageVirtualMachine {
             // Update - Tag the virtual machine
 
             windowsVM.update()
-                    .withTag("who-rocks", "java")
-                    .withTag("where", "on azure")
-                    .apply();
+                .withTag("who-rocks", "java")
+                .withTag("where", "on azure")
+                .apply();
 
             System.out.println("Tagged VM: " + windowsVM.id());
 
@@ -116,9 +111,9 @@ public final class ManageVirtualMachine {
             //=============================================================
             // Update - Add data disk
 
-                windowsVM.update()
-                        .withNewDataDisk(10)
-                        .apply();
+            windowsVM.update()
+                .withNewDataDisk(10)
+                .apply();
 
 
             System.out.println("Added a data disk to VM" + windowsVM.id());
@@ -128,9 +123,9 @@ public final class ManageVirtualMachine {
             //=============================================================
             // Update - detach data disk
 
-                windowsVM.update()
-                        .withoutDataDisk(0)
-                        .apply();
+            windowsVM.update()
+                .withoutDataDisk(0)
+                .apply();
 
             System.out.println("Detached data disk at lun 0 from VM " + windowsVM.id());
 
@@ -164,18 +159,18 @@ public final class ManageVirtualMachine {
             System.out.println("Creating a Linux VM in the network");
 
             VirtualMachine linuxVM = azure.virtualMachines()
-                    .define(linuxVMName)
-                        .withRegion(region)
-                        .withExistingResourceGroup(rgName)
-                        .withExistingPrimaryNetwork(network)
-                        .withSubnet("subnet1") // Referencing the default subnet name when no name specified at creation
-                        .withPrimaryPrivateIPAddressDynamic()
-                        .withoutPrimaryPublicIPAddress()
-                        .withPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
-                        .withRootUsername(userName)
-                        .withRootPassword(password)
-                        .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
-                        .create();
+                .define(linuxVMName)
+                    .withRegion(region)
+                    .withExistingResourceGroup(rgName)
+                    .withExistingPrimaryNetwork(network)
+                    .withSubnet("subnet1") // Referencing the default subnet name when no name specified at creation
+                    .withPrimaryPrivateIPAddressDynamic()
+                    .withoutPrimaryPublicIPAddress()
+                    .withPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
+                    .withRootUsername(userName)
+                    .withRootPassword(password)
+                    .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
+                    .create();
 
             System.out.println("Created a Linux VM (in the same virtual network): " + linuxVM.id());
             Utils.print(linuxVM);
@@ -248,5 +243,30 @@ public final class ManageVirtualMachine {
 
     private ManageVirtualMachine() {
 
+    }
+    static VirtualMachine createWindowsVirtualMachine(
+            VirtualMachines virtualMachines,
+            Region region,
+            String resourceGroupName,
+            String vmName,
+            String userName,
+            String password,
+            Creatable<Disk> dataDiskCreatable,
+            Disk dataDisk) {
+        return virtualMachines
+                .define(vmName)
+                .withRegion(region)
+                .withNewResourceGroup(resourceGroupName)
+                .withNewPrimaryNetwork("10.0.0.0/28")
+                .withPrimaryPrivateIPAddressDynamic()
+                .withoutPrimaryPublicIPAddress()
+                .withPopularWindowsImage(KnownWindowsVirtualMachineImage.WINDOWS_SERVER_2012_R2_DATACENTER)
+                .withAdminUsername(userName)
+                .withAdminPassword(password)
+                .withNewDataDisk(10)
+                .withNewDataDisk(dataDiskCreatable)
+                .withExistingDataDisk(dataDisk)
+                .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
+                .create();
     }
 }
