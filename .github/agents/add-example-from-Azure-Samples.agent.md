@@ -17,6 +17,7 @@ Take the "{example-name}" as the repository name. In above case, it is "storage-
 1. Delete the ".git" folder from the repository folder.
 1. Move the "{example-name}" folder in the temporary folder to "azure-legacy-sdk-update-{example-name}" folder at project root.
 1. Delete the temporary folder.
+1. Update README.md to add a new line in the list of examples, following the existing format.
 
 In "azure-legacy-sdk-update-{example-name}" folder
 1. Modify "pom.xml". Replace goal=attach to single in maven-assembly-plugin. Replace 1.7 to 1.8 in maven-compiler-plugin.
