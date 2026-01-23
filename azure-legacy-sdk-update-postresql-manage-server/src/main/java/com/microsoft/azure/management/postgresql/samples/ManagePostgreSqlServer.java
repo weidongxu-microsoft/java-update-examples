@@ -18,6 +18,7 @@ import com.microsoft.azure.management.postgresql.v2017_12_01.SkuTier;
 import com.microsoft.azure.management.postgresql.v2017_12_01.SslEnforcementEnum;
 import com.microsoft.azure.management.postgresql.v2017_12_01.StorageAutogrow;
 import com.microsoft.azure.management.postgresql.v2017_12_01.StorageProfile;
+import com.microsoft.azure.management.postgresql.v2017_12_01.Servers;
 import com.microsoft.azure.management.postgresql.v2017_12_01.implementation.PostgreSQLManager;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
 import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
@@ -74,15 +75,13 @@ public final class ManagePostgreSqlServer {
                 .withStorageProfile(initialStorage);
 
             System.out.println("Creating PostgreSQL server: " + serverName);
-            Server server = postgresManager.servers()
-                .define(serverName)
-                .withRegion(region.name())
-                .withExistingResourceGroup(resourceGroupName)
-                .withProperties(createProperties)
-                .withSku(initialSku)
-                .withTag("sample", "postgresql")
-                .withTag("language", "java")
-                .create();
+            Server server = createServer(
+                postgresManager.servers(),
+                region,
+                resourceGroupName,
+                serverName,
+                createProperties,
+                initialSku);
 
             printServer(server);
 
@@ -173,5 +172,23 @@ public final class ManagePostgreSqlServer {
             .append("\n\tSSL Enforcement: ").append(server.sslEnforcement())
             .append("\n\tTags: ").append(server.tags())
             .toString());
+    }
+
+    static Server createServer(
+            Servers servers,
+            Region region,
+            String resourceGroupName,
+            String serverName,
+            ServerPropertiesForCreate createProperties,
+            Sku sku) {
+        return servers
+            .define(serverName)
+            .withRegion(region.name())
+            .withExistingResourceGroup(resourceGroupName)
+            .withProperties(createProperties)
+            .withSku(sku)
+            .withTag("sample", "postgresql")
+            .withTag("language", "java")
+            .create();
     }
 }
