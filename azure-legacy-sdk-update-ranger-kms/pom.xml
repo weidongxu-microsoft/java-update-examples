@@ -15,51 +15,171 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" 
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
-    <groupId>com.microsoft.azure</groupId>
-    <artifactId>ranger-kms-azure-keyvault</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>Ranger KMS Azure Key Vault</name>
-    <description>Ranger KMS Azure Key Vault integration</description>
+    <groupId>org.apache.ranger</groupId>
+    <artifactId>ranger-kms</artifactId>
+    <version>3.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Key Management Service</name>
+    <description>Key Management Service - Complete Package</description>
     
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         
-        <!-- Azure SDK versions -->
+        <!-- Version properties from parent -->
+        <asm.all.version>3.2</asm.all.version>
+        <logback.version>1.3.14</logback.version>
+        <aws-java-sdk.version>1.12.765</aws-java-sdk.version>
+        <metrics.core.version>3.0.2</metrics.core.version>
+        <fasterxml.jackson.version>2.17.2</fasterxml.jackson.version>
+        <fasterxml.jackson.databind.version>2.17.2</fasterxml.jackson.databind.version>
+        <google.cloud.kms>2.3.0</google.cloud.kms>
+        <jsr305.version>1.3.9</jsr305.version>
+        <gcp.protobuf-java.version>3.25.5</gcp.protobuf-java.version>
+        <googlecode.log4jdbc.version>1.2</googlecode.log4jdbc.version>
         <com.microsoft.azure.adal4j.version>1.6.4</com.microsoft.azure.adal4j.version>
         <com.microsoft.azure.version>1.22.0</com.microsoft.azure.version>
-        <com.microsoft.azure.azure-client-runtime.version>1.6.5</com.microsoft.azure.azure-client-runtime.version>
+        <com.microsoft.azure.azure-client-runtime.version>1.6.7</com.microsoft.azure.azure-client-runtime.version>
         <com.microsoft.azure.azure-keyvault.version>1.2.1</com.microsoft.azure.azure-keyvault.version>
-        <com.microsoft.azure.azure-mgmt-keyvault.version>1.11.1</com.microsoft.azure.azure-mgmt-keyvault.version>
-        <com.microsoft.rest.client-runtime.version>1.6.5</com.microsoft.rest.client-runtime.version>
-        
-        <!-- Other dependencies -->
-        <commons.lang3.version>3.7</commons.lang3.version>
-        <slf4j.version>1.7.30</slf4j.version>
-        <logback.version>1.2.3</logback.version>
-        <guava.version>30.0-jre</guava.version>
-        <org.bouncycastle.bcpkix-jdk18on>1.78.1</org.bouncycastle.bcpkix-jdk18on>
-        <org.bouncycastle.bcprov-jdk18on>1.78.1</org.bouncycastle.bcprov-jdk18on>
-        <nimbus-jose-jwt.version>7.9</nimbus-jose-jwt.version>
+        <com.microsoft.azure.azure-mgmt-keyvault.version>1.22.0</com.microsoft.azure.azure-mgmt-keyvault.version>
+        <com.microsoft.rest.client-runtime.version>1.6.7</com.microsoft.rest.client-runtime.version>
+        <nimbus-jose-jwt.version>10.0.1</nimbus-jose-jwt.version>
+        <jersey-bundle.version>1.19.4</jersey-bundle.version>
+        <jersey-core.version>1.19.4</jersey-core.version>
+        <jersey-server.version>1.19.4</jersey-server.version>
+        <jaxb-impl.version>2.3.3</jaxb-impl.version>
+        <com.tencentcloudapi.sdk.version>3.1.322</com.tencentcloudapi.sdk.version>
+        <enunciate.version>2.13.2</enunciate.version>
+        <commons.codec.version>1.15</commons.codec.version>
+        <netty-all.version>4.1.124.Final</netty-all.version>
+        <io.reactivex.rxjava.version>1.3.8</io.reactivex.rxjava.version>
+        <jline.version>0.9.94</jline.version>
         <net.minidev.asm.version>1.0.2</net.minidev.asm.version>
-        <jsonsmart.version>2.5.1</jsonsmart.version>
-        <joda-time.version>2.10.5</joda-time.version>
-        <okhttp.version>3.14.9</okhttp.version>
-        <retrofit.version>2.6.2</retrofit.version>
-        <jsr305.version>3.0.2</jsr305.version>
-        <rxjava.version>1.3.8</rxjava.version>
-        <jackson.version>2.10.3</jackson.version>
-        <commons.codec.version>1.14</commons.codec.version>
+        <jsonsmart.version>2.4.10</jsonsmart.version>
+        <commons.configuration.version>2.8.0</commons.configuration.version>
+        <commons.lang3.version>3.19.0</commons.lang3.version>
+        <commons.text.version>1.10.0</commons.text.version>
+        <hadoop.version>3.3.6</hadoop.version>
+        <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version>
+        <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version>
+        <httpcomponents.httpmime.version>4.5.13</httpcomponents.httpmime.version>
+        <zookeeper.version>3.9.2</zookeeper.version>
+        <org.bouncycastle.bcpkix-jdk18on>1.79</org.bouncycastle.bcpkix-jdk18on>
+        <org.bouncycastle.bcprov-jdk18on>1.79</org.bouncycastle.bcprov-jdk18on>
+        <jettison.version>1.5.4</jettison.version>
+        <eclipse.jpa.version>2.7.12</eclipse.jpa.version>
+        <javax.persistence.version>2.1.0</javax.persistence.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <springframework.version>5.3.39</springframework.version>
+        <jsr250.version>1.0</jsr250.version>
+        <servlet.api.version>2.5</servlet.api.version>
+        <derby.version>10.14.2.0</derby.version>
+        <junit.jupiter.version>5.10.0</junit.jupiter.version>
+        <mockito.version>3.12.4</mockito.version>
+        <joda.time.version>2.10.6</joda.time.version>
     </properties>
     
     <dependencies>
-        <!-- Azure Key Vault dependencies -->
+        <dependency>
+            <groupId>asm</groupId>
+            <artifactId>asm-all</artifactId>
+            <version>${asm.all.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-kms</artifactId>
+            <version>${aws-java-sdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.amazonaws</groupId>
+                    <artifactId>jmespath-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-cbor</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.ion</groupId>
+                    <artifactId>ion-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>${metrics.core.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${fasterxml.jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${fasterxml.jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${fasterxml.jackson.databind.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-base</artifactId>
+            <version>${fasterxml.jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>${fasterxml.jackson.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-kms</artifactId>
+            <version>${google.cloud.kms}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>${jsr305.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${gcp.protobuf-java.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>${gcp.protobuf-java.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.log4jdbc</groupId>
+            <artifactId>log4jdbc</artifactId>
+            <version>${googlecode.log4jdbc.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>adal4j</artifactId>
@@ -79,7 +199,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure</artifactId>
@@ -91,13 +210,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-client-runtime</artifactId>
             <version>${com.microsoft.azure.azure-client-runtime.version}</version>
         </dependency>
-        
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-keyvault</artifactId>
@@ -109,13 +226,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-mgmt-keyvault</artifactId>
             <version>${com.microsoft.azure.azure-mgmt-keyvault.version}</version>
         </dependency>
-        
         <dependency>
             <groupId>com.microsoft.rest</groupId>
             <artifactId>client-runtime</artifactId>
@@ -127,129 +242,425 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>${nimbus-jose-jwt.version}</version>
         </dependency>
-        
         <dependency>
-            <groupId>net.minidev</groupId>
-            <artifactId>asm</artifactId>
-            <version>${net.minidev.asm.version}</version>
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-bundle</artifactId>
+            <version>${jersey-bundle.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        
         <dependency>
-            <groupId>net.minidev</groupId>
-            <artifactId>json-smart</artifactId>
-            <version>${jsonsmart.version}</version>
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-core</artifactId>
+            <version>${jersey-core.version}</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        
-        <!-- Apache Commons -->
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons.lang3.version}</version>
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-json</artifactId>
+            <version>${jersey-bundle.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.jackson</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        
+        <dependency>
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-server</artifactId>
+            <version>${jersey-server.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.bind</groupId>
+            <artifactId>jaxb-impl</artifactId>
+            <version>${jaxb-impl.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.security</groupId>
+            <artifactId>xml-security-impl</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tencentcloudapi</groupId>
+            <artifactId>tencentcloud-sdk-java-kms</artifactId>
+            <version>${com.tencentcloudapi.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.webcohesion.enunciate</groupId>
+            <artifactId>enunciate-core-annotations</artifactId>
+            <version>${enunciate.version}</version>
+        </dependency>
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
             <version>${commons.codec.version}</version>
         </dependency>
-        
-        <!-- Logging -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${netty-all.version}</version>
         </dependency>
-        
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
+            <groupId>io.reactivex</groupId>
+            <artifactId>rxjava</artifactId>
+            <version>${io.reactivex.rxjava.version}</version>
         </dependency>
-        
-        <!-- Guava -->
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>${guava.version}</version>
+            <groupId>jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>${jline.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        
-        <!-- BouncyCastle -->
+        <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>asm</artifactId>
+            <version>${net.minidev.asm.version}</version>
+        </dependency>
+        <!-- Transitive dependency for nimbus-jose-jwt. Please re-check this version
+            when updating nimbus-jose-jwt. Please read RANGER-2080 for more details. -->
+        <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+            <version>${jsonsmart.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-configuration2</artifactId>
+            <version>${commons.configuration.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons.lang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>${commons.text.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.directory.api</groupId>
+            <artifactId>api-i18n</artifactId>
+            <version>1.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-auth</artifactId>
+            <version>${hadoop.version}</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.nimbusds</groupId>
+                    <artifactId>nimbus-jose-jwt</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.minidev</groupId>
+                    <artifactId>json-smart</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-configuration2</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-text</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-hdfs</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpcomponents.httpclient.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>${httpcomponents.httpcore.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpmime</artifactId>
+            <version>${httpcomponents.httpmime.version}</version>
+        </dependency>
+        <!-- Internal Ranger dependencies removed - not available in external builds -->
+        <!-- credentialbuilder, ranger-metrics, ranger-plugins-common -->
+        <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>${zookeeper.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>${org.bouncycastle.bcpkix-jdk18on}</version>
         </dependency>
-        
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
             <version>${org.bouncycastle.bcprov-jdk18on}</version>
         </dependency>
-        
-        <!-- Joda Time -->
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-            <version>${joda-time.version}</version>
+            <groupId>org.codehaus.jettison</groupId>
+            <artifactId>jettison</artifactId>
+            <version>${jettison.version}</version>
         </dependency>
-        
-        <!-- OkHttp -->
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${okhttp.version}</version>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>eclipselink</artifactId>
+            <version>${eclipse.jpa.version}</version>
         </dependency>
-        
-        <!-- Retrofit -->
         <dependency>
-            <groupId>com.squareup.retrofit2</groupId>
-            <artifactId>retrofit</artifactId>
-            <version>${retrofit.version}</version>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>javax.persistence</artifactId>
+            <version>${javax.persistence.version}</version>
         </dependency>
-        
-        <!-- Google JSR305 -->
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <version>${jsr305.version}</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>compile</scope>
         </dependency>
-        
-        <!-- RxJava -->
         <dependency>
-            <groupId>io.reactivex</groupId>
-            <artifactId>rxjava</artifactId>
-            <version>${rxjava.version}</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
-        
-        <!-- Jackson -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aop</artifactId>
+            <version>${springframework.version}</version>
         </dependency>
-        
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-beans</artifactId>
+            <version>${springframework.version}</version>
         </dependency>
-        
-        <!-- Test dependencies -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-expression</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-orm</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>${springframework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>jsr250-api</artifactId>
+            <version>${jsr250.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>${servlet.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.derby</groupId>
+            <artifactId>derby</artifactId>
+            <version>${derby.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-configuration2</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-text</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <version>${mockito.version}</version>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-    
     <build>
+        <resources>
+            <resource>
+                <filtering>true</filtering>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+        
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -277,6 +688,16 @@
                 <version>3.1.2</version>
                 <configuration>
                     <skip>true</skip>
+                </configuration>
+            </plugin>
+            
+            <!-- Surefire for tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M6</version>
+                <configuration>
+                    <skipTests>false</skipTests>
                 </configuration>
             </plugin>
         </plugins>

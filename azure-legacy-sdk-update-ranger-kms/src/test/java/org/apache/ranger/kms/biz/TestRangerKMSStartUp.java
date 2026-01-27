@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,28 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ranger.kms.biz;
 
-package org.apache.hadoop.conf;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * Simple stub for Hadoop Configuration to make the code compile
- */
-public class Configuration {
-    private Map<String, String> properties = new HashMap<>();
-
-    public String get(String key) {
-        return properties.get(key);
-    }
-
-    public void set(String key, String value) {
-        properties.put(key, value);
-    }
-
-    public String get(String key, String defaultValue) {
-        String value = properties.get(key);
-        return value != null ? value : defaultValue;
+@ExtendWith(MockitoExtension.class)
+@TestMethodOrder(MethodOrderer.MethodName.class)
+@Disabled
+public class TestRangerKMSStartUp {
+    @Test
+    public void testInitRangerMasterKey() throws Throwable {
+        RangerKMSStartUp rangerKMSStartUp = new RangerKMSStartUp();
+        rangerKMSStartUp.initRangerMasterKey();
     }
 }
