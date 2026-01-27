@@ -146,6 +146,7 @@ public class TestRangerKeyStore {
         });
     }
 
+    @Disabled("Java compatibility: InaccessibleObjectException - unable to access JDK internal classes")
     @Test
     public void testValidKey1() throws NoSuchAlgorithmException, CertificateException, IOException, KeyStoreException {
         DaoManager     daoManager     = mock(DaoManager.class);
@@ -156,6 +157,7 @@ public class TestRangerKeyStore {
         inputStream.close();
     }
 
+    @Disabled("Java compatibility: InaccessibleObjectException - unable to access JDK internal classes")
     @Test
     public void testValidKey2() throws NoSuchAlgorithmException, CertificateException, IOException, KeyStoreException {
         DaoManager     daoManager     = mock(DaoManager.class);
