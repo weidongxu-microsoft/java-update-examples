@@ -12,6 +12,7 @@
 - **azure-legacy-sdk-update-snowflake-jdbc** – Snowflake JDBC integration and build/test assets. From https://github.com/snowflakedb/snowflake-jdbc
 - **azure-legacy-sdk-update-storage-java-manage-storage-accounts** – Storage account management sample.
 - **azure-legacy-sdk-update-postresql-manage-server** – Azure Database for PostgreSQL server creation and update sample.
+- **azure-legacy-sdk-update-resources-java-deploy-using-arm-template** – ARM template deployment sample for Azure resources.
 
 ## Example from public repository
 
