@@ -10,6 +10,7 @@ import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.compute.KnownLinuxVirtualMachineImage;
 import com.microsoft.azure.management.compute.VirtualMachine;
 import com.microsoft.azure.management.compute.VirtualMachineSizeTypes;
+import com.microsoft.azure.management.compute.VirtualMachines;
 import com.microsoft.azure.management.network.Network;
 import com.microsoft.azure.management.network.NetworkSecurityGroup;
 import com.microsoft.azure.management.network.SecurityRuleProtocol;
@@ -19,6 +20,7 @@ import com.microsoft.rest.LogLevel;
 
 import java.io.File;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * Azure Network sample for managing virtual networks -
@@ -161,18 +163,17 @@ public final class ManageVirtualNetwork {
 
             Date t1 = new Date();
 
-            VirtualMachine frontEndVM = azure.virtualMachines().define(frontEndVMName)
-                    .withRegion(Region.US_EAST)
-                    .withExistingResourceGroup(rgName)
-                    .withExistingPrimaryNetwork(virtualNetwork1)
-                    .withSubnet(vnet1FrontEndSubnetName)
-                    .withPrimaryPrivateIPAddressDynamic()
-                    .withNewPrimaryPublicIPAddress(publicIPAddressLeafDnsForFrontEndVM)
-                    .withPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
-                    .withRootUsername(userName)
-                    .withSsh(sshKey)
-                    .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
-                    .create();
+            VirtualMachine frontEndVM = createLinuxVirtualMachine(
+                    azure.virtualMachines(),
+                    Region.US_EAST,
+                    rgName,
+                    frontEndVMName,
+                    virtualNetwork1,
+                    vnet1FrontEndSubnetName,
+                    userName,
+                    sshKey,
+                    true,
+                    publicIPAddressLeafDnsForFrontEndVM);
 
             Date t2 = new Date();
             System.out.println("Created Linux VM: (took "
@@ -187,18 +188,17 @@ public final class ManageVirtualNetwork {
 
             Date t3 = new Date();
 
-            VirtualMachine backEndVM = azure.virtualMachines().define(backEndVMName)
-                    .withRegion(Region.US_EAST)
-                    .withExistingResourceGroup(rgName)
-                    .withExistingPrimaryNetwork(virtualNetwork1)
-                    .withSubnet(vnet1BackEndSubnetName)
-                    .withPrimaryPrivateIPAddressDynamic()
-                    .withoutPrimaryPublicIPAddress()
-                    .withPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
-                    .withRootUsername(userName)
-                    .withSsh(sshKey)
-                    .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
-                    .create();
+            VirtualMachine backEndVM = createLinuxVirtualMachine(
+                    azure.virtualMachines(),
+                    Region.US_EAST,
+                    rgName,
+                    backEndVMName,
+                    virtualNetwork1,
+                    vnet1BackEndSubnetName,
+                    userName,
+                    sshKey,
+                    false,
+                    null);
 
             Date t4 = new Date();
             System.out.println("Created Linux VM: (took "
@@ -280,5 +280,46 @@ public final class ManageVirtualNetwork {
     }
 
     private ManageVirtualNetwork() {
+    }
+
+    static VirtualMachine createLinuxVirtualMachine(
+            VirtualMachines virtualMachines,
+            Region region,
+            String resourceGroupName,
+            String vmName,
+            Network network,
+            String subnetName,
+            String userName,
+            String sshKey,
+            boolean createPublicIp,
+            String publicIpDnsLabel) {
+
+        VirtualMachine.DefinitionStages.WithPublicIPAddress withPublicIPAddressStage = virtualMachines
+            .define(vmName)
+            .withRegion(region)
+            .withExistingResourceGroup(resourceGroupName)
+            .withExistingPrimaryNetwork(network)
+            .withSubnet(subnetName)
+            .withPrimaryPrivateIPAddressDynamic();
+
+        VirtualMachine.DefinitionStages.WithProximityPlacementGroup withProximityPlacementGroupStage =
+            createPublicIp
+                ? withPublicIPAddressStage.withNewPrimaryPublicIPAddress(
+                    Objects.requireNonNull(publicIpDnsLabel, "publicIpDnsLabel"))
+                : withPublicIPAddressStage.withoutPrimaryPublicIPAddress();
+
+        VirtualMachine.DefinitionStages.WithLinuxRootUsernameManagedOrUnmanaged withLinuxRootUsernameStage =
+            withProximityPlacementGroupStage.withPopularLinuxImage(
+                KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS);
+
+        VirtualMachine.DefinitionStages.WithLinuxRootPasswordOrPublicKeyManagedOrUnmanaged withSshStage =
+            withLinuxRootUsernameStage.withRootUsername(userName);
+
+        VirtualMachine.DefinitionStages.WithLinuxCreateManagedOrUnmanaged withCreateStage =
+            withSshStage.withSsh(sshKey);
+
+        return withCreateStage
+            .withSize(VirtualMachineSizeTypes.STANDARD_D3_V2)
+            .create();
     }
 }
