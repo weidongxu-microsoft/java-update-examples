@@ -4,6 +4,7 @@
 - **azure-legacy-sdk-update-batch-java-manage-batch-accounts** – Batch account management sample.
 - **azure-legacy-sdk-update-app-service-java-manage-functions** – Function App provisioning and management.
 - **azure-legacy-sdk-update-azure-client-initialization** – Shared snippets for initializing Azure clients.
+- **azure-legacy-sdk-update-data-transfer-project** – Data Transfer Project sample showcasing cross-service portability with Azure Key Vault and storage integrations. From https://github.com/dtinit/data-transfer-project
 - **azure-legacy-sdk-update-compute-java-manage-vm** – Virtual machine creation and management walkthrough.
 - **azure-legacy-sdk-update-key-vault-java-manage-key-vaults** – Key Vault configuration and access policy sample.
 - **azure-legacy-sdk-update-network-java-manage-virtual-network** – Virtual network, subnet, and VM networking sample.
@@ -20,6 +21,7 @@
 - https://github.com/rundeck-plugins/rundeck-azure-plugin
 - https://github.com/snowflakedb/snowflake-jdbc
 - https://github.com/apache/ranger
+- https://github.com/dtinit/data-transfer-project (use JDK11)
 
 ## Attempted but failed
 
