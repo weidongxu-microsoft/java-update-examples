@@ -6,6 +6,7 @@
 - **azure-legacy-sdk-update-azure-client-initialization** – Shared snippets for initializing Azure clients.
 - **azure-legacy-sdk-update-data-transfer-project** – Data Transfer Project sample showcasing cross-service portability with Azure Key Vault and storage integrations. From https://github.com/dtinit/data-transfer-project
 - **azure-legacy-sdk-update-compute-java-manage-vm** – Virtual machine creation and management walkthrough.
+- **azure-legacy-sdk-update-documentdb-java-todo-app** – Java EE todo list sample backed by Azure Cosmos DB (DocumentDB).
 - **azure-legacy-sdk-update-key-vault-java-manage-key-vaults** – Key Vault configuration and access policy sample.
 - **azure-legacy-sdk-update-network-java-manage-virtual-network** – Virtual network, subnet, and VM networking sample.
 - **azure-legacy-sdk-update-resources-java-manage-resource-group** – Resource group CRUD operations.

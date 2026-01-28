@@ -30,7 +30,7 @@ When found, first give a summary of the repository:
 1. Build tools used (e.g. maven, gradle etc).
 1. What's the percentage of Java codes.
 
-When found, wait for user confirmation.
+When found, wait for user confirmation. We'd prefer to add simple projects, e.g. with most code in Java, with less dependencies, and well maintained ones.
 
 When confirmed, follow below steps to add the example:
 1. Create a temporary folder in project root, checkout ("git clone") the GitHub repository into that folder.
