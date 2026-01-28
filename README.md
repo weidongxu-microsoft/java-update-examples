@@ -20,3 +20,7 @@
 - https://github.com/rundeck-plugins/rundeck-azure-plugin
 - https://github.com/snowflakedb/snowflake-jdbc
 - https://github.com/apache/ranger
+
+## Attempted but failed
+
+- https://github.com/wso2-extensions/siddhi-store-cosmosdb – build blocked by parent using custom remote repository.
