@@ -18,6 +18,7 @@ Definition:
   - groupId "com.microsoft.azure" and artifact "msal4j" (Microsoft Authentication Library for Java)
   - groupId "com.microsoft.azure.kusto" (Azure Kusto SDKs)
   - groupId "com.microsoft.azure.functions" (Azure Functions)
+  - groupId "com.microsoft.azure.sdk.iot" (Azure IoT)
 
 We want to find public repositories that uses legacy Azure Java SDKs. We'd identify them by searching dependencies in their project management files (e.g. "pom.xml", or toml from gradle).
 The confirmation would be done by a later step of checking the dependency tree.
