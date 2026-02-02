@@ -8,7 +8,7 @@ name: add-example-from-Azure-Samples
 description: Helps to copy and refine Java example from Azure-Samples repositories
 ---
 
-The input would be e.g. add exmaple from "Azure-Samples/storage-java-manage-storage-accounts".
+The input would be e.g. add example from "Azure-Samples/storage-java-manage-storage-accounts".
 
 Take the "{example-name}" as the repository name. In above case, it is "storage-java-manage-storage-accounts".
 
@@ -22,4 +22,4 @@ Take the "{example-name}" as the repository name. In above case, it is "storage-
 In "azure-legacy-sdk-update-{example-name}" folder
 1. Modify "pom.xml". Replace goal=attach to single in maven-assembly-plugin. Replace 1.7 to 1.8 in maven-compiler-plugin.
 1. Avoid calling `Utils.createRandomName` or `SdkContext.randomResourceName` method. Use a meaningful resource name instead. Do not use "legacy" in the name.
-1. Clean up unused method in "Utils.java" (usually, it is easier to re-write the java file, so that it would now contain method that is used). Run mvn compile to validate build pass.
+1. Clean up unused method in "Utils.java" (usually, it is easier to re-write the java file, so that it would not contain method that is used). Run mvn compile to validate build pass.
