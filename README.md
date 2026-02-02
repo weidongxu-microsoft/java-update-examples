@@ -13,6 +13,7 @@
 - **azure-legacy-sdk-update-rundeck-plugins** – Rundeck plugin code for Azure VM automation. From https://github.com/rundeck-plugins/rundeck-azure-plugin
 - **azure-legacy-sdk-update-snowflake-jdbc** – Snowflake JDBC integration and build/test assets. From https://github.com/snowflakedb/snowflake-jdbc
 - **azure-legacy-sdk-update-storage-java-manage-storage-accounts** – Storage account management sample.
+- **azure-legacy-sdk-update-storage-v8** – Blob lifecycle operations built with the Azure Storage SDK v8.
 - **azure-legacy-sdk-update-postresql-manage-server** – Azure Database for PostgreSQL server creation and update sample.
 - **azure-legacy-sdk-update-ranger-kms** – Apache Ranger KMS with Azure Key Vault integration. From https://github.com/apache/ranger
 - **azure-legacy-sdk-update-resources-java-deploy-using-arm-template** – ARM template deployment sample for Azure resources.
