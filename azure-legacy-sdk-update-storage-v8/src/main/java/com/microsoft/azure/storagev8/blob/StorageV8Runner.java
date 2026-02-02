@@ -1,6 +1,8 @@
 package com.microsoft.azure.storagev8.blob;
 
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storagev8.fileshare.FileShareLifecycleManager;
+import com.microsoft.azure.storagev8.queue.QueueLifecycleManager;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -28,12 +30,18 @@ public final class StorageV8Runner {
     private void run(String[] args) throws InvalidKeyException, URISyntaxException, StorageException, IOException {
         String connectionString = requireEnv("AZURE_STORAGE_CONNECTION_STRING");
         String containerName = System.getenv().getOrDefault("STORAGE_V8_CONTAINER", "documents-container");
+        String queueName = System.getenv().getOrDefault("STORAGE_V8_QUEUE", "notifications-queue");
+        String shareName = System.getenv().getOrDefault("STORAGE_V8_SHARE", "documents-share");
 
         BlobLifecycleManager manager = BlobLifecycleManager.fromConnectionString(connectionString);
+        QueueLifecycleManager queueManager = QueueLifecycleManager.fromConnectionString(connectionString);
+        FileShareLifecycleManager fileShareManager = FileShareLifecycleManager.fromConnectionString(connectionString);
         manager.ensureContainer(containerName);
 
         if (args.length == 0) {
             executeLifecycleDemo(manager, containerName);
+            runQueueWorkflow(queueManager, queueName);
+            runFileShareWorkflow(fileShareManager, shareName);
             return;
         }
 
@@ -61,6 +69,31 @@ public final class StorageV8Runner {
 
         manager.deleteBlob(containerName, blobName);
         System.out.println("Blob deleted. Workflow complete.");
+    }
+
+    private void runQueueWorkflow(QueueLifecycleManager queueManager, String queueName)
+            throws StorageException, URISyntaxException {
+        String message = "V8 queue message created at " + Instant.now();
+        queueManager.enqueueMessage(queueName, message);
+        String peeked = queueManager.peekMessage(queueName);
+        if (peeked != null) {
+            System.out.printf("Peeked queue message: %s%n", peeked);
+        } else {
+            System.out.println("Queue is empty after enqueue attempt.");
+        }
+        queueManager.clearQueue(queueName);
+        System.out.println("Queue cleared. Workflow complete.");
+    }
+
+    private void runFileShareWorkflow(FileShareLifecycleManager fileShareManager, String shareName)
+            throws StorageException, URISyntaxException, IOException {
+        String fileName = "guide-overview.txt";
+        String content = "File share entry created at " + Instant.now();
+        fileShareManager.uploadTextFile(shareName, fileName, content);
+        String downloaded = fileShareManager.downloadTextFile(shareName, fileName);
+        System.out.printf("Downloaded file share '%s' with %d characters%n", fileName, downloaded.length());
+        fileShareManager.deleteFile(shareName, fileName);
+        System.out.println("File share entry deleted. Workflow complete.");
     }
 
     private void executeList(BlobLifecycleManager manager, String containerName)
