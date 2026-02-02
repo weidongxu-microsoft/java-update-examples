@@ -1,4 +1,4 @@
-# java-update-examples
+# azure-legacy-sdk-update-examples
 
 - **azure-legacy-sdk-update-aks-java-manage-kubernetes-cluster** – AKS cluster lifecycle sample (create/update).
 - **azure-legacy-sdk-update-batch-java-manage-batch-accounts** – Batch account management sample.
@@ -29,3 +29,7 @@
 ## Attempted but failed
 
 - https://github.com/wso2-extensions/siddhi-store-cosmosdb – build blocked by parent using custom remote repository.
+
+# azure-sdk-update-examples
+
+- **azure-sdk-update-storage-v12** – Blob lifecycle operations implemented with the Azure Storage SDK v12 (BlobServiceClient/BlobContainerClient pattern).
