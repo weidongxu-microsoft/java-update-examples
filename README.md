@@ -16,7 +16,7 @@
 - **azure-legacy-sdk-update-storage-java-manage-storage-accounts** – Storage account management sample.
 - **azure-legacy-sdk-update-storage-v8** – Blob lifecycle operations built with the Azure Storage SDK v8.
 - **azure-legacy-sdk-update-storage-v10** – Blob lifecycle operations implemented with the Azure Storage SDK v10 (ServiceURL/ContainerURL pattern).
-- **azure-legacy-sdk-update-postresql-manage-server** – Azure Database for PostgreSQL server creation and update sample.
+- **azure-legacy-sdk-update-postgresql-manage-server** – Azure Database for PostgreSQL server creation and update sample.
 - **azure-legacy-sdk-update-ranger-kms** – Apache Ranger KMS with Azure Key Vault integration. From https://github.com/apache/ranger
 - **azure-legacy-sdk-update-resources-java-deploy-using-arm-template** – ARM template deployment sample for Azure resources.
 - **azure-legacy-sdk-update-eventhub-akka-connector** – Akka Streams connector for Azure Event Hub. From https://github.com/adobe/eventhub-akka-connector
