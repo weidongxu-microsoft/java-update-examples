@@ -1,13 +1,14 @@
 ---
 name: run-benchmark
 description: Run benchmark case in local
+argument-hint: [project-full-path]
 ---
 
 Call the "run_benchmark.py" script, with argument of the full path of the project folder.
 
 E.g.
 ```
-python run_benchmark.py <project-path>
+python run_benchmark.py [project-full-path]
 ```
 
 ## Prerequisites
@@ -19,3 +20,7 @@ python run_benchmark.py <project-path>
     ```
     JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.29.7-hotspot"
     ```
+
+## Additional resources
+
+- ["run_benchmark.py" script](./scripts/run_benchmark.py)
