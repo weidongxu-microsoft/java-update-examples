@@ -10,9 +10,10 @@ E.g.
 python run_benchmark.py <project-path>
 ```
 
-## Prerequisite
+## Prerequisites
 
-- Make sure the python requirements.txt are installed.
+- Make sure latest GitHub Copilot CLI is installed.
+- Make sure the python requirements.txt is installed.
 - Before running the script, set JDK to 11, e.g.
     ```
     JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.29.7-hotspot"
