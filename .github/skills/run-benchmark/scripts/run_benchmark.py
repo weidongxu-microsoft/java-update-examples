@@ -44,6 +44,15 @@ Example of pom.xml
         </dependency>
     </dependencies>
 ```
+Example of build.gradle
+```
+dependencies {
+    implementation enforcedPlatform('com.azure:azure-sdk-bom:1.3.3')
+
+    implementation 'com.azure:azure-identity'
+    implementation 'com.azure.resourcemanager:azure-resourcemanager'
+}
+```
 
 ## Migrate Java Code
 
