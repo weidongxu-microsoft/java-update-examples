@@ -59,6 +59,7 @@ dependencies {
 - [Reference for update Java code](https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/resourcemanager/docs/MIGRATION_GUIDE.md)
 - Make a list of Java files that contains `com.microsoft.azure` package. Migrate each of them.
 - Do not modify package name in file.
+- Do not upgrade JDK version, if it is already JDK 8 or above.
 - Keep Azure resource and operation exactly same. The property on the Azure resource should not be changed, for "improvement" or "modernization". The focus here is to use the new libaray to create the exactly same Azure resource, apply the exactly same operation on it.
 - If there is test in the project, Java code there also need to be updated.
 
