@@ -12,8 +12,9 @@ python run_benchmark.py <project-path>
 
 ## Prerequisites
 
-- Make sure latest GitHub Copilot CLI is installed.
-- Make sure the python requirements.txt is installed.
+- JDK 11 is installed.
+- Latest GitHub Copilot CLI is installed.
+- The python requirements.txt is installed.
 - Before running the script, set JDK to 11, e.g.
     ```
     JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.29.7-hotspot"
