@@ -28,7 +28,7 @@
 - https://github.com/apache/ranger
 - https://github.com/dtinit/data-transfer-project (use JDK11)
 - https://github.com/adobe/eventhub-akka-connector
-- https://github.com/payara/Cloud-Connectors
+- https://github.com/payara/Cloud-Connectors (use JDK11)
 
 ## Attempted but failed
 
