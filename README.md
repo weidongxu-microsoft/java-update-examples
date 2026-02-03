@@ -18,6 +18,7 @@
 - **azure-legacy-sdk-update-postresql-manage-server** – Azure Database for PostgreSQL server creation and update sample.
 - **azure-legacy-sdk-update-ranger-kms** – Apache Ranger KMS with Azure Key Vault integration. From https://github.com/apache/ranger
 - **azure-legacy-sdk-update-resources-java-deploy-using-arm-template** – ARM template deployment sample for Azure resources.
+- **azure-legacy-sdk-update-eventhub-akka-connector** – Akka Streams connector for Azure Event Hub. From https://github.com/adobe/eventhub-akka-connector
 
 ## Example from public repository
 
@@ -25,6 +26,7 @@
 - https://github.com/snowflakedb/snowflake-jdbc (they've upgraded [recently](https://github.com/snowflakedb/snowflake-jdbc/commit/59332c030746a43c551f3f2ae7767c6e33527e24))
 - https://github.com/apache/ranger
 - https://github.com/dtinit/data-transfer-project (use JDK11)
+- https://github.com/adobe/eventhub-akka-connector
 
 ## Attempted but failed
 
