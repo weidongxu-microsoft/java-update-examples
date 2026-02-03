@@ -22,7 +22,7 @@
 ## Example from public repository
 
 - https://github.com/rundeck-plugins/rundeck-azure-plugin
-- https://github.com/snowflakedb/snowflake-jdbc
+- https://github.com/snowflakedb/snowflake-jdbc (they've upgraded recently https://github.com/snowflakedb/snowflake-jdbc/commit/59332c030746a43c551f3f2ae7767c6e33527e24)
 - https://github.com/apache/ranger
 - https://github.com/dtinit/data-transfer-project (use JDK11)
 
