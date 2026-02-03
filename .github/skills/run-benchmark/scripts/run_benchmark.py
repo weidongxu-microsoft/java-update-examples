@@ -125,13 +125,24 @@ async def main():
     await session.destroy()
     await client.stop()
 
-    # Run Maven build to verify
+    # Detect build tool and run build to verify
     # PS: One can also start another Copilot session and ask it to verify the upgrade by building the project
+    is_gradle = os.path.exists(os.path.join(project_path, "build.gradle")) or os.path.exists(os.path.join(project_path, "build.gradle.kts"))
+    if is_gradle:
+        # Use Gradle
+        gradle_wrapper = os.path.join(project_path, "gradlew.bat")
+        if os.path.exists(gradle_wrapper):
+            build_command = [gradle_wrapper, "clean", "build"]
+        else:
+            build_command = ["gradle.bat", "clean", "build"]
+        build_tool_name = "Gradle"
+    else:
+        # Use Maven
+        build_command = ["mvn.cmd", "clean", "package", "verify"]
+        build_tool_name = "Maven"
+    
     process = await asyncio.create_subprocess_exec(
-        "mvn.cmd",
-        "clean",
-        "package",
-        "verify",
+        *build_command,
         cwd=project_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -144,7 +155,7 @@ async def main():
         print(stderr.decode())
 
     if process.returncode != 0:
-        raise RuntimeError("Maven build failed; see output above for details")
+        raise RuntimeError(f"{build_tool_name} build failed; see output above for details")
 
 
 asyncio.run(main())
