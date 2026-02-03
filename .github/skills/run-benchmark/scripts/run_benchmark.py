@@ -1,5 +1,6 @@
 import asyncio
 import argparse
+import os
 from copilot import CopilotClient
 
 prompt = """Upgrade deprecated legacy Azure Java SDKs(`com.microsoft.azure`) used for this project to the modern ones(`com.azure`) with latest stable version using Java Upgrade tools by invoking #generate_upgrade_plan.
@@ -80,7 +81,7 @@ async def main():
     # Create and start client
     client = CopilotClient({
         # cli path, need to be copilot.cmd on Windows
-        "cli_path": "c:/Users/weidxu/AppData/Roaming/npm/copilot.cmd",
+        "cli_path": os.path.expanduser("~/AppData/Roaming/npm/copilot.cmd"),
         # working directory
         "cwd": project_path,
     })
