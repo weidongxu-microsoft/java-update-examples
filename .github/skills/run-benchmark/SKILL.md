@@ -4,11 +4,11 @@ description: Run benchmark case in local
 argument-hint: [project-full-path]
 ---
 
-Call the "run_benchmark.py" script, with argument of the full path of the project folder.
+Call the "run_benchmark.py" script, with argument of the **absolute folder path** of the project folder.
 
 E.g.
 ```
-python run_benchmark.py [project-full-path]
+python run_benchmark.py [project-absolute-path]
 ```
 
 ## Prerequisites
