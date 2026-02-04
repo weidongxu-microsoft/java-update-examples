@@ -1,0 +1,159 @@
+server:
+  port: 9292
+
+spring:
+  application:
+    name: idam-health-check
+  cloud:
+    discovery:
+      client:
+        composite-indicator:
+          enabled: false
+
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      base-path: /admin
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      enabled: true
+      show-details: "ALWAYS"
+    info:
+      enabled: true
+  health:
+    defaults:
+      enabled: false
+    status:
+      order: DOWN, OUT_OF_SERVICE, UNKNOWN, UP
+
+azure:
+  keyvault:
+#    uri:
+#    client-id:
+#    client-key:
+    msi:
+      url: http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net
+      error:
+        retry:
+          max-number: 3
+          interval-millis: 200
+
+feign:
+  okhttp:
+    enabled: false
+  httpclient:
+    enabled: true
+
+ldap:
+  root: ldaps://dummy:1636
+  principal: uid=admin
+  replication:
+    missing-updates-threshold: 10000000
+    delay-threshold: 120000
+
+userstore:
+  root: https://dummy:8443
+  healthprobe:
+    authentication:
+      freshness-interval: 1m
+      check-interval: 1s
+    replication:
+      freshness-interval: 1m
+      check-interval: 1s
+    work-queue:
+      freshness-interval: 5m
+      check-interval: 30s
+    connections:
+      freshness-interval: 5m
+      check-interval: 30s
+    alive:
+      freshness-interval: 30s
+      check-interval: 1s
+    ready:
+      freshness-interval: 30s
+      check-interval: 1s
+
+tokenstore:
+  root: https://dummy:8443
+  healthprobe:
+    search:
+      freshness-interval: 1m
+      check-interval: 1s
+    replication:
+      freshness-interval: 1m
+      check-interval: 1s
+    work-queue:
+      freshness-interval: 5m
+      check-interval: 1s
+    connections:
+      freshness-interval: 5m
+      check-interval: 30s
+    alive:
+      freshness-interval: 30s
+      check-interval: 1s
+    ready:
+      freshness-interval: 30s
+      check-interval: 1s
+
+idm:
+  root: https://dummy
+  healthprobe:
+    ping:
+      freshness-interval: 30s
+      check-interval: 1s
+    check-role-exists:
+      freshness-interval: 6m
+      check-interval: 1m
+      idm-client-id: idm-admin-ui
+      idm-client-scope: openid fr:idm:*
+      am-host: dummy
+      role-id: citizen
+
+am:
+  root: https://dummy
+  healthprobe:
+    live:
+      freshness-interval: 30s
+      check-interval: 1s
+    ready:
+      freshness-interval: 30s
+      check-interval: 1s
+    passwordGrant:
+      freshness-interval: 6m
+      check-interval: 1m
+    rootPasswordGrant:
+      freshness-interval: 6m
+      check-interval: 1m
+      client-id: idm-admin-ui
+      client-scope: openid fr:idm:*
+    identity:
+      scope: openid profile roles
+      host: dummy
+
+backup:
+  healthprobe:
+    full:
+      name: FullBackup
+      freshness-interval: 15m
+      check-interval: 2m
+      path: /opt/opendj/bak/backup.successful
+      expiry-interval: 2700000
+
+replication:
+  healthprobe:
+    command:
+      name: ReplicationCommand
+      freshness-interval: 6m
+      check-interval: 1m
+      template: /opt/opendj/bin/dsrepl status --showReplicas --bindDN %s --bindPassword %s --port 4444 --trustall
+      delay-threshold: 999
+      entry-difference-percent: 0.25
+      command-timeout: 20000
+      user: uid=admin
+
+forgerock:
+  info:
+    path: /opt/idam/ansible/git-commit-id

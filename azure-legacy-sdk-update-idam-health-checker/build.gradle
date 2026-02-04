@@ -1,0 +1,116 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id "org.springframework.boot" version "3.4.3"
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id "io.freefair.lombok" version "8.4"
+    id "com.gorylenko.gradle-git-properties" version "2.4.1"
+}
+
+def buildNumber = System.getenv("RELEASE_VERSION")?.replace("refs/tags/", "") ?: "DEV-SNAPSHOT"
+
+group = 'com.github.hmcts'
+version = buildNumber
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = 'https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1' }
+    jcenter()
+}
+
+bootRun {
+    systemProperties = System.properties
+}
+
+gitProperties {
+    // Change date format in git.properties file.
+    dateFormat = "yyyy-MM-dd HH:mm:ssZ"
+}
+
+ext {
+    springCloudVersion = "2024.0.0"
+    log4JVersion = "2.23.1"
+    reformLoggingVersion = "6.1.9"
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'io.github.openfeign:feign-httpclient:13.5'
+
+    implementation 'com.microsoft.azure:azure-keyvault:1.2.6'
+    implementation 'com.microsoft.azure:adal4j:1.6.7'
+
+    implementation 'org.springframework.ldap:spring-ldap-core:3.2.11'
+
+    implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: reformLoggingVersion
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: log4JVersion
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-to-slf4j', version: log4JVersion
+    implementation group: 'io.opentelemetry', name: 'opentelemetry-api', version: '1.41.0'
+
+    implementation 'org.apache.commons:commons-collections4:4.4'
+
+    compileOnly group: 'org.projectlombok', name: 'lombok'
+    annotationProcessor group: 'org.projectlombok', name: 'lombok'
+
+    implementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation 'org.hamcrest:hamcrest-core'
+    implementation 'org.hamcrest:hamcrest-library'
+    implementation 'org.springframework:spring-test'
+
+    implementation 'org.powermock:powermock-module-junit4:2.0.9'
+    implementation 'org.mockito:mockito-core:5.15.2'
+
+    testImplementation "jakarta.servlet:jakarta.servlet-api:4.0.4"
+    testImplementation "org.wiremock:wiremock-standalone:3.3.1"
+}
+
+publishing {
+    publications {
+        Main(MavenPublication) {
+            from components.java
+            artifact bootJar
+            groupId project.group
+            artifactId rootProject.name
+            version project.version
+        }
+    }
+    repositories {
+        maven {
+            name = "AzureArtifacts"
+            url = uri("https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1")
+            credentials {
+                username = System.getenv("AZURE_DEVOPS_ARTIFACT_USERNAME")
+                password = System.getenv("AZURE_DEVOPS_ARTIFACT_TOKEN")
+            }
+        }
+    }
+}
+
+bootJar {
+    manifest {
+        attributes( 'Implementation-Version': archiveVersion )
+    }
+}
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+}
