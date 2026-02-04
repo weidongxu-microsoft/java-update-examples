@@ -31,7 +31,7 @@
 - https://github.com/dtinit/data-transfer-project (use JDK11)
 - https://github.com/adobe/eventhub-akka-connector
 - https://github.com/payara/Cloud-Connectors (use JDK11)
-- https://github.com/hmcts/idam-health-checker
+- https://github.com/hmcts/idam-health-checker (use JDK17)
 
 ## Attempted but failed
 
