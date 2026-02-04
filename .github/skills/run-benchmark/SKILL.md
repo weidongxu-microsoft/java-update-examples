@@ -17,9 +17,9 @@ python run_benchmark.py [project-absolute-path]
 - Latest GitHub Copilot CLI is installed.
 - The python requirements.txt is installed.
 - Read root README.md, and build tool file ("pom.xml" or "build.gradle"), to decide whether the project require JDK 11 or 17.
-- Before running the script, set JDK to 11 or 17 accordingly, e.g.
+- Before running the script, set JDK to 11 or 17 accordingly (make sure the JDK path exists), e.g. OpenJDK from Microsoft be in folder
     ```
-    JAVA_HOME="C:\Program Files\Microsoft\jdk-11.0.29.7-hotspot"
+    JAVA_HOME="C:\Program Files\Microsoft\[jdk-version]"
     ```
 
 ## Additional resources
