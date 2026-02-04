@@ -21,6 +21,7 @@
 - **azure-legacy-sdk-update-resources-java-deploy-using-arm-template** – ARM template deployment sample for Azure resources.
 - **azure-legacy-sdk-update-eventhub-akka-connector** – Akka Streams connector for Azure Event Hub. From https://github.com/adobe/eventhub-akka-connector
 - **azure-legacy-sdk-update-cloud-connectors** – JavaEE/Jakarta EE JCA connectors for cloud services including Azure Service Bus. From https://github.com/payara/Cloud-Connectors
+- **azure-legacy-sdk-update-idam-health-checker** – Spring Boot health checker for ForgeRock system components with Azure Key Vault integration. From https://github.com/hmcts/idam-health-checker
 
 ## Example from public repository
 
@@ -30,6 +31,7 @@
 - https://github.com/dtinit/data-transfer-project (use JDK11)
 - https://github.com/adobe/eventhub-akka-connector
 - https://github.com/payara/Cloud-Connectors (use JDK11)
+- https://github.com/hmcts/idam-health-checker
 
 ## Attempted but failed
 
