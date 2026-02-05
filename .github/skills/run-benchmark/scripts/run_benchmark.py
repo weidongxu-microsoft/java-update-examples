@@ -1,8 +1,14 @@
 import asyncio
 import argparse
 import os
+import platform
 import subprocess
 from copilot import CopilotClient
+
+# Helper function to add .cmd extension on Windows
+def get_command(base_cmd):
+    """Add .cmd extension on Windows"""
+    return f"{base_cmd}.cmd" if platform.system() == "Windows" else base_cmd
 
 # Read prompt from INSTRUCTION.md
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,17 +26,17 @@ async def main():
     
     project_path = args.project_path
     
-    # Check if copilot.cmd is available, if not install it
+    # Check if copilot is available, if not install it
     try:
-        subprocess.run(["copilot.cmd", "--version"], capture_output=True, check=True)
+        subprocess.run([get_command("copilot"), "--version"], capture_output=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("copilot.cmd not found, installing @github/copilot...")
-        subprocess.run(["npm.cmd", "install", "-g", "@github/copilot"], check=True)
+        print("copilot not found, installing @github/copilot...")
+        subprocess.run([get_command("npm"), "install", "-g", "@github/copilot"], check=True)
     
     # Create and start client
     client = CopilotClient({
-        # cli path, need to be copilot.cmd on Windows
-        "cli_path": os.path.expanduser("copilot.cmd"),
+        # cli path, cross-platform
+        "cli_path": get_command("copilot"),
         # working directory
         "cwd": project_path,
     })
@@ -76,18 +82,19 @@ async def main():
 
     # Detect build tool and run build to verify
     # PS: One can also start another Copilot session and ask it to verify the upgrade by building the project
+    is_windows = platform.system() == "Windows"
     is_gradle = os.path.exists(os.path.join(project_path, "build.gradle")) or os.path.exists(os.path.join(project_path, "build.gradle.kts"))
     if is_gradle:
         # Use Gradle
-        gradle_wrapper = os.path.join(project_path, "gradlew.bat")
+        gradle_wrapper = os.path.join(project_path, "gradlew.bat" if is_windows else "gradlew")
         if os.path.exists(gradle_wrapper):
             build_command = [gradle_wrapper, "clean", "build"]
         else:
-            build_command = ["gradle.bat", "clean", "build"]
+            build_command = [get_command("gradle"), "clean", "build"]
         build_tool_name = "Gradle"
     else:
         # Use Maven
-        build_command = ["mvn.cmd", "clean", "package", "verify"]
+        build_command = [get_command("mvn"), "clean", "package", "verify"]
         build_tool_name = "Maven"
     
     process = await asyncio.create_subprocess_exec(
