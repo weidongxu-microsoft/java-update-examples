@@ -1,6 +1,8 @@
 package com.microsoft.azure.storagev10.advanced;
 
 import com.microsoft.azure.storage.blob.CommonRestResponse;
+import com.microsoft.azure.storage.blob.Metadata;
+import com.microsoft.azure.storage.blob.models.BlobHTTPHeaders;
 import com.microsoft.azure.storage.blob.models.BlockBlobCommitBlockListResponse;
 import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
@@ -78,10 +80,23 @@ public class ConcurrentUploadRunner {
         try {
             long startTime = System.currentTimeMillis();
             
+            // Set HTTP headers and metadata
+            BlobHTTPHeaders httpHeaders = new BlobHTTPHeaders()
+                    .withBlobContentType("application/octet-stream")
+                    .withBlobContentDisposition("attachment; filename=\"sync-uploaded-file.dat\"");
+            
+            Metadata metadata = new Metadata();
+            metadata.put("uploaded-by", "demo-app");
+            metadata.put("upload-type", "synchronous");
+            metadata.put("timestamp", String.valueOf(System.currentTimeMillis()));
+            
             CommonRestResponse response = manager.uploadFile(
                     CONTAINER_NAME,
                     "sync-uploaded-file.dat",
-                    tempFile
+                    tempFile,
+                    httpHeaders,
+                    metadata,
+                    null  // No access conditions
             );
             
             long duration = System.currentTimeMillis() - startTime;

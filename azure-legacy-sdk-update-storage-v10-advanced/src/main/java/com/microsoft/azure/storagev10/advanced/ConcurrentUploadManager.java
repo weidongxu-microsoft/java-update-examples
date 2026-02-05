@@ -122,6 +122,28 @@ public class ConcurrentUploadManager {
      * @return single that completes when upload is finished
      */
     public Single<com.microsoft.azure.storage.blob.CommonRestResponse> uploadFileAsync(String containerName, String blobName, Path filePath) {
+        return uploadFileAsync(containerName, blobName, filePath, null, null, null);
+    }
+
+    /**
+     * Uploads a file to blob storage using concurrent upload with async operations.
+     * This method demonstrates parallel transfer capabilities similar to ParallelTransferOptions.
+     *
+     * @param containerName     container name
+     * @param blobName          blob name
+     * @param filePath          path to file to upload
+     * @param httpHeaders       HTTP headers to set on the blob
+     * @param metadata          metadata to set on the blob
+     * @param accessConditions  access conditions for the upload
+     * @return single that completes when upload is finished
+     */
+    public Single<com.microsoft.azure.storage.blob.CommonRestResponse> uploadFileAsync(
+            String containerName, 
+            String blobName, 
+            Path filePath,
+            com.microsoft.azure.storage.blob.models.BlobHTTPHeaders httpHeaders,
+            com.microsoft.azure.storage.blob.Metadata metadata,
+            com.microsoft.azure.storage.blob.BlobAccessConditions accessConditions) {
         return Single.fromCallable(() -> ensureContainer(containerName))
                 .subscribeOn(Schedulers.io())
                 .flatMap(container -> {
@@ -134,7 +156,7 @@ public class ConcurrentUploadManager {
                         // Use TransferManager for concurrent upload with specified block size and concurrency
                         com.microsoft.azure.storage.blob.TransferManagerUploadToBlockBlobOptions options = 
                                 new com.microsoft.azure.storage.blob.TransferManagerUploadToBlockBlobOptions(
-                                        null, null, null, null, maxConcurrency);
+                                        null, httpHeaders, metadata, accessConditions, maxConcurrency);
                         
                         return TransferManager.uploadFileToBlockBlob(
                                 channel,
@@ -165,8 +187,31 @@ public class ConcurrentUploadManager {
      */
     public com.microsoft.azure.storage.blob.CommonRestResponse uploadFile(String containerName, String blobName, Path filePath)
             throws StorageException {
+        return uploadFile(containerName, blobName, filePath, null, null, null);
+    }
+
+    /**
+     * Uploads a file to blob storage synchronously with concurrent operations.
+     *
+     * @param containerName     container name
+     * @param blobName          blob name
+     * @param filePath          path to file to upload
+     * @param httpHeaders       HTTP headers to set on the blob
+     * @param metadata          metadata to set on the blob
+     * @param accessConditions  access conditions for the upload
+     * @return commit response
+     * @throws StorageException if operation fails
+     */
+    public com.microsoft.azure.storage.blob.CommonRestResponse uploadFile(
+            String containerName, 
+            String blobName, 
+            Path filePath,
+            com.microsoft.azure.storage.blob.models.BlobHTTPHeaders httpHeaders,
+            com.microsoft.azure.storage.blob.Metadata metadata,
+            com.microsoft.azure.storage.blob.BlobAccessConditions accessConditions)
+            throws StorageException {
         try {
-            return uploadFileAsync(containerName, blobName, filePath)
+            return uploadFileAsync(containerName, blobName, filePath, httpHeaders, metadata, accessConditions)
                     .timeout(5, TimeUnit.MINUTES)
                     .blockingGet();
         } catch (Exception e) {
