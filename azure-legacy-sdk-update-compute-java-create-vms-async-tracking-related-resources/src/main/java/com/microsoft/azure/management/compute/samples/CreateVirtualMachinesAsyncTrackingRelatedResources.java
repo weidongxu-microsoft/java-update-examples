@@ -31,6 +31,7 @@ import rx.schedulers.Schedulers;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -79,17 +80,7 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
             // Needed for tracking related resources:
 
             // Map for tracking network interfaces separately because they have to be deleted first
-            final Map<String, Creatable<NetworkInterface>> nicDefinitions = new HashMap<>();
-
-            // For each given virtual machine, all of the related resource definitions will be in one collection,
-            // which will be be stored in a Map indexed by the VM definition's unique auto-generated key.
-            final Map<String, Collection<Creatable<? extends Resource>>> vmNonNicResourceDefinitions = new HashMap<>();
-
-            // Map for tracking VM definitions themselves, indexed by the definition key
-            final Map<String, Creatable<VirtualMachine>> vmDefinitions = new HashMap<>();
-
-            // Map for associating the resource definition key with the resource ID of the created resource
-            final Map<String, String> createdResourceIds = new HashMap<>();
+            final ResourceTracker resourceTracker = new ResourceTracker();
 
             for (int i = 0; i < desiredVMCount; i++) {
                 Collection<Creatable<? extends Resource>> relatedDefinitions = new ArrayList<>();
@@ -148,16 +139,14 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
                         .withNewAvailabilitySet(availabilitySetDefinition);
 
                 // Keep track of all the related resource definitions based on the VM definition
-                vmNonNicResourceDefinitions.put(vmDefinition.key(), relatedDefinitions);
-                nicDefinitions.put(vmDefinition.key(), nicDefinition);
-                vmDefinitions.put(vmDefinition.key(), vmDefinition);
+                resourceTracker.registerVirtualMachine(vmDefinition, nicDefinition, relatedDefinitions);
             }
 
             // =====================================================================
             // Start the parallel creation of everything asynchronously
             //
             System.out.println("Creating the virtual machines and related required resources in parallel...");
-            azure.virtualMachines().createAsync(new ArrayList<>(vmDefinitions.values()))
+            azure.virtualMachines().createAsync(new ArrayList<>(resourceTracker.vmDefinitions()))
 
                 // Handle the first (and only) error that will occur during the creation of the resources. For simplicity
                 // we're only recording the error, not trying/throw an exception.
@@ -202,22 +191,7 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
                                     ResourceUtils.resourceTypeFromResourceId(resource.id()),
                                     ResourceUtils.nameFromResourceId(resource.id())));
 
-                            if (resource instanceof VirtualMachine) {
-                                // Track the successful creation of virtual machines, so that their related resources do not cleaned up later
-                                VirtualMachine virtualMachine = (VirtualMachine) resource;
-
-                                // Record that this VM was created successfully
-                                vmDefinitions.remove(virtualMachine.key());
-
-                                // Remove the associated resources from cleanup list
-                                vmNonNicResourceDefinitions.remove(virtualMachine.key());
-
-                                // Remove the associated NIC from cleanup list
-                                nicDefinitions.remove(virtualMachine.key());
-                            } else {
-                                // Since this is not a VM, add this resource to the potential cleanup list
-                                createdResourceIds.put(resource.key(), resource.id());
-                            }
+                            resourceTracker.trackResource(resource);
                         }
                     }
                 });
@@ -229,13 +203,7 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
             //
 
             // After everything has been created, first we delete the remaining successfully created NICs of failed VM creations
-            Collection<String> nicIdsToDelete = new ArrayList<>();
-            for (Creatable<NetworkInterface> nicDefinition : nicDefinitions.values()) {
-                String nicId = createdResourceIds.get(nicDefinition.key());
-                if (nicId != null) {
-                    nicIdsToDelete.add(nicId);
-                }
-            }
+            Collection<String> nicIdsToDelete = resourceTracker.nicIdsForCleanup();
             if (!nicIdsToDelete.isEmpty()) {
                 // Delete the NICs in parallel for better performance
                 azure.networkInterfaces().deleteByIds(nicIdsToDelete);
@@ -243,20 +211,15 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
 
             // Delete remaining successfully created resources of failed VM creations in parallel
             Collection<Completable> deleteObservables = new ArrayList<>();
-            for (Collection<Creatable<? extends Resource>> relatedResources : vmNonNicResourceDefinitions.values()) {
-                for (Creatable<? extends Resource> resource : relatedResources) {
-                    String createdResourceId = createdResourceIds.get(resource.key());
-                    if (createdResourceId != null) {
-                        // Prepare the deletion of each related resource (treating it as a generic resource) as a multi-threaded Observable
-                        deleteObservables.add(azure.genericResources().deleteByIdAsync(createdResourceId).subscribeOn(Schedulers.io()));
-                    }
-                }
+            for (String resourceId : resourceTracker.orphanedResourceIds()) {
+                // Prepare the deletion of each related resource (treating it as a generic resource) as a multi-threaded Observable
+                deleteObservables.add(azure.genericResources().deleteByIdAsync(resourceId).subscribeOn(Schedulers.io()));
             }
 
             // Delete the related resources in parallel, as much as possible, postponing the errors till the end
             Completable.mergeDelayError(deleteObservables).await();
 
-            System.out.println("Number of failed/cleaned up VM creations: " + vmNonNicResourceDefinitions.size());
+            System.out.println("Number of failed/cleaned up VM creations: " + resourceTracker.orphanedVmCount());
 
             // Verifications
             final int actualVMCount = azure.virtualMachines().listByResourceGroup(resourceGroupName).size();
@@ -317,6 +280,75 @@ public final class CreateVirtualMachinesAsyncTrackingRelatedResources {
         } catch (Exception e) {
             System.out.println(e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    static final class ResourceTracker {
+        private final Map<String, Creatable<VirtualMachine>> vmDefinitions = new HashMap<>();
+        private final Map<String, Creatable<NetworkInterface>> nicDefinitions = new HashMap<>();
+        private final Map<String, Collection<Creatable<? extends Resource>>> vmNonNicResourceDefinitions = new HashMap<>();
+        private final Map<String, String> createdResourceIds = new HashMap<>();
+
+        void registerVirtualMachine(Creatable<VirtualMachine> vmDefinition,
+                                    Creatable<NetworkInterface> nicDefinition,
+                                    Collection<Creatable<? extends Resource>> relatedResources) {
+            vmDefinitions.put(vmDefinition.key(), vmDefinition);
+            nicDefinitions.put(vmDefinition.key(), nicDefinition);
+            vmNonNicResourceDefinitions.put(vmDefinition.key(), new ArrayList<>(relatedResources));
+        }
+
+        Collection<Creatable<VirtualMachine>> vmDefinitions() {
+            return Collections.unmodifiableCollection(vmDefinitions.values());
+        }
+
+        Collection<Creatable<NetworkInterface>> nicDefinitions() {
+            return Collections.unmodifiableCollection(nicDefinitions.values());
+        }
+
+        Collection<Collection<Creatable<? extends Resource>>> nonNicResourceDefinitions() {
+            return Collections.unmodifiableCollection(vmNonNicResourceDefinitions.values());
+        }
+
+        void trackResource(Resource resource) {
+            if (resource instanceof VirtualMachine) {
+                removeSuccessfulVirtualMachine(resource.key());
+            } else {
+                createdResourceIds.put(resource.key(), resource.id());
+            }
+        }
+
+        private void removeSuccessfulVirtualMachine(String vmKey) {
+            vmDefinitions.remove(vmKey);
+            vmNonNicResourceDefinitions.remove(vmKey);
+            nicDefinitions.remove(vmKey);
+        }
+
+        Collection<String> nicIdsForCleanup() {
+            Collection<String> nicIdsToDelete = new ArrayList<>();
+            for (Creatable<NetworkInterface> nicDefinition : nicDefinitions.values()) {
+                String nicId = createdResourceIds.get(nicDefinition.key());
+                if (nicId != null) {
+                    nicIdsToDelete.add(nicId);
+                }
+            }
+            return nicIdsToDelete;
+        }
+
+        Collection<String> orphanedResourceIds() {
+            Collection<String> resourceIds = new ArrayList<>();
+            for (Collection<Creatable<? extends Resource>> relatedResources : vmNonNicResourceDefinitions.values()) {
+                for (Creatable<? extends Resource> resource : relatedResources) {
+                    String createdResourceId = createdResourceIds.get(resource.key());
+                    if (createdResourceId != null) {
+                        resourceIds.add(createdResourceId);
+                    }
+                }
+            }
+            return resourceIds;
+        }
+
+        int orphanedVmCount() {
+            return vmNonNicResourceDefinitions.size();
         }
     }
 
