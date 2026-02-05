@@ -1,7 +1,6 @@
 ---
 name: run-benchmark
-description: Run benchmark case in local
-argument-hint: [project-full-path]
+description: '**UTILITY SKILL** - Run benchmark case in local. USE FOR: "run benchmark". INVOKES: "run_benchmark.py" script.'
 ---
 
 Call the "run_benchmark.py" script, with argument of the **absolute folder path** of the project folder.

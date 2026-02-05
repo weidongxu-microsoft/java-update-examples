@@ -6,6 +6,7 @@
 - **azure-legacy-sdk-update-azure-client-initialization** – Shared snippets for initializing Azure clients.
 - **azure-legacy-sdk-update-data-transfer-project** – Data Transfer Project sample showcasing cross-service portability with Azure Key Vault and storage integrations. From https://github.com/dtinit/data-transfer-project
 - **azure-legacy-sdk-update-compute-java-manage-vm** – Virtual machine creation and management walkthrough.
+- **azure-legacy-sdk-update-compute-java-create-vms-async-tracking-related-resources** – Parallel VM provisioning sample with asynchronous tracking and cleanup of related resources.
 - **azure-legacy-sdk-update-documentdb-java-todo-app** – Java EE todo list sample backed by Azure Cosmos DB (DocumentDB).
 - **azure-legacy-sdk-update-eventhubs-v3** – Event Hubs v3 SDK (azure-eventhubs and azure-eventhubs-eph) for sending and receiving events with Event Processor Host.
 - **azure-legacy-sdk-update-key-vault-java-manage-key-vaults** – Key Vault configuration and access policy sample.
