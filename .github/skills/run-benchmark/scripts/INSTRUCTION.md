@@ -3,6 +3,7 @@ Help with looking up the latest stable version on https://repo1.maven.org/maven2
 If upgrading Java version is necessary, upgrade Java version within the same #generate_upgrade_plan call.
 For all available choices, just proceed with the one you see fittest. Try other options if current one doesn't work. Don't stop until full migration is done.
 Upgrade both dependencies and source code.
+
 # Migration Guide
 
 ## Assumption
@@ -55,8 +56,53 @@ dependencies {
 - Make a list of Java files that contains `com.microsoft.azure` package. Migrate each of them.
 - Do not modify package name in file.
 - Do not upgrade JDK version, if it is already JDK 8 or above.
-- Keep Azure resource and operation exactly same. The property on the Azure resource should not be changed, for "improvement" or "modernization". The focus here is to use the new libaray to create the exactly same Azure resource, apply the exactly same operation on it.
 - If there is test in the project, Java code there also need to be updated.
+
+## Code Checklist
+
+- Keep Azure resources, operations, and property values identical. The goal is functional equivalence, not feature expansion.
+- Do not change the method sequence when creating or updating an Azure resource unless the new SDK requires it.
+- Preserve the existing async pattern. For example, a delayed provisioning pattern that uses `Creatable<Resource>` should not be replaced by a direct `.create()` call. Similarly, when provisioning a resource, do not swap `.withNewDependencyResource` for `.withExistingDependencyResource` unless mandated by the new API surface.
+- Keep the text emitted by logging and stdout/stderr unchanged to avoid breaking downstream consumers of those streams.
+- Do not replace `resource.region()` with `resource.regionName()`; doing so changes the type from `Region` to `String` and can introduce subtle regressions.
+
+## Code Samples
+
+### Authentication with File
+Even though file-based authentication is deprecated in the modern SDKs, preserve the existing logic when performing the upgrade.
+
+Legacy code
+```java
+final File credentialFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
+Azure azure = Azure.configure()
+    .authenticate(credentialFile)
+    .withDefaultSubscription();
+```
+can be updated to read the JSON file via `ObjectMapper` from the Jackson library and authenticate with the `ClientSecretCredential` class.
+```java
+final File credentialFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
+ObjectMapper mapper = new ObjectMapper();
+JsonNode credentialFileNode = mapper.readTree(credentialFile);
+String clientId = credentialFileNode.get("clientId").asText();
+String clientSecret = credentialFileNode.get("clientSecret").asText();
+String tenantId = credentialFileNode.get("tenantId").asText();
+String subscriptionId = credentialFileNode.get("subscriptionId").asText();
+
+AzureProfile profile = new AzureProfile(tenantId, subscriptionId, AzureEnvironment.AZURE);
+ClientSecretCredential credential = new ClientSecretCredentialBuilder()
+    .clientId(clientId)
+    .clientSecret(clientSecret)
+    .tenantId(tenantId)
+    .build();
+
+AzureResourceManager azure = AzureResourceManager.configure()
+    .authenticate(credential, profile)
+    .withSubscription(subscriptionId);
+```
+
+If Jackson is not included in the project, add a compatible version of `jackson-databind`.
+
+Handle `IOException` and other checked exceptions according to the project's standards.
 
 ## Validation
 
