@@ -64,8 +64,8 @@ dependencies {
 
 ## Migrate Java Code
 
-- Make a list of Java files that contains `com.microsoft.azure` package. Migrate each of them.
-- Follow [Migration Guides](#appendix-migration-guides-for-specific-packages) whenever possible.
+- Make a list of source code/maven/gradle files that contains legacy SDK packages. Migrate each of them.
+- Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Migration Guides](#appendix-migration-guides-for-specific-packages) and follow the guides whenever possible.
 - Do not modify package name in file.
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
