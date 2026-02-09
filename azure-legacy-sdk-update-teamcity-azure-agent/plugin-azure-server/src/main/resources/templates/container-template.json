@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "containerName": {
+      "type": "string",
+      "metadata": {
+        "description": "This is the container name."
+      }
+    },
+    "imageId": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the docker image name."
+      }
+    },
+    "osType": {
+      "allowedValues": [
+        "Linux",
+        "Windows"
+      ],
+      "type": "String"
+    },
+    "numberCores": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the number of vCPU cores in container."
+      }
+    },
+    "memory": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the size of container memory in GB."
+      }
+    },
+    "teamcityUrl": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the TeamCity URL."
+      }
+    }
+  },
+  "variables": {
+      "location": "[resourceGroup().location]"
+  },
+  "resources": [
+    /*{
+      "apiVersion": "2019-11-01",
+      "type": "Microsoft.Network/networkProfiles",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "containerNetworkInterfaceConfigurations": [
+          {
+            "name": "[concat(parameters('containerName'), '-config')]",
+            "properties": {
+              "ipConfigurations": [
+                {
+                  "name": "[concat(parameters('containerName'), '-ip-config')]",
+                  "properties": {
+                    "subnet": {
+                      "id": "[variables('subnetRef')]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },*/
+    {
+      "name": "[parameters('containerName')]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2018-10-01",
+      "location": "[resourceGroup().location]",
+      /*"dependsOn": [
+        "[resourceId('Microsoft.Network/networkProfiles', variables('nicName'))]"
+      ],*/
+      "properties": {
+        "osType": "[parameters('osType')]"/*,
+        "networkProfile": {
+            "id": "[resourceId('Microsoft.Network/networkProfiles', variables('nicName'))]"
+        }*/
+      }
+    }
+  ]
+}

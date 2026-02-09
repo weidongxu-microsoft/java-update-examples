@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
+       default-autowire="constructor">
+    <bean class="jetbrains.buildServer.clouds.azure.arm.AzureCloudClientFactory"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.SettingsController"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.UpdateImageController"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.UpdateImageProcessor"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.DeleteImageHandler"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.UpsertImageHandler"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.health.AzureCloudProfileReport"/>
+
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCacheImpl" />
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProviderImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureProjectParametersProviderImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureTimeManagerFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureTicketTimeManagerImpl" scope="prototype"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureDeferralSequenceTimeManagerImpl"/>
+</beans>

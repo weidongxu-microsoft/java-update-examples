@@ -1,0 +1,36 @@
+
+
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.6.21"
+}
+
+ext {
+    def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
+    versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
+    projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber]
+    teamcityVersion = findProperty('teamcityVersion') ?: '2024.07'
+}
+
+group = projectIds.group
+version = projectIds.version
+
+repositories {
+    mavenCentral()
+}
+
+allprojects {
+    group = projectIds.group
+    version = projectIds.version
+}
+
+subprojects {
+    apply plugin: 'kotlin'
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+
+    test.useTestNG()
+    jar.version = null
+
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}

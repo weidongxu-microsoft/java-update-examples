@@ -1,0 +1,23 @@
+
+
+plugins {
+    id 'com.github.rodm.teamcity-server' version "1.4.1"
+}
+
+dependencies {
+    compile project(':plugin-azure-common')
+
+    provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
+    provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
+    provided 'com.google.code.gson:gson:2.5'
+    testCompile 'org.testng:testng:6.8'
+}
+
+teamcity {
+    version = teamcityVersion
+}
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "This is the Virtual Machine name."
+      }
+    },
+    "networkId": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual Network name for the Virtual Machine."
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Sub network name for the Virtual Machine."
+      }
+    },
+    "adminUserName": {
+      "type": "string",
+      "metadata": {
+        "description": "UserName for the Virtual Machine"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine"
+      }
+    },
+    "osType": {
+      "type": "string",
+      "allowedValues": [
+        "Windows",
+        "Linux"
+      ],
+      "metadata": {
+        "description": "This is the OS that your VM will be running"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "This is the size of your VM"
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "nicName": "[concat(parameters('vmName'), '-net')]",
+    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]",
+    "osDiskName": "[concat(parameters('vmName'), '-os')]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2019-02-01",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "[concat(parameters('vmName'), '-config')]",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2022-03-01",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "customData": "[parameters('customData')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "name": "[variables('osDiskName')]",
+            "osType": "[parameters('osType')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "deleteOption": "Delete"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+              "properties": {
+                "deleteOption": "Delete"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

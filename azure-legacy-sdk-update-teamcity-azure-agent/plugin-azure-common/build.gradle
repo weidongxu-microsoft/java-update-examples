@@ -1,0 +1,21 @@
+
+
+plugins{
+    id 'com.github.rodm.teamcity-common' version "1.4.1"
+}
+
+teamcity {
+    version = teamcityVersion
+}
+
+dependencies {
+    api 'com.google.code.gson:gson:2.9.0'
+    api 'javax.xml.bind:jaxb-api:2.3.1'
+    api "org.jetbrains.kotlin:kotlin-stdlib"
+    api "org.apache.httpcomponents:httpclient:4.3.6"
+}
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

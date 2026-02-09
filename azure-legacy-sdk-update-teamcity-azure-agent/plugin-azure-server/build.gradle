@@ -1,0 +1,50 @@
+
+
+plugins {
+    id 'com.github.rodm.teamcity-server' version "1.4.1"
+}
+
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.41.1'
+
+teamcity {
+    version = teamcityVersion
+
+    server {
+        descriptor = project.file('teamcity-plugin.xml')
+        tokens = [Version: project.version]
+    }
+}
+
+configurations.compile {
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+}
+dependencies {
+    agent project(path: ':plugin-azure-agent', configuration: 'plugin')
+    compile project(':plugin-azure-server-base')
+
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
+    compile "com.microsoft.azure:azure:$azureSdkVersion"
+    compile 'com.microsoft.azure:azure-storage:8.4.0'
+    compile 'com.squareup.okio:okio:1.7.0'
+    provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
+    provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
+    provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
+    provided "org.jetbrains.teamcity:cloud-server-api:$teamcityVersion"
+    provided 'com.google.code.gson:gson:2.5'
+    provided 'org.apache.taglibs:taglibs-standard-impl:1.2.3'
+    compileOnly 'org.slf4j:slf4j-api:1.7.24'
+    provided 'net.jcip:jcip-annotations:1.0'
+    provided 'javax.mail:mail:1.4.7'
+    provided 'org.bouncycastle:bcprov-jdk15on:1.60'
+    testCompile 'org.testng:testng:6.8'
+    testCompile 'io.mockk:mockk:1.13.2'
+}
+
+serverPlugin.version = null
+serverPlugin.baseName = 'cloud-azure-arm'
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

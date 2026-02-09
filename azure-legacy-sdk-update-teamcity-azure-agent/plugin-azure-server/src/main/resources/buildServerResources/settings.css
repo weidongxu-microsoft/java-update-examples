@@ -1,0 +1,178 @@
+
+
+.inline-block {
+    display: inline-block;
+}
+
+.longField.hidden {
+    display: none !important;
+}
+
+.section-header {
+    margin: 13px 0 13px 8px;
+}
+
+.runnerFormTable .loader-wrapper {
+    padding-bottom: 0;
+}
+
+.osIcon {
+    vertical-align: middle;
+}
+
+.runnerFormTable.innerTable,
+.runnerFormTable.innerTable td,
+.runnerFormTable.innerTable th {
+    border: none;
+}
+
+.innerTable,
+.innerTable td,
+.innerTable th {
+    border: none;
+}
+
+.AzureImageDialog {
+    width: auto;
+}
+
+.imagesOuterWrapper {
+    padding-left: 8px;
+}
+
+.imagesTableWrapper {
+    margin-bottom: 0.5em;
+}
+
+.sourceIcon {
+    display: inline-block;
+    border-radius: 100%;
+    background-color: #4477ff;
+    color: #fff;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    line-height: 20px;
+    font-size: 12px;
+    text-align: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.sourceIcon_unknown {
+    background-color: #e5e5e5;
+}
+
+.sourceIcon_error {
+    background-color: #aa1111;
+}
+
+.imagesTableRow:hover .highlight {
+    background-color: #ffffcc;
+    color: #25419d;
+    cursor: pointer;
+}
+
+table.settings .remove,
+table.settings .edit {
+    width: 5%;
+    padding: 0.5em;
+    text-align: center;
+}
+
+.editImageLink_disabled {
+    color: #ccc;
+}
+
+table.arm-settings th.name {
+    padding: 3px 1em;
+}
+
+table.arm-settings th.center,
+table.arm-settings td.center{
+    text-align: center;
+    padding: 0.5em;
+}
+
+table.arm-settings .nowrap {
+    white-space: nowrap;
+    overflow-x: hidden;
+}
+
+.AzureImageDialog label {
+    white-space: nowrap;
+}
+
+.AzureImageDialog div.longField {
+    width: 30.5em;
+}
+
+.vmTemplateSection {
+  border: 1px solid;
+  border-color: var(--ring-borders-color);
+  border-radius: var(--ring-border-radius);
+}
+
+.vmTemplateSection:hover {
+  border-color: var(--ring-border-hover-color);
+}
+
+.vmTemplateSection:focus {
+  border-color: var(--ring-main-color);
+}
+
+.vmTemplate {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  min-width: 30em;
+}
+
+.vmTemplate:hover, .vmTemplate:focus-within {
+  border-color: var(--ring-borders-color);
+}
+
+.vmParamsTitle {
+  display: flex;
+  justify-content: space-between;
+
+  font-size: 90%;
+  color: var(--ring-secondary-color);
+  margin: 0 0.5em;
+}
+
+.vmParamsContainer {
+  display: flex;
+  gap: 0.25em;
+  flex-flow: row;
+  flex-wrap: wrap;
+  font-size: 90%;
+  max-width: 28em;
+  margin: 0.25em 0.5em 0.5em;
+}
+
+.vmParam {
+  cursor: default;
+}
+
+.vmParamText {
+  padding: 0 0.25em;
+  white-space: nowrap;
+  color: var(--ring-text-color);
+  background-color: var(--ring-tag-background-color);
+}
+
+.vmParamRed {
+  background-color: var(--ring-error-color);
+  padding-left: 0.5em;
+  border-radius: 5px;
+}
+
+.vmParamGreen {
+  background-color: var(--ring-success-color);
+  padding-left: 0.5em;
+  border-radius: 5px;
+}
+
+.misc {
+    display: none;
+}
