@@ -104,14 +104,25 @@ async def main():
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await process.communicate()
+    log_file = os.path.join(project_path, "build_failure.log")
 
-    if stdout:
-        print(stdout.decode())
-    if stderr:
-        print(stderr.decode())
-
-    if process.returncode != 0:
-        raise RuntimeError(f"{build_tool_name} build failed; see output above for details")
+    if process.returncode == 0:
+        if os.path.exists(log_file):
+            os.remove(log_file)
+        print("Build and verification passed.")
+    else:
+        stdout_text = stdout.decode(errors="replace") if stdout else ""
+        stderr_text = stderr.decode(errors="replace") if stderr else ""
+        with open(log_file, "w", encoding="utf-8") as log:
+            log.write("Build command: " + " ".join(build_command) + "\n")
+            log.write(f"Exit code: {process.returncode}\n\n")
+            log.write("STDOUT:\n")
+            log.write(stdout_text or "<no stdout>\n")
+            log.write("\nSTDERR:\n")
+            log.write(stderr_text or "<no stderr>\n")
+        raise RuntimeError(
+            f"{build_tool_name} build failed; details recorded in build_failure.log"
+        )
 
 
 asyncio.run(main())
