@@ -21,6 +21,7 @@ import com.microsoft.azure.management.postgresql.v2017_12_01.StorageProfile;
 import com.microsoft.azure.management.postgresql.v2017_12_01.Servers;
 import com.microsoft.azure.management.postgresql.v2017_12_01.implementation.PostgreSQLManager;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
+import com.microsoft.azure.management.resources.fluentcore.utils.ProviderRegistrationInterceptor;
 import com.microsoft.rest.LogLevel;
 
 /**
@@ -147,6 +148,7 @@ public final class ManagePostgreSqlServer {
 
             PostgreSQLManager postgresManager = PostgreSQLManager.configure()
                 .withLogLevel(LogLevel.BASIC)
+                .withInterceptor(new ProviderRegistrationInterceptor(credentials))
                 .authenticate(credentials, subscriptionId);
 
             System.out.println("Using subscription: " + subscriptionId);
