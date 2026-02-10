@@ -23,8 +23,8 @@ When user provide the "benchmark_log" folder for analysis. You can start the Ana
 1. **For any passed build**, further check:
     - "benchmark/before-dependency.csv" and "benchmark/after-dependency.csv" to analyze the dependency changes, whether all lgecy dependencies are removed and replaced with the new dependencies.
     - "benchmark/evaluation-report.json" to identify potential issue during the migration.
-1. Generate a summary report that aggregate for each "case_output" folder, including:
+1. Generate a summary report "SUMMARY.md" that aggregates for each "case_output" folder, including:
     - Build status (pass/fail)
-    - Cause of failure (if any)
-    - Dependency changes summary
-    - Potential issues identified during migration (if any)
+    - Cause of failure (if build fail)
+    - Dependency changes summary, focus on whether legacy dependencies are removed (if build pass)
+    - Potential issues identified during migration, focus on major issues (if build pass)
