@@ -21,7 +21,6 @@ import com.microsoft.azure.management.postgresql.v2017_12_01.StorageProfile;
 import com.microsoft.azure.management.postgresql.v2017_12_01.Servers;
 import com.microsoft.azure.management.postgresql.v2017_12_01.implementation.PostgreSQLManager;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
 import com.microsoft.rest.LogLevel;
 
 /**
@@ -42,8 +41,8 @@ public final class ManagePostgreSqlServer {
      */
     public static boolean runSample(Azure azure, PostgreSQLManager postgresManager) {
         final Region region = Region.US_EAST;
-        final String resourceGroupName = SdkContext.randomResourceName("rgPostgres", 20);
-        final String serverName = SdkContext.randomResourceName("pgsrv", 20);
+        final String resourceGroupName = "rg-postgresql-manage-server";
+        final String serverName = "pgsrv-manageserver";
         final String administratorLogin = "pgadminuser";
         final String administratorPassword = "StrongP@ssw0rd123";
 
