@@ -142,6 +142,7 @@ public final class ManagePostgreSqlServer {
             }
 
             Azure azure = Azure.configure()
+                .withInterceptor(new ProviderRegistrationInterceptor(credentials))
                 .withLogLevel(LogLevel.BASIC)
                 .authenticate(credentials)
                 .withSubscription(subscriptionId);
