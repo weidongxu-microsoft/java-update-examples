@@ -10,6 +10,7 @@
 - **azure-legacy-sdk-update-documentdb-java-todo-app** – Java EE todo list sample backed by Azure Cosmos DB (DocumentDB).
 - **azure-legacy-sdk-update-eventhubs-v3** – Event Hubs v3 SDK (azure-eventhubs and azure-eventhubs-eph) for sending and receiving events with Event Processor Host.
 - **azure-legacy-sdk-update-key-vault-java-manage-key-vaults** – Key Vault configuration and access policy sample.
+- **azure-legacy-sdk-update-servicebus-v3** – Service Bus v3 SDK (azure-servicebus) for sending and receiving queue messages with async CompletableFuture patterns.
 - **azure-legacy-sdk-update-keyvault-v1** – Key Vault v1 SDK (azure-keyvault) for managing keys, secrets and certificates.
 - **azure-legacy-sdk-update-network-java-manage-virtual-network** – Virtual network, subnet, and VM networking sample.
 - **azure-legacy-sdk-update-resources-java-manage-resource-group** – Resource group CRUD operations.
