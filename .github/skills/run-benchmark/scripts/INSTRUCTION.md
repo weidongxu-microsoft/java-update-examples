@@ -72,7 +72,7 @@ dependencies {
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
 
-## Package-Specific Source Code Guidance
+## Package-Specific Source Code Guidelines (Add them to plan guidelines when generating plan)
 
 ### com.microsoft.azure.management.**
 
@@ -123,7 +123,30 @@ If Jackson is not included in the project, add a compatible version of `jackson-
 Handle `IOException` and other checked exceptions according to the project's standards.
 
 ##### ProviderRegistrationInterceptor
-If legacy code uses `ProviderRegistrationInterceptor`, check whether modern variant is premium/handwritten code(https://raw.githubusercontent.com/Azure/azure-sdk-for-java/main/sdk/resourcemanager/azure-resourcemanager/pom.xml). If not, add `ProviderRegistrationPolicy` when initializing client.
+If legacy code uses `ProviderRegistrationInterceptor`, scan source code to check whether it uses premium/handwritten entry point(XXManager):
+- Azure
+- AuthorizationManager
+- CdnManager
+- ComputeManager
+- ContainerInstanceManager
+- ContainerRegistryManager
+- ContainerServiceManager
+- CosmosDBManager
+- DnsZoneManager
+- EventHubManager
+- KeyVaultManager
+- MonitorManager
+- MSIManager
+- NetworkManager
+- RedisManager
+- ResourceManager
+- SearchServiceManager
+- ServiceBusManager
+- SqlServerManager
+- StorageManager
+- TrafficManager
+
+If not, add `ProviderRegistrationPolicy` when initializing client.
 
 Legacy code:
 ```java
