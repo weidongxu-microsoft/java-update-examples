@@ -1,6 +1,6 @@
 ---
 name: analyze-benchmark
-description: '**UTILITY SKILL** - Analyze benchmark logs and generate a summary. USE FOR: "analyze benchmark".
+description: '**UTILITY SKILL** - Analyze benchmark logs and generate a summary. USE FOR: "analyze benchmark".'
 ---
 
 # Skill Instructions
