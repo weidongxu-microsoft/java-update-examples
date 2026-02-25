@@ -39,4 +39,4 @@ When confirmed, follow below steps to add the example:
 1. Delete the ".git" folder from the repository folder.
 1. Move the "{example-name}" folder in the temporary folder to "azure-legacy-sdk-update-{example-name}" folder at project root.
 1. Delete the temporary folder.
-1. Update README.md to add a new line in the list of examples, following the existing format.
+1. Update README.md to add a new line in the list of examples, following the existing format. List legacy Azure dependencies used in the project for convenience of reference. If the project is not Java dominant, add a note for what language it is mainly using. If possible, specify JDK version used in the project.
