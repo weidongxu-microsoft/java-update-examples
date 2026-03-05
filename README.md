@@ -27,6 +27,7 @@
 - **azure-legacy-sdk-update-cloud-connectors** – JavaEE/Jakarta EE JCA connectors for cloud services including Azure Service Bus. From https://github.com/payara/Cloud-Connectors
 - **azure-legacy-sdk-update-idam-health-checker** – Spring Boot health checker for ForgeRock system components with Azure Key Vault integration. From https://github.com/hmcts/idam-health-checker
 - **azure-legacy-sdk-update-teamcity-azure-agent** – TeamCity Azure cloud plugin that elastically scales build agents. From https://github.com/JetBrains/teamcity-azure-agent
+- **azure-legacy-sdk-update-logstash-input-azure-event-hubs** – Logstash input plugin for consuming events from Azure Event Hubs. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-eventhubs-eph:3.3.0`, `com.microsoft.azure:qpid-proton-j-extensions:1.2.4`, `com.microsoft.azure:azure-storage:8.6.6`. Note: primarily a Ruby project (79.2% Ruby, 17.9% Java8). From https://github.com/logstash-plugins/logstash-input-azure_event_hubs
 
 ## Example from public repository
 
@@ -38,6 +39,7 @@
 - https://github.com/payara/Cloud-Connectors (use JDK11)
 - https://github.com/hmcts/idam-health-checker (use JDK17)
 - https://github.com/JetBrains/teamcity-azure-agent
+- https://github.com/logstash-plugins/logstash-input-azure_event_hubs (use Gradle, primarily Ruby with 17.9% Java8)
 
 ## Attempted but failed
 

@@ -123,7 +123,7 @@ If Jackson is not included in the project, add a compatible version of `jackson-
 Handle `IOException` and other checked exceptions according to the project's standards.
 
 ##### ProviderRegistrationInterceptor
-If legacy code uses `ProviderRegistrationInterceptor`, scan source code to check whether it uses premium/handwritten entry point(XXManager):
+If legacy client(XXManager) initializes with `ProviderRegistrationInterceptor`, check whether this client is one of the premium ones:
 - Azure
 - AuthorizationManager
 - CdnManager
@@ -146,9 +146,11 @@ If legacy code uses `ProviderRegistrationInterceptor`, scan source code to check
 - StorageManager
 - TrafficManager
 
-If not, add `ProviderRegistrationPolicy` when initializing client.
+If not, add `ProviderRegistrationPolicy` when initializing the client. Otherwise, don't.
 
-Legacy code:
+For each legacy client, add along with whether to initialize with `ProviderRegistrationPolicy`, to the generated plan guideline, and migrate accordingly.
+
+1. Legacy client(not premium client):
 ```java
 BatchManager batchManager = BatchManager.configure()
     .withLogLevel(LogLevel.BASIC)
@@ -157,14 +159,24 @@ BatchManager batchManager = BatchManager.configure()
 ```
 should be migrated to:
 ```java
-ResourceManager resourceManager = ResourceManager.configure()
-    .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BASIC))
-    .authenticate(credential, profile)
-    .withDefaultSubscription();
-
 BatchManager batchManager = BatchManager.configure()
-    .withPolicy(new ProviderRegistrationPolicy(resourceManager))
+    .withPolicy(new ProviderRegistrationPolicy())
     .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BASIC))
+    .authenticate(credential, profile);
+```
+
+2. Legacy client(premium clients):
+```java
+Azure azure = Azure.configure()
+    .withInterceptor(new ProviderRegistrationInterceptor(credentials))
+    .withLogLevel(LogLevel.BASIC)
+    .authenticate(credentials)
+    .withSubscription(subscriptionId);
+```
+should be migrated to:
+```java
+AzureResourceManager.configure()
+    .withLogLevel(HttpLogDetailLevel.BASIC)
     .authenticate(credential, profile);
 ```
 
