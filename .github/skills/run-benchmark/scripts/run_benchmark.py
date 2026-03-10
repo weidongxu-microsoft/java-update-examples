@@ -4,6 +4,7 @@ import os
 import platform
 import subprocess
 from copilot import CopilotClient
+from copilot import PermissionHandler
 
 # Helper function to add .cmd extension on Windows
 def get_command(base_cmd):
@@ -35,8 +36,6 @@ async def main():
     
     # Create and start client
     client = CopilotClient({
-        # cli path, cross-platform
-        "cli_path": get_command("copilot"),
         # working directory
         "cwd": project_path,
     })
@@ -44,6 +43,8 @@ async def main():
 
     # Create a session
     session = await client.create_session({
+        # permission
+        "on_permission_request": PermissionHandler.approve_all,
         # model
         "model": "claude-sonnet-4.5",
         # mcp servers
