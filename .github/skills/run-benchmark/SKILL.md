@@ -10,6 +10,8 @@ E.g.
 python run_benchmark.py [project-absolute-path]
 ```
 
+Do not attempt to fix the error. Just report whether the benchmark passed or failed, depends on the output of the script.
+
 ## Prerequisites
 
 - JDK required for the project is installed (typically, JDK 11 and 17).
