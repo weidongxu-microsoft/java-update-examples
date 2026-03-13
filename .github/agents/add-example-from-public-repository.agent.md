@@ -14,7 +14,10 @@ Use the GitHub MCP tools, when appropriate.
 
 Definition:
 - Legacy Azure Java SDKs: SDKs with groupId starting with "com.microsoft.azure."
-  Exceptions are:
+  The authoritative list of legacy Azure data-plane libraries and their modern replacements is maintained at:
+  https://github.com/Azure/appcat-konveyor-rulesets/blob/main/default/generated/azure/37-azure-java-sdk-legacy-migration.yaml
+  Use this YAML ruleset to identify which artifacts are legacy data-plane SDKs and what they should migrate to. When searching for new repositories, prioritize libraries listed in this ruleset that are not yet covered by existing samples.
+  Exceptions (not legacy data-plane SDKs):
   - groupId "com.microsoft.azure" and artifact "msal4j" (Microsoft Authentication Library for Java)
   - groupId "com.microsoft.azure.kusto" (Azure Kusto SDKs)
   - groupId "com.microsoft.azure.functions" (Azure Functions)
