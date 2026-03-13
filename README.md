@@ -28,6 +28,11 @@
 - **azure-legacy-sdk-update-idam-health-checker** – Spring Boot health checker for ForgeRock system components with Azure Key Vault integration. From https://github.com/hmcts/idam-health-checker
 - **azure-legacy-sdk-update-teamcity-azure-agent** – TeamCity Azure cloud plugin that elastically scales build agents. From https://github.com/JetBrains/teamcity-azure-agent
 - **azure-legacy-sdk-update-logstash-input-azure-event-hubs** – Logstash input plugin for consuming events from Azure Event Hubs. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-eventhubs-eph:3.3.0`, `com.microsoft.azure:qpid-proton-j-extensions:1.2.4`, `com.microsoft.azure:azure-storage:8.6.6`. Note: primarily a Ruby project (79.2% Ruby, 17.9% Java8). From https://github.com/logstash-plugins/logstash-input-azure_event_hubs
+- **azure-legacy-sdk-update-plugin-azure** – Kestra workflow orchestration plugin for Azure services. Legacy Azure SDKs: `com.microsoft.azure:azure-batch:11.2.0`, `com.microsoft.azure:azure-storage:8.6.6`. Uses Gradle, JDK 21, has 49 JUnit 5 test files. From https://github.com/kestra-io/plugin-azure
+- **azure-legacy-sdk-update-learn-azure-cosmosdb** – Getting started samples for Azure Cosmos DB (SQL API, MongoDB, Gremlin, Cassandra). Legacy Azure SDKs: `com.microsoft.azure:azure-cosmosdb:2.4.3`, `com.microsoft.azure:azure-documentdb:2.4.3`. Uses Maven, JDK 8. From https://github.com/yaravind/learn-azure-cosmosdb
+- **azure-legacy-sdk-update-eventgrid-connector** – Spring Boot application demonstrating connectivity to Azure Event Grid. Legacy Azure SDKs: `com.microsoft.azure:azure-eventgrid:1.2.0`, `com.microsoft.azure:azure-storage-spring-boot-starter`. Uses Maven, JDK 14. From https://github.com/crostonj/EventGridConnector
+- **azure-legacy-sdk-update-llmops-java** – LLMOps platform based on LangChain4j with Azure Cognitive Services integration. Legacy Azure SDKs: `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-websearch:1.0.1`, `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-customsearch:1.0.1`. Uses Maven, JDK 17. From https://github.com/llm-manus/llmops-java
+- **azure-legacy-sdk-update-samza** – Apache Samza distributed stream processing framework with Azure integrations. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-storage:8.6.6`. Uses Gradle, has 19 test files in samza-azure module. From https://github.com/apache/samza
 
 ## Example from public repository
 
@@ -40,6 +45,11 @@
 - https://github.com/hmcts/idam-health-checker (use JDK17)
 - https://github.com/JetBrains/teamcity-azure-agent
 - https://github.com/logstash-plugins/logstash-input-azure_event_hubs (use Gradle, primarily Ruby with 17.9% Java8)
+- https://github.com/kestra-io/plugin-azure (use Gradle, JDK 21)
+- https://github.com/yaravind/learn-azure-cosmosdb (use Maven, JDK 8)
+- https://github.com/crostonj/EventGridConnector (use Maven/Spring Boot, JDK 14)
+- https://github.com/llm-manus/llmops-java (use Maven, JDK 17)
+- https://github.com/apache/samza (use Gradle)
 
 ## Attempted but failed
 

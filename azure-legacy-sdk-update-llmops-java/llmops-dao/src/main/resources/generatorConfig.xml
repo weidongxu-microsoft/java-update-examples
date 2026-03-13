@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+    <context id="mysqlTables" targetRuntime="MyBatis3" defaultModelType="flat">
+        <!-- MySQL分页插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.LimitPlugin">
+            <!-- 通过配置startPage影响Example中的page方法开始分页的页码，默认分页从0开始 -->
+            <property name="startPage" value="0"/>
+        </plugin>
+        <!-- 批量插入插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.BatchInsertPlugin">
+            <!--
+            开启后可以实现官方插件根据属性是否为空决定是否插入该字段功能
+            ！需开启allowMultiQueries=true多条sql提交操作，所以不建议使用！插件默认不开启
+            -->
+            <property name="allowMultiQueries" value="false"/>
+        </plugin>
+        <!-- Example Criteria 增强插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.ExampleEnhancedPlugin">
+            <!-- 是否支持已经过时的andIf方法（推荐使用when代替），默认支持 -->
+            <property name="enableAndIf" value="true"/>
+        </plugin>
+        <!-- Example 目标包修改插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.ExampleTargetPlugin">
+            <!-- 修改Example类生成到目标包下 -->
+            <property name="targetPackage" value="com.emcikem.llm.dao.example"/>
+        </plugin>
+        <!-- Lombok插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.LombokPlugin">
+            <!-- @Data 默认开启,同时插件会对子类自动附加@EqualsAndHashCode(callSuper = true)，@ToString(callSuper = true) -->
+            <property name="@Data" value="true"/>
+            <!-- @Builder 必须在 Lombok 版本 >= 1.18.2 的情况下开启，对存在继承关系的类自动替换成@SuperBuilder -->
+            <property name="@Builder" value="false"/>
+            <!-- @NoArgsConstructor 和 @AllArgsConstructor 使用规则和Lombok一致 -->
+            <property name="@AllArgsConstructor" value="false"/>
+            <property name="@NoArgsConstructor" value="false"/>
+            <!-- @Getter、@Setter、@Accessors 等使用规则参见官方文档 -->
+            <property name="@Accessors(chain = true)" value="false"/>
+            <!-- 临时解决IDEA工具对@SuperBuilder的不支持问题，开启后(默认未开启)插件在遇到@SuperBuilder注解时会调用ModelBuilderPlugin来生成相应的builder代码 -->
+            <property name="supportSuperBuilderForIdea" value="false"/>
+        </plugin>
+        <!-- 自定义注释插件 -->
+        <plugin type="com.itfsw.mybatis.generator.plugins.CommentPlugin">
+            <!-- 自定义模板路径 -->
+            <property name="template" value="src/main/resources/default-comment.ftl" />
+        </plugin>
+
+        <commentGenerator>
+            <!-- 是否去除自动生成的注释 true：是 ： false:否 -->
+            <property name="suppressAllComments" value="false"/>
+            <property name="suppressDate" value="true"/>
+            <property name="addRemarkComments" value="true"/>
+        </commentGenerator>
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="jdbc:mysql://localhost:3306/llmops"
+                        userId="root"
+                        password="lct09051415"
+                        >
+        </jdbcConnection>
+
+        <javaModelGenerator targetPackage="com.emcikem.llm.dao.entity" targetProject="src/main/java">
+            <property name="enableSubPackages" value="true"/>
+            <property name="trimStrings" value="true"/>
+        </javaModelGenerator>
+
+        <sqlMapGenerator targetPackage="mapper" targetProject="src/main/resources">
+            <property name="enableSubPackages" value="true"/>
+        </sqlMapGenerator>
+
+        <javaClientGenerator type="XMLMAPPER" targetPackage="com.emcikem.llm.dao.mapper" targetProject="src/main/java">
+            <property name="enableSubPackages" value="true"/>
+        </javaClientGenerator>
+
+<!--        <table tableName="llmops_chat_history" domainObjectName="LlmOpsChatHistoryDO">-->
+<!--            <columnOverride column="role" property="role" javaType="java.lang.Integer" />-->
+<!--        </table>-->
+<!--        <table tableName="llmops_chat_dialog" domainObjectName="LlmOpsChatDialogDO">-->
+<!--        </table>-->
+        <table tableName="llmops_account" domainObjectName="LlmOpsAccountDO">
+        </table>
+        <table tableName="llmops_dataset" domainObjectName="LlmOpsDatasetDO">
+            <columnOverride column="description" javaType="java.lang.String"/>
+        </table>
+        <table tableName="llmops_api_key" domainObjectName="LlmOpsApiKeyDO">
+            <columnOverride column="is_active" javaType="java.lang.Integer"/>
+        </table>
+        <table tableName="llmops_api_tool" domainObjectName="LlmOpsApiToolDO">
+        </table>
+        <table tableName="llmops_api_tool_provider" domainObjectName="LlmOpsApiToolProviderDO">
+        </table>
+        <table tableName="llmops_app" domainObjectName="LlmOpsAppDO">
+        </table>
+        <table tableName="llmops_workflow" domainObjectName="LlmOpsWorkflowDO">
+        </table>
+        <table tableName="llmops_dataset_query" domainObjectName="LlmOpsDatasetQueryDO">
+        </table>
+        <table tableName="llmops_document" domainObjectName="LlmOpsDocumentDO">
+        </table>
+        <table tableName="llmops_segment" domainObjectName="LlmOpsSegmentDO">
+        </table>
+        <table tableName="llmops_message" domainObjectName="LlmOpsMessageDO">
+        </table>
+        <table tableName="llmops_conversation" domainObjectName="LlmOpsConversationDO">
+        </table>
+        <table tableName="llmops_app_config" domainObjectName="LlmOpsAppConfigDO">
+        </table>
+        <table tableName="llmops_upload_file" domainObjectName="LlmOpsUploadFileDO">
+        </table>
+        <table tableName="llmops_keyword_table" domainObjectName="LlmOpsKeywordTableDO">
+        </table>
+        <table tableName="llmops_process_rule" domainObjectName="LlmOpsProcessRuleDO">
+        </table>
+        <table tableName="llmops_app_dataset_join" domainObjectName="LlmOpsAppDatasetJoinDO">
+        </table>
+    </context>
+</generatorConfiguration>
