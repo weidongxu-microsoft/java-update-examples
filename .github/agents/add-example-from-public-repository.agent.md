@@ -42,6 +42,15 @@ When confirmed, follow below steps to add the example:
 1. Build and test it, according to README.md or CONTRIBUTING.md instructions (e.g. "mvn clean package verify"). Run existing tests (e.g. "mvn test" or "gradle test") to confirm they pass — these tests will later serve as a migration verification baseline. Stop if build failure.
 1. Print the dependency tree (e.g. "mvn dependency:tree" for maven projects). Double confirm the existence of legacy Azure Java SDKs.
 1. Delete the ".git" folder from the repository folder.
+1. **Redact secrets.** Scan the cloned repository for hardcoded secrets (API keys, connection strings, passwords, tokens, private keys, etc.) and replace them with placeholder values (e.g. `<REDACTED>`, `YOUR_API_KEY_HERE`). Common locations to check:
+   - Configuration files (`application.properties`, `application.yml`, `*.config`, `.env`)
+   - Source code string literals and constant definitions
+   - Test fixtures and resource files
+   - CI/CD pipeline files (`.github/workflows/`, `Jenkinsfile`, etc.)
+   - Documentation and README files with example credentials
+   If GitHub push protection blocks the push due to detected secrets, follow the ["Resolving a blocked push"](https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push) guide:
+   - If the secret is in the latest commit: remove it, then `git commit --amend --all`.
+   - If the secret is in an earlier commit: use `git rebase -i <COMMIT-ID>~1` to edit the offending commit, remove the secret, `git commit --amend`, then `git rebase --continue`.
 1. Move the "{example-name}" folder in the temporary folder to "azure-legacy-sdk-update-{example-name}" folder at project root.
 1. Delete the temporary folder.
 1. Update README.md to add a new line in the list of examples, following the existing format. List legacy Azure dependencies used in the project for convenience of reference. If the project is not Java dominant, add a note for what language it is mainly using. If possible, specify JDK version used in the project.
