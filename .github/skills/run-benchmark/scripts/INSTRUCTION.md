@@ -1,8 +1,23 @@
 Upgrade deprecated legacy Azure Java SDKs(`com.microsoft.azure`) used for this project to the modern ones(`com.azure`) with latest stable version using Java Upgrade tools by invoking #generate_upgrade_plan.
 Help with looking up the latest stable version on https://repo1.maven.org/maven2/ and proceed with migration. `azure-resourcemanager-xx` should have groupId `com.azure.resourcemanager` instead of `com.azure`.
 If Java version is below 8, upgrade Java version within the same #generate_upgrade_plan call.
-For all available choices, just proceed with the one you see fittest. Try other options if current one doesn't work. Don't stop until full migration is done.
+For all available choices, just proceed with the one you see fittest. Try other options if current one doesn't work.
 Upgrade both dependencies and source code.
+**You MUST complete the entire migration in this session. Do NOT stop partway through.** See [Critical: Do Not Stop Mid-Migration](#critical-do-not-stop-mid-migration) below.
+
+# Critical: Do Not Stop Mid-Migration
+
+You are expected to carry the migration to completion — either fully succeed or encounter an unrecoverable error. The following behaviors are **strictly prohibited**:
+
+- **Do NOT stop to summarize progress.** Never output a message listing "what was done" and "what remains" as your final response. This includes phrases like "the migration is well-positioned to continue with…", "remaining work items include…", or "the next steps would be…".
+- **Do NOT treat partial migration as acceptable.** Migrating some files but not others is not a valid stopping point. You must attempt every file and every dependency.
+- **Do NOT hand off work to the user.** Never suggest the user "continue" or "complete the remaining items." You are responsible for finishing everything.
+- **If you hit an error on one file, move on to the next.** A failure in one source file should not prevent you from migrating the rest. Come back to fix it after attempting all files.
+- **If a build fails after migration, debug and fix it.** Do not stop at "build failed." Investigate the errors, fix them, and rebuild. Repeat until the build passes or you have exhausted all reasonable approaches.
+
+**The only acceptable stopping conditions are:**
+1. The migration is fully complete and the build passes.
+2. You have attempted everything and an unrecoverable error prevents further progress (e.g., a fundamental API incompatibility with no workaround). In this case, clearly state the blocker.
 
 # Context
 
@@ -67,7 +82,7 @@ dependencies {
 ## Migrate Java Code
 
 - Make a list of source code/maven/gradle files that contains legacy SDK packages. Migrate each of them.
-- Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Package-Specific Migration Guides](#package-specific-migration-guides) and follow the guides whenever possible.
+- Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Package-Specific Migration Guides](#package-specific-migration-guides) and follow the guides whenever possible. Record which migration guide URL you used for each legacy package (e.g., in your plan or commit messages), so you can validate against them later.
 - Do not change the Java `package ...;` declaration at the top of each source file; update import statements and type usages as needed.
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
@@ -180,12 +195,20 @@ AzureResourceManager.configure()
     .authenticate(credential, profile);
 ```
 
-## Validation
+## Validation (Add these validations to plan)
 
 **Make sure**
 - Migrated project pass compilation.
 - All tests pass. Don't silently skip tests.
 - No legacy SDK dependencies/references exist.
+- If azure-sdk-bom is used, ensure no explicit version dependencies for Azure libraries that are in azure-sdk-bom. 
+  E.g. Instead of `implementation 'com.azure.resourcemanager:azure-resourcemanager:2.60.0'`, we should use `implementation 'com.azure.resourcemanager:azure-resourcemanager'`.
+  For Azure libraries in azure-sdk-bom, check https://repo1.maven.org/maven2/com/azure/azure-sdk-bom/{bom_version}/azure-sdk-bom-{bom_version}.pom (bom_version be version used during migration)
+- For each migration guide you recorded during migration:
+  1. Fetch and read the full content of the guide URL.
+  2. Identify the migrated source files that correspond to that guide's package.
+  3. Verify the migrated code follows the guide's recommended API replacements, class mappings, authentication patterns, and async/sync conventions.
+  4. Fix any deviations — do not just report them.
 
 ## Package-Specific Migration Guides
 
