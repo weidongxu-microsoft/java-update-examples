@@ -3,26 +3,33 @@ name: legacy-azure-sdk-for-java-upgrade
 description: 'Upgrade legacy Azure Java SDKs (com.microsoft.azure) to modern Azure SDKs (com.azure). USE FOR: "upgrade legacy azure sdk", "migrate azure java sdk". DO NOT USE FOR: "generate upgrade skill", "run benchmark", "analyze benchmark". INVOKES: shell commands, web_fetch, file read/write.'
 ---
 
-Upgrade all `com.microsoft.azure.*` dependencies to `com.azure.*` equivalents. Autonomous, non-interactive — complete the entire migration in one session.
+Upgrade all `com.microsoft.azure.*` to `com.azure.*` equivalents in one autonomous session.
 
 ## References
 
-- [Rules and Workflow](./references/RULES.md) — success criteria, anti-excuse rules, do-not-stop policy, detailed phased workflow
-- [Migration Guidelines](./references/INSTRUCTION.md) — package mappings, code samples, validation checklist
+- [Rules and Workflow](./references/RULES.md) — success criteria, anti-excuse rules, phased workflow
+- [Migration Guidelines](./references/INSTRUCTION.md) — package mappings, code samples, validation
+- [Plan Template](./references/PLAN_TEMPLATE.md) · [Progress Template](./references/PROGRESS_TEMPLATE.md) · [Summary Template](./references/SUMMARY_TEMPLATE.md)
 
 ## Workflow
 
-1. **Precheck** — Verify Maven/Gradle project, detect JDK and build tools
-2. **Plan** — Inventory legacy deps, map to modern equivalents, consult [Migration Guidelines](./references/INSTRUCTION.md)
-3. **Execute** — Update build config, then source code file by file per [Migration Guidelines](./references/INSTRUCTION.md), build and test
-4. **Validate** — Apply [validation checklist](./references/INSTRUCTION.md#validation), ensure compilation passes, all tests pass, no legacy refs remain
+1. **Precheck** — Verify Maven/Gradle project, detect JDK/build tools, create `plan.md` from [Plan Template](./references/PLAN_TEMPLATE.md)
+2. **Plan** — Inventory deps, consult [Migration Guidelines](./references/INSTRUCTION.md), populate `plan.md`
+3. **Execute** — Create `progress.md` from [Progress Template](./references/PROGRESS_TEMPLATE.md), migrate build config then source, build/test/fix
+4. **Validate** — Create `summary.md` from [Summary Template](./references/SUMMARY_TEMPLATE.md), apply [validation checklist](./references/INSTRUCTION.md#validation)
 
-## Key Constraints
+## Constraints
 
-- **100% test pass rate** — every failure must be fixed, no exceptions
-- **No premature termination** — finish entire migration or document unrecoverable blocker
-- **Incremental upgrades** — stepwise dependency changes to minimize breakage
-- **Review each step** — verify sufficiency and necessity before proceeding
-- Use wrapper scripts (`mvnw`/`gradlew`) when present; use `grep` over full file reads
+- 100% test pass · no premature termination · incremental changes · review each step
+- Prefer wrappers (`mvnw`/`gradlew`) · see [Rules](./references/RULES.md) for details
 
-See [Rules and Workflow](./references/RULES.md) for full execution rules and detailed workflow phases.
+## Examples
+
+```
+"upgrade legacy azure sdk" → precheck → plan → execute → validate
+```
+
+## Troubleshooting
+
+- **Build fails**: Debug, fix, rebuild per [Rules](./references/RULES.md)
+- **Test failures**: Iterative fix loop — [Rules](./references/RULES.md)
