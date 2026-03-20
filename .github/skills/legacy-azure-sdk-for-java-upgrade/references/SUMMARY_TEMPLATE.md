@@ -49,7 +49,7 @@
 
   **Upgrade Goals Achieved**:
   - ✅ All com.microsoft.azure.* dependencies replaced with com.azure.* equivalents
-  - ✅ Authentication updated to use Azure Identity
+  - ✅ Source code migrated to modern Azure SDK APIs
 -->
 
 | Metric     | Baseline | Final | Status |
@@ -64,16 +64,17 @@
 ## Tech Stack Changes
 
 <!--
-  Table documenting all dependency changes made during the migration.
+  Table documenting all dependency changes made during the upgrade.
   Only include dependencies that were actually changed.
 
   SAMPLE:
-  | Dependency                                        | Before   | After                        | Reason                              |
-  | ------------------------------------------------- | -------- | ---------------------------- | ----------------------------------- |
-  | com.microsoft.azure:azure                         | 1.41.4   | Removed                      | Replaced by azure-resourcemanager   |
-  | com.azure.resourcemanager:azure-resourcemanager   | N/A      | 2.x.x                       | Modern replacement                  |
-  | com.azure:azure-identity                          | N/A      | 1.x.x                       | Modern authentication               |
-  | com.azure:azure-sdk-bom                           | N/A      | 1.3.3                        | Centralized version management      |
+  | Dependency                                      | Before  | After                                            | Reason                              |
+  | ----------------------------------------------- | ------- | ------------------------------------------------ | ----------------------------------- |
+  | com.microsoft.azure:azure-mgmt-resources        | 1.41.4  | Removed                                          | Replaced by azure-resourcemanager   |
+  | com.azure.resourcemanager:azure-resourcemanager  | N/A     | (managed by azure-sdk-bom)                       | Modern replacement                  |
+  | com.microsoft.azure:azure-client-authentication  | 1.7.14  | Removed                                          | Replaced by azure-identity          |
+  | com.azure:azure-identity                         | N/A     | (managed by azure-sdk-bom)                       | Modern auth library                 |
+  | com.azure:azure-sdk-bom                          | N/A     | 1.3.3                                            | Centralized version management      |
 -->
 
 | Dependency | Before | After | Reason |
@@ -82,15 +83,15 @@
 ## Commits
 
 <!--
-  List all commits made during the migration with their short IDs and messages.
+  List all commits made during the upgrade with their short IDs and messages.
 
   SAMPLE:
-  | Commit  | Message                                                              |
-  | ------- | -------------------------------------------------------------------- |
-  | abc1234 | Step 1: Setup Baseline - Compile: SUCCESS \| Tests: 12/12 passed    |
-  | def5678 | Step 2: Update Build Configuration - Compile: SUCCESS                |
-  | ghi9012 | Step 3: Migrate Source Code - Compile: SUCCESS                       |
-  | xyz3456 | Step 4: Final Validation - Compile: SUCCESS \| Tests: 12/12 passed  |
+  | Commit  | Message                                                                |
+  | ------- | ---------------------------------------------------------------------- |
+  | abc1234 | Step 1: Setup Baseline - Compile: SUCCESS \| Tests: 12/12 passed      |
+  | def5678 | Step 2: Migrate Azure Dependencies - Compile: SUCCESS                  |
+  | ghi9012 | Step 3: Migrate Source Code - Compile: SUCCESS                         |
+  | jkl3456 | Step 4: Final Validation - Compile: SUCCESS \| Tests: 12/12 passed    |
 -->
 
 | Commit | Message |
@@ -99,24 +100,24 @@
 ## Challenges
 
 <!--
-  Document key challenges encountered during the migration and how they were resolved.
+  Document key challenges encountered during the upgrade and how they were resolved.
 
   SAMPLE:
-  - **Authentication Pattern Migration**
-    - **Issue**: Legacy file-based auth using Azure.configure().authenticate(credentialFile)
-    - **Resolution**: Parsed credential JSON with Jackson, used ClientSecretCredential with AzureProfile
-    - **Files Changed**: AzureConfig.java, ServiceClient.java
+  - **Authentication Migration**
+    - **Issue**: Legacy code uses Azure.authenticate(credentialFile) which has no direct equivalent in modern SDK.
+    - **Resolution**: Read credential file with Jackson ObjectMapper, construct ClientSecretCredential, use AzureProfile.
+    - **Files Changed**: AzureHelper.java, AppConfig.java
 
-  - **Resource Manager API Differences**
-    - **Issue**: Method signatures changed between legacy and modern resource manager
-    - **Resolution**: Followed track2 migration guide, updated fluent builder calls
-    - **Files Changed**: ResourceService.java, VmManager.java
+  - **Fluent API Changes**
+    - **Issue**: Method names differ between legacy Azure.management and modern azure-resourcemanager.
+    - **Resolution**: Followed migration guide at https://aka.ms/java-track2-migration-guide
+    - **Files Changed**: ResourceProvisioner.java, StorageSetup.java
 -->
 
 ## Limitations
 
 <!--
-  Document any genuinely unfixable limitations that remain after the migration.
+  Document any genuinely unfixable limitations that remain after the upgrade.
   This section should be empty if all issues were resolved.
   Only include items where: (1) multiple fix approaches were attempted, (2) root cause is identified,
   (3) fix is technically impossible without breaking other functionality.
@@ -125,33 +126,33 @@
 ## Review Code Changes Summary
 
 <!--
-  Document review code changes results from the migration.
-  This section ensures the migration is both sufficient (complete) and necessary (no extraneous changes),
+  Document review code changes results from the upgrade.
+  This section ensures the upgrade is both sufficient (complete) and necessary (no extraneous changes),
   with original functionality and security controls preserved.
 
   VERIFICATION AREAS:
-  1. Sufficiency: All required migration changes are present — no missing modifications
+  1. Sufficiency: All required upgrade changes are present — no missing modifications
   2. Necessity: All changes are strictly necessary — no unnecessary modifications, including:
      - Functional Behavior Consistency: Business logic, API contracts, expected outputs
      - Security Controls Preservation (critical subset of behavior):
-       - Authentication: Login mechanisms, session management, token validation
-       - Authorization: Role-based access control, permission checks, access policies
-       - Password handling: Password encoding/hashing algorithms
-       - Security configurations: CORS policies, CSRF protection, security headers, OAuth/OIDC configurations
+       - Authentication: Login mechanisms, session management, token validation, MFA configurations
+       - Authorization: Role-based access control, permission checks, access policies, security annotations (@PreAuthorize, @Secured, etc.)
+       - Password handling: Password encoding/hashing algorithms, password policies, credential storage
+       - Security configurations: CORS policies, CSRF protection, security headers, SSL/TLS settings, OAuth/OIDC configurations
        - Audit logging: Security event logging, access logging
 
   SAMPLE (no issues):
   **Review Status**: ✅ All Passed
 
-  **Sufficiency**: ✅ All required migration changes are present
+  **Sufficiency**: ✅ All required upgrade changes are present
   **Necessity**: ✅ All changes are strictly necessary
   - Functional Behavior: ✅ Preserved — business logic, API contracts unchanged
-  - Security Controls: ✅ Preserved — authentication, authorization, security configs unchanged
+  - Security Controls: ✅ Preserved — authentication, authorization, password handling, security configs, audit logging unchanged
 
   SAMPLE (with behavior changes):
   **Review Status**: ⚠️ Changes Documented Below
 
-  **Sufficiency**: ✅ All required migration changes are present
+  **Sufficiency**: ✅ All required upgrade changes are present
 
   **Necessity**: ⚠️ Behavior changes required by SDK migration (documented below)
   - Functional Behavior: ✅ Preserved
@@ -159,25 +160,25 @@
 
   | Area               | Change Made                                      | Reason                                         | Equivalent Behavior   |
   | ------------------ | ------------------------------------------------ | ---------------------------------------------- | --------------------- |
-  | Authentication     | File-based → ClientSecretCredential              | Modern SDK requires explicit credential setup  | ✅ Same auth flow     |
+  | Authentication     | Azure.authenticate() → ClientSecretCredential    | Legacy auth API removed in modern SDK           | ✅ Same credentials   |
 -->
 
 ## Next Steps
 
 <!--
-  Recommendations for post-migration actions.
+  Recommendations for post-upgrade actions.
 
   SAMPLE:
   - [ ] Run full integration test suite in staging environment
   - [ ] Performance testing to validate no regression
+  - [ ] Update CI/CD pipelines if dependency versions changed
   - [ ] Update documentation to reflect new Azure SDK versions
-  - [ ] Review deprecated API usages flagged during migration
+  - [ ] Review azure-sdk-bom version periodically for updates
 -->
 
 ## Artifacts
 
-<!-- Links to related files generated during the migration. -->
-
-- **Plan**: `plan.md`
-- **Progress**: `progress.md`
-- **Summary**: `summary.md` (this file)
+- **Plan**: `.github/java-upgrade/<RUN_ID>/plan.md`
+- **Progress**: `.github/java-upgrade/<RUN_ID>/progress.md`
+- **Summary**: `.github/java-upgrade/<RUN_ID>/summary.md` (this file)
+- **Branch**: `java-upgrade/<RUN_ID>`

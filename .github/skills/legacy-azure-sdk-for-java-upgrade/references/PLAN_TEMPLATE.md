@@ -50,7 +50,7 @@
 
   **Build Tools**
   - Maven 3.9.6: /path/to/maven
-  - Maven Wrapper: 3.8.1 → **<TO_BE_UPGRADED>** to 3.9.6+ (current version incompatible with target)
+  - Maven Wrapper: 3.8.1 → **<TO_BE_UPGRADED>** to 3.9.6+ (current version incompatible with project requirements)
 -->
 
 ## Guidelines
@@ -66,13 +66,12 @@
 ## Upgrade Goals
 
 <!--
-  List the Azure SDK migration goals:
-  - Replace all com.microsoft.azure.* dependencies with com.azure.* equivalents
-  - Any additional user-requested goals (e.g., Java upgrade if below JDK 8)
+  The primary goal is to replace all legacy Azure SDK dependencies (com.microsoft.azure.*) with their
+  modern equivalents (com.azure.*). List any additional user-specified goals below.
 
   SAMPLE:
-  - Replace all legacy Azure SDK dependencies (com.microsoft.azure.*) with modern equivalents (com.azure.*)
-  - Upgrade Java from 7 to 8 (if below JDK 8)
+  - Replace all `com.microsoft.azure.*` dependencies with `com.azure.*` equivalents
+  - Migrate source code to use modern Azure SDK APIs (builder pattern, Azure Identity)
 -->
 
 ### Technology Stack
@@ -81,48 +80,42 @@
   Table of core dependencies and their compatibility with upgrade goals.
   IMPORTANT: Analyze ALL modules in multi-module projects, not just the root module.
   Only include: direct dependencies + those critical for upgrade compatibility.
-  CRITICAL: Identify and clearly flag EOL (End of Life) dependencies - these pose security risks and must be upgraded.
 
   Columns:
-  - Technology/Dependency: Name of the dependency (mark EOL dependencies with "⚠️ EOL" suffix)
+  - Technology/Dependency: Name of the dependency
   - Current: Version currently in use
-  - Min Compatible Version: Minimum version that works with upgrade goals (or N/A if replaced)
-  - Why Incompatible: Explanation of incompatibility, or "-" if already compatible. For EOL deps, mention security/support concerns.
+  - Modern Equivalent: The com.azure.* replacement (or N/A if not an Azure SDK dep)
+  - Migration Notes: Notes on migration approach
 
   IMPORTANT: Include build tools (Maven/Gradle), wrappers, and key build plugins in this table.
-  Build tools and plugins are upgrade-critical even though they are not runtime dependencies.
 
   SAMPLE:
-  | Technology/Dependency                              | Current | Min Compatible | Why Incompatible                                             |
-  | -------------------------------------------------- | ------- | -------------- | ------------------------------------------------------------ |
-  | Java                                               | 8       | 8              | -                                                            |
-  | com.microsoft.azure:azure ⚠️ EOL                   | 1.41.4  | N/A            | Replaced by com.azure.resourcemanager:azure-resourcemanager  |
-  | com.microsoft.azure:azure-storage ⚠️ EOL           | 8.0.0   | N/A            | Replaced by com.azure:azure-storage-blob                     |
-  | Maven (wrapper)                                    | 3.6.3   | 3.6.3          | -                                                            |
-  | maven-compiler-plugin                              | 3.8.1   | 3.8.1          | -                                                            |
+  | Technology/Dependency                    | Current | Modern Equivalent                          | Migration Notes                              |
+  | ---------------------------------------- | ------- | ------------------------------------------ | -------------------------------------------- |
+  | com.microsoft.azure:azure-mgmt-resources | 1.41.4  | com.azure.resourcemanager:azure-resourcemanager | Use azure-sdk-bom for version management |
+  | com.microsoft.azure:azure-mgmt-storage   | 1.41.4  | com.azure.resourcemanager:azure-resourcemanager | Included in azure-resourcemanager        |
+  | com.microsoft.azure:azure-client-authentication | 1.7.14 | com.azure:azure-identity             | Use ClientSecretCredential or DefaultAzureCredential |
+  | Maven (wrapper)                          | 3.6.3   | -                                          | Check compatibility with project JDK         |
 -->
 
-| Technology/Dependency | Current | Min Compatible | Why Incompatible |
-| --------------------- | ------- | -------------- | ---------------- |
+| Technology/Dependency | Current | Modern Equivalent | Migration Notes |
+| --------------------- | ------- | ----------------- | --------------- |
 
 ### Derived Upgrades
 
 <!--
   Required upgrades inferred from the Azure SDK migration.
   Each derived upgrade must have a justification explaining WHY it's required.
-  Common derivations for Azure SDK migration:
-  - com.microsoft.azure:azure → com.azure.resourcemanager:azure-resourcemanager
-  - com.microsoft.azure:azure-storage → com.azure:azure-storage-blob
-  - com.microsoft.azure:azure-keyvault → com.azure:azure-security-keyvault-*
-  - com.microsoft.azure:azure-servicebus → com.azure:azure-messaging-servicebus
-  - com.microsoft.azure:azure-eventhubs → com.azure:azure-messaging-eventhubs
-  - Authentication: Azure Identity (com.azure:azure-identity) for modern auth flows
-  - BOM: com.azure:azure-sdk-bom for centralized version management
+  Common derivations:
+  - Legacy auth (azure-client-authentication) → azure-identity
+  - Legacy management (azure-mgmt-*) → azure-resourcemanager or specific azure-resourcemanager-* modules
+  - Legacy data plane SDKs → modern com.azure equivalents
+  - Add azure-sdk-bom for version management
 
   SAMPLE:
-  - Replace com.microsoft.azure:azure with com.azure.resourcemanager:azure-resourcemanager (legacy SDK EOL)
-  - Add com.azure:azure-identity for modern authentication (required by modern SDKs)
-  - Add com.azure:azure-sdk-bom for centralized version management (recommended best practice)
+  - Add azure-sdk-bom for centralized version management of com.azure.* dependencies
+  - Replace azure-client-authentication with azure-identity (modern authentication library)
+  - Add jackson-databind if file-based authentication is used and Jackson is not already present
 -->
 
 ## Upgrade Steps
@@ -139,8 +132,7 @@
   - Final step: COMPILATION SUCCESS + TEST PASS through iterative fix loop.
 
   MANDATORY FIRST STEP:
-  The first step MUST always be:
-  1. Setup Baseline (establish pre-upgrade compile/test results)
+  The first step MUST always be Setup Baseline.
 
   MANDATORY SETUP BASELINE STEP SAMPLE:
 
@@ -156,35 +148,19 @@
 
   ---
 
-  SAMPLE STEP (dependency upgrade):
+  SAMPLE STEP (dependency migration):
 
-  - Step N: Update Build Configuration for Modern Azure SDK
-    - **Rationale**: Replace legacy com.microsoft.azure dependencies with com.azure equivalents in build config.
+  - Step N: Migrate Azure Management Dependencies
+    - **Rationale**: Replace legacy com.microsoft.azure management dependencies with modern com.azure.resourcemanager equivalents.
     - **Changes to Make**:
-      - [ ] Add azure-sdk-bom to dependency management
-      - [ ] Replace com.microsoft.azure:azure with com.azure.resourcemanager:azure-resourcemanager
-      - [ ] Add com.azure:azure-identity for authentication
-      - [ ] Remove legacy azure dependencies
+      - [ ] Add azure-sdk-bom to dependencyManagement
+      - [ ] Replace com.microsoft.azure:azure-mgmt-* with com.azure.resourcemanager:azure-resourcemanager
+      - [ ] Remove com.microsoft.azure:azure-client-authentication, add com.azure:azure-identity
+      - [ ] Fix compilation errors from API changes
     - **Verification**:
       - Command: `mvn clean test-compile -q`
       - JDK: <JDK path>
-      - Expected: Compilation SUCCESS (tests may fail - will be fixed in later steps)
-
-  ---
-
-  SAMPLE STEP (source code migration):
-
-  - Step N: Migrate Source Code to Modern Azure SDK
-    - **Rationale**: Update Java source files to use modern Azure SDK APIs.
-    - **Changes to Make**:
-      - [ ] Update import statements from com.microsoft.azure.* to com.azure.*
-      - [ ] Migrate authentication to Azure Identity (ClientSecretCredential, etc.)
-      - [ ] Update fluent API builder calls to match modern SDK surface
-      - [ ] Migrate test code to use modern SDK APIs
-    - **Verification**:
-      - Command: `mvn clean test-compile -q`
-      - JDK: <JDK path>
-      - Expected: Compilation SUCCESS
+      - Expected: Compilation SUCCESS (tests may fail - will be fixed in Final Validation)
 
   ---
 
@@ -207,20 +183,19 @@
 ## Key Challenges
 
 <!--
-  Document high-risk areas that require special attention during migration.
+  Document high-risk areas that require special attention during upgrade.
   Each challenge should have a mitigation strategy. Be concise.
   Common challenges for Azure SDK migration:
-  - Authentication pattern changes (file-based auth, service principal, managed identity)
-  - Async/reactive API changes
-  - Package namespace changes (com.microsoft.azure → com.azure)
-  - API surface changes (fluent builders, different method names)
-  - Resource manager API differences
+  - Authentication pattern changes (file-based auth, service principal)
+  - API surface changes (fluent builder patterns differ between legacy and modern)
+  - Async/reactive pattern differences
+  - Package structure changes (com.microsoft.azure.management.* → com.azure.resourcemanager.*)
 
   SAMPLE:
-  - **Authentication Pattern Migration**
-     - **Challenge**: Legacy file-based authentication using Azure.configure().authenticate(credentialFile) must be replaced with explicit credential parsing.
-     - **Strategy**: Parse credential JSON with Jackson, use ClientSecretCredential with AzureProfile. See Migration Guidelines for code samples.
-  - **Resource Manager API Changes**
-     - **Challenge**: Method signatures and return types differ between legacy and modern resource manager.
-     - **Strategy**: Follow the track2 migration guide for each resource type. Use grep to find all usages before migrating.
+  - **Authentication Migration**
+     - **Challenge**: Legacy code uses file-based authentication via Azure.authenticate(credentialFile). Modern SDK requires explicit credential construction.
+     - **Strategy**: Read credential file with Jackson ObjectMapper, construct ClientSecretCredential, use AzureProfile for subscription context.
+  - **Fluent API Changes**
+     - **Challenge**: Method names and builder patterns differ between legacy and modern Azure Resource Manager.
+     - **Strategy**: Follow the migration guide at https://aka.ms/java-track2-migration-guide for method-level mappings.
 -->

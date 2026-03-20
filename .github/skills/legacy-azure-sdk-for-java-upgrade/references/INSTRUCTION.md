@@ -25,6 +25,8 @@ Follow these steps:
 
 It is recommended to use azure-sdk-bom (version higher than 1.3.0).
 
+Help with looking up the latest stable version on https://repo1.maven.org/maven2/ and proceed with migration. `azure-resourcemanager-xx` should have groupId `com.azure.resourcemanager` instead of `com.azure`.
+
 Example of pom.xml
 ```xml
     <dependencyManagement>
@@ -50,7 +52,6 @@ Example of pom.xml
         </dependency>
     </dependencies>
 ```
-
 Example of build.gradle
 ```groovy
 dependencies {
@@ -61,10 +62,6 @@ dependencies {
 }
 ```
 
-`azure-resourcemanager-xx` should have groupId `com.azure.resourcemanager` instead of `com.azure`.
-
-Help with looking up the latest stable version on https://repo1.maven.org/maven2/ and proceed with migration.
-
 ### Migrate Java Code
 
 - Make a list of source code/maven/gradle files that contains legacy SDK packages. Migrate each of them.
@@ -73,9 +70,7 @@ Help with looking up the latest stable version on https://repo1.maven.org/maven2
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
 
-## Package-Specific Source Code Guidelines
-
-Include these guidelines in the migration plan when applicable.
+## Package-Specific Source Code Guidelines (Add them to plan guidelines when generating plan)
 
 ### com.microsoft.azure.management.**
 
@@ -90,7 +85,6 @@ Include these guidelines in the migration plan when applicable.
 #### Code Samples
 
 ##### Authentication with File
-
 Even though file-based authentication is deprecated in the modern SDKs, preserve the existing logic when performing the upgrade.
 
 Legacy code
@@ -100,9 +94,7 @@ Azure azure = Azure.configure()
     .authenticate(credentialFile)
     .withDefaultSubscription();
 ```
-
 can be updated to read the JSON file via `ObjectMapper` from the Jackson library and authenticate with the `ClientSecretCredential` class.
-
 ```java
 final File credentialFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
 ObjectMapper mapper = new ObjectMapper();
@@ -129,9 +121,7 @@ If Jackson is not included in the project, add a compatible version of `jackson-
 Handle `IOException` and other checked exceptions according to the project's standards.
 
 ##### ProviderRegistrationInterceptor
-
-If legacy client (XXManager) initializes with `ProviderRegistrationInterceptor`, check whether this client is one of the premium ones:
-
+If legacy client(XXManager) initializes with `ProviderRegistrationInterceptor`, check whether this client is one of the premium ones:
 - Azure
 - AuthorizationManager
 - CdnManager
@@ -154,11 +144,11 @@ If legacy client (XXManager) initializes with `ProviderRegistrationInterceptor`,
 - StorageManager
 - TrafficManager
 
-If not a premium client, add `ProviderRegistrationPolicy` when initializing the client. Otherwise, don't.
+If not, add `ProviderRegistrationPolicy` when initializing the client. Otherwise, don't.
 
-For each legacy client, determine whether to initialize with `ProviderRegistrationPolicy`, add it to the migration plan, and migrate accordingly.
+For each legacy client, add along with whether to initialize with `ProviderRegistrationPolicy`, to the generated plan guideline, and migrate accordingly.
 
-1. Legacy client (not premium client):
+1. Legacy client(not premium client):
 ```java
 BatchManager batchManager = BatchManager.configure()
     .withLogLevel(LogLevel.BASIC)
@@ -173,7 +163,7 @@ BatchManager batchManager = BatchManager.configure()
     .authenticate(credential, profile);
 ```
 
-2. Legacy client (premium client):
+2. Legacy client(premium clients):
 ```java
 Azure azure = Azure.configure()
     .withInterceptor(new ProviderRegistrationInterceptor(credentials))

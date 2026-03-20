@@ -49,14 +49,15 @@
 
   **Review Code Changes Actions**:
   - Review each changed file for missing upgrade changes, unintended behavior or security modifications
-  - If behavior must change due to SDK requirements, document the change, the reason, and confirm equivalent functionality/protection is maintained
+  - If behavior must change due to framework requirements, document the change, the reason, and confirm equivalent functionality/protection is maintained
   - Add missing changes that are required for the upgrade step to be complete
   - Revert unnecessary changes that don't affect behavior or security controls
   - Document review results in progress.md and commit message
 
   ### Commit Message Format
-  - First line: `Step <x>: <title> - Compile: <result> | Tests: <pass>/<total> passed`
+  - First line: `Step <x>: <title> - Compile: <result>` or `Step <x>: <title> - Compile: <result>, Tests: <pass>/<total> passed`
   - Body: Changes summary + concise known issues/limitations (≤5 lines)
+  - **Security note**: If any security-related changes were made, include "Security: <change description and justification>"
 
   ### Efficiency (IMPORTANT)
   - **Targeted reads**: Use `grep` over full file reads; read specific sections, not entire files. Template files are large - only read the section you need.
@@ -67,7 +68,7 @@
 # Upgrade Progress: <PROJECT_NAME> (<RUN_ID>)
 
 - **Started**: <timestamp> <!-- replace with actual start timestamp -->
-- **Plan Location**: `plan.md`
+- **Plan Location**: `.github/java-upgrade/<RUN_ID>/plan.md`
 - **Total Steps**: <number of steps from plan.md>
 
 ## Step Details
@@ -101,25 +102,25 @@
 
   SAMPLE UPGRADE STEP:
 
-  - **Step X: Update Build Configuration for Modern Azure SDK**
+  - **Step X: Migrate Azure Management Dependencies**
     - **Status**: ✅ Completed
     - **Changes Made**:
-      - Added azure-sdk-bom 1.3.3 to dependency management
-      - Replaced com.microsoft.azure:azure with com.azure.resourcemanager:azure-resourcemanager
-      - Added com.azure:azure-identity for authentication
+      - Added azure-sdk-bom to dependencyManagement
+      - Replaced com.microsoft.azure:azure-mgmt-* with com.azure.resourcemanager
+      - Replaced azure-client-authentication with azure-identity
     - **Review Code Changes**:
       - Sufficiency: ✅ All required changes present
       - Necessity: ✅ All changes necessary
-        - Functional Behavior: ✅ Preserved - dependency replacement only
-        - Security Controls: ✅ Preserved - no security-related changes
+        - Functional Behavior: ✅ Preserved - API contracts and business logic unchanged
+        - Security Controls: ✅ Preserved - authentication pattern updated with equivalent protection
     - **Verification**:
       - Command: `mvn clean test-compile -q`
       - JDK: /usr/lib/jvm/java-8-openjdk
       - Build tool: /usr/local/maven/bin/mvn
       - Result: ✅ Compilation SUCCESS | ⚠️ Tests: 10/12 passed (2 failures deferred to Final Validation)
-      - Notes: 2 test failures related to changed API signatures
-    - **Deferred Work**: Fix 2 test failures in source code migration step
-    - **Commit**: abc1234 - Step X: Update Build Configuration - Compile: SUCCESS | Tests: 10/12 passed
+      - Notes: 2 test failures related to auth mock setup
+    - **Deferred Work**: Fix 2 test failures in Final Validation step (TestAuthHelper, TestResourceCreation)
+    - **Commit**: abc1234 - Step X: Migrate Azure Management Dependencies - Compile: SUCCESS, Tests: 10/12 passed
 
   ---
 
@@ -128,20 +129,21 @@
   - **Step X: Final Validation**
     - **Status**: ✅ Completed
     - **Changes Made**:
-      - Verified no legacy com.microsoft.azure dependencies remain
+      - Verified no legacy com.microsoft.azure.* dependencies remain
       - Resolved 2 TODOs from Step 3
-      - Fixed 3 test failures (API signature changes, auth flow updates)
+      - Fixed 2 test failures (auth mock setup, resource assertion)
     - **Review Code Changes**:
       - Sufficiency: ✅ All required changes present
       - Necessity: ✅ All changes necessary
         - Functional Behavior: ✅ Preserved - all business logic and API contracts maintained
-        - Security Controls: ✅ Preserved - authentication flows provide equivalent protection
+        - Security Controls: ✅ Preserved - all authentication, authorization unchanged
     - **Verification**:
       - Command: `mvn clean test -q`
       - JDK: /usr/lib/jvm/java-8-openjdk
+      - Build tool: /usr/local/maven/bin/mvn
       - Result: ✅ Compilation SUCCESS | ✅ Tests: 12/12 passed (100% pass rate achieved)
     - **Deferred Work**: None - all TODOs resolved
-    - **Commit**: xyz5678 - Step X: Final Validation - Compile: SUCCESS | Tests: 12/12 passed
+    - **Commit**: xyz3456 - Step X: Final Validation - Compile: SUCCESS, Tests: 12/12 passed
 -->
 
 ---
@@ -158,6 +160,6 @@
 
   SAMPLE:
   - azure-sdk-bom simplified version management significantly
-  - Authentication migration required careful handling of file-based credentials
-  - Resource manager API had significant method signature changes compared to legacy SDK
+  - Authentication migration required adding jackson-databind for file-based auth
+  - Modern SDK fluent API method names differ from legacy — migration guide was essential
 -->
