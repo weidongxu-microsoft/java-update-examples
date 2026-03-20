@@ -76,17 +76,17 @@ description: 'Upgrades legacy Azure Java SDKs (com.microsoft.azure) to modern Az
 | MCP Tool / Pattern | Action | Replacement |
 |---|---|---|
 | All `#appmod-report-event(...)` calls **except** template-copying milestones | **Remove** | Delete — internal telemetry |
-| `#appmod-report-event(event: "precheckCompleted")` | **Replace** | "Create `plan.md` in the project directory from `references/PLAN_TEMPLATE.md` — replace placeholders (`<SESSION_ID>` → use a short UUID or timestamp, `<PROJECT_NAME>`, `<current_branch>`, `<current_commit_id>`, datetime) and follow the HTML-comment instructions to populate each section" |
-| `#appmod-report-event(event: "planExecutionCompleted")` | **Replace** | "Create `summary.md` in the project directory from `references/SUMMARY_TEMPLATE.md` — replace placeholders and follow HTML-comment instructions to populate final results" |
+| `#appmod-report-event(event: "precheckCompleted")` | **Replace** | "Create `.github/java-upgrade/{RUN_ID}/plan.md` from `references/PLAN_TEMPLATE.md` — replace placeholders (`<SESSION_ID>` → `<RUN_ID>`, `<PROJECT_NAME>`, `<current_branch>`, `<current_commit_id>`, datetime) and follow the HTML-comment instructions to populate each section" |
+| `#appmod-report-event(event: "planExecutionCompleted")` | **Replace** | "Create `.github/java-upgrade/{RUN_ID}/summary.md` from `references/SUMMARY_TEMPLATE.md` — replace placeholders and follow HTML-comment instructions to populate final results" |
 | Entire "Event Reporting" section | **Remove** | Delete the section and its rules |
-| `#appmod-confirm-upgrade-plan(...)` | **Replace** | "Create `progress.md` in the project directory from `references/PROGRESS_TEMPLATE.md` — replace placeholders. Log the migration plan, then proceed to execution without pausing for confirmation" |
+| `#appmod-confirm-upgrade-plan(...)` | **Replace** | "Create `.github/java-upgrade/{RUN_ID}/progress.md` from `references/PROGRESS_TEMPLATE.md` — replace placeholders. Log the migration plan, then proceed to execution without pausing for confirmation" |
 | `#appmod-list-jdks(...)` | **Replace** | See expanded replacement below ¹ |
 | `#appmod-list-mavens(...)` | **Replace** | See expanded replacement below ² |
 | `#appmod-install-jdk(...)` | **Remove** | Replace with Prerequisites note: "JDK 8+ must be pre-installed" |
 | `#appmod-install-maven(...)` | **Remove** | Replace with Prerequisites note: "Maven or Gradle must be pre-installed" |
 | `#appmod-build-java-project(...)` | **Replace** | "Run `mvn clean test-compile` (or `./gradlew compileTestJava` for Gradle)" |
 | `#appmod-run-tests-for-java(...)` | **Replace** | "Run `mvn clean test` (or `./gradlew test` for Gradle)" |
-| `#appmod-validate-cves-for-java(...)` | **Remove** | CVE scanning is out of scope |
+| `#appmod-validate-cves-for-java(...)` | **Replace** | Replace MCP tool call with a lightweight post-migration CVE check: "Extract direct dependencies (`mvn dependency:list -DexcludeTransitive=true` or `./gradlew dependencies --configuration runtimeClasspath`), then run OWASP Dependency-Check (`mvn org.owasp:dependency-check-maven:check` or `./gradlew dependencyCheckAnalyze`). Report Critical/High CVEs. This step is optional but recommended." |
 | `#appmod-generate-tests-for-java(...)` | **Remove** | Test generation is out of scope |
 | `#askQuestions` | **Remove** | Non-interactive, autonomous mode |
 | `#appmod-preview-markdown` | **Remove** | Not needed |
@@ -98,7 +98,8 @@ description: 'Upgrades legacy Azure Java SDKs (com.microsoft.azure) to modern Az
 > 1. Check `JAVA_HOME` and `JDK_HOME` environment variables
 > 2. Run `java -version` and `javac -version` to detect the default JDK
 > 3. Search common JDK installation paths:
->    - Windows: `C:\Program Files\Java\`, `C:\Program Files\Eclipse Adoptium\`, `C:\Program Files\Microsoft\`, `%USERPROFILE%\.jdk\`, `%USERPROFILE%\.jdks\`
+>    - Windows: `C:\Program Files\Java\`, `C:\Program Files\Eclipse Adoptium\`, `C:\Program Files\Eclipse Foundation\`, `C:\Program Files\Microsoft\`, `C:\Program Files\Amazon Corretto\`, `C:\Program Files\Azul\`, `C:\Program Files\SAP\`, `%USERPROFILE%\.jdks\`
+>    - Windows (Chocolatey): `%ChocolateyInstall%\lib\*jdk*\`, `%ProgramData%\chocolatey\lib\*jdk*\`
 >    - Linux: `/usr/lib/jvm/`, `/opt/`, `/usr/local/java/`
 >    - macOS: `/Library/Java/JavaVirtualMachines/`, `~/.sdkman/candidates/java/`
 > 4. Check for version manager installations (SDKMAN, ASDF, jenv, Jabba)
@@ -114,7 +115,12 @@ description: 'Upgrades legacy Azure Java SDKs (com.microsoft.azure) to modern Az
 > 2. If a wrapper exists, read `.mvn/wrapper/maven-wrapper.properties` or `gradle/wrapper/gradle-wrapper.properties` to determine the wrapper-defined version
 > 3. Run `mvn --version` or `gradle --version` to detect system installations
 > 4. Check `MAVEN_HOME`/`M2_HOME` environment variables
-> 5. Search common Maven installation paths
+> 5. Search common Maven installation paths:
+>    - Linux: `/usr/share/maven`, `/usr/local/apache-maven-*`, `/opt/apache-maven-*`
+>    - macOS: Homebrew directory (`/opt/homebrew/Cellar/maven/`, `/usr/local/Cellar/maven/`)
+>    - Windows: `C:\Program Files\Apache\apache-maven-*`, `C:\Program Files (x86)\Apache\apache-maven-*`
+>    - Windows (Chocolatey): `%ChocolateyInstall%\lib\maven\apache-maven`
+>    - All platforms: `~/.maven`
 >
 > Report all found installations with their path, version, and source.
 
@@ -122,15 +128,15 @@ description: 'Upgrades legacy Azure Java SDKs (com.microsoft.azure) to modern Az
 
 | Section | Action |
 |---|---|
-| `SESSION_ID` system and all references | **Simplify** — replace `SESSION_ID` with a simpler mechanism (use a short UUID or timestamp generated at the start of execution). Remove `SessionContextManager` and MCP session tracking, but keep the concept of a unique run identifier for plan/progress/summary file naming |
+| `SESSION_ID` system and all references | **Adapt** — replace `SESSION_ID` with `RUN_ID` (format: `azure-sdk-upgrade-YYYYMMDD-HHMMSS`). Remove `SessionContextManager` and MCP session tracking. **Preserve the output directory structure**: plan/progress/summary files go under `.github/java-upgrade/{RUN_ID}/` in the project being migrated (matching the upstream session directory pattern) |
 | "Session ID Consistency" section | **Remove** — the simplified ID does not require the same cross-tool consistency rules |
 | Phase 3: "Confirm Plan with User" | **Remove** — non-interactive mode. Instead, after plan generation, proceed directly to creating `progress.md` and starting execution |
-| Phase 5: "Summarize & Cleanup" | **Simplify** — remove CVE scan, coverage collection. Keep: "Create `summary.md` from `references/SUMMARY_TEMPLATE.md` and populate it. Verify all goals met" |
+| Phase 5: "Summarize & Cleanup" | **Simplify** — remove coverage collection. Keep: "Create `summary.md` from `references/SUMMARY_TEMPLATE.md` and populate it. Verify all goals met." Retain CVE check as optional: "If OWASP Dependency-Check is available, run a post-migration CVE scan and include results in `summary.md`" |
 | Phase 6: "Prompt for Follow-up Actions" | **Remove** entirely |
 | "Handoffs" section | **Remove** |
-| References to `plan.md` / `progress.md` / `summary.md` templates | **Keep and adapt** — the templates are now skill reference files. Replace upstream template paths (`agents/java-upgrade.*.template.md`) with skill reference paths (`references/PLAN_TEMPLATE.md`, `references/PROGRESS_TEMPLATE.md`, `references/SUMMARY_TEMPLATE.md`). The workflow is: create each file from its template at the appropriate phase, populate sections following the HTML-comment instructions, then remove the HTML comments |
-| "Template compliance" rule | **Adapt** — change from "follow rules in each section's HTML comments of the specific files when populating plan.md, progress.md, summary.md" to "follow the HTML-comment instructions in the template reference files when creating and populating plan.md, progress.md, summary.md" |
-| "Git-optional mode" and git stash/branch management | **Simplify** — remove branch creation, stash push/pop. Keep: "commit changes if git is available" |
+| References to `plan.md` / `progress.md` / `summary.md` templates | **Keep and adapt** — the templates are now skill reference files. Replace upstream template paths (`agents/java-upgrade.*.template.md`) with skill reference paths (`references/PLAN_TEMPLATE.md`, `references/PROGRESS_TEMPLATE.md`, `references/SUMMARY_TEMPLATE.md`). The workflow is: create each file under `.github/java-upgrade/{RUN_ID}/` from its template at the appropriate phase, populate sections following the HTML-comment instructions, then remove the HTML comments |
+| "Template compliance" rule | **Adapt** — change from "follow rules in each section's HTML comments of the specific files when populating plan.md, progress.md, summary.md" to "follow the HTML-comment instructions in the template reference files when creating and populating `.github/java-upgrade/{RUN_ID}/plan.md`, `progress.md`, `summary.md`" |
+| "Git-optional mode" and git stash/branch management | **Adapt** — remove stash push/pop. **Keep branch creation**: create branch `java-upgrade/{RUN_ID}` before starting migration, commit changes per step. If git is not available, log a warning and proceed without branching or committing |
 | "Version Knowledge" section (LTS versions, Spring Boot) | **Remove** — not relevant |
 | "Intermediate Version Strategy" section | **Remove** — not relevant |
 
@@ -179,7 +185,7 @@ Apply these transformations to **all three** template files:
    - `#appmod-validate-cves-for-java(...)` → Delete (out of scope)
    - `#appmod-install-jdk(...)` → Delete (JDK must be pre-installed)
 
-2. **Replace SESSION_ID mechanism**: Replace `<SESSION_ID>` placeholder references with a simpler approach — use a timestamp or short identifier (e.g., `<RUN_ID>` generated as `azure-sdk-upgrade-YYYYMMDD-HHMMSS`). Remove any references to `SessionContextManager` or MCP session management.
+2. **Replace SESSION_ID mechanism**: Replace `<SESSION_ID>` placeholder references with `<RUN_ID>` (format: `azure-sdk-upgrade-YYYYMMDD-HHMMSS`). Remove any references to `SessionContextManager` or MCP session management. Preserve the output directory pattern: plan/progress/summary files are created under `.github/java-upgrade/{RUN_ID}/` in the project being migrated.
 
 3. **Remove VS Code-specific features**: Remove references to `#appmod-preview-markdown`, `previewMarkdown`, VS Code output channels, and any UI-specific instructions.
 
@@ -215,7 +221,7 @@ Apply these transformations to **all three** template files:
 - Keep: Upgrade Result, Tech Stack Changes, Commits, Challenges, Limitations, Review Summary, Next Steps
 - Remove: CVE Scan Results section entirely
 - Remove: Test Coverage section (optional — keep if simple, remove if it references JaCoCo-specific tooling)
-- Simplify: Artifacts section — remove session-directory-specific paths, use project-relative paths
+- Simplify: Artifacts section — use `.github/java-upgrade/{RUN_ID}/` relative paths for plan.md, progress.md, summary.md
 
 #### Writing the Templates
 
@@ -226,10 +232,10 @@ Write the three transformed template files to:
 3. **`references/SUMMARY_TEMPLATE.md`** → `.github/skills/legacy-azure-sdk-for-java-upgrade/references/SUMMARY_TEMPLATE.md`
 
 **In `SKILL.md`**, update the workflow to reference the templates:
-- Phase 1 (Precheck): "On success, create `plan.md` from `references/PLAN_TEMPLATE.md`"
+- Phase 1 (Precheck): "On success, create `.github/java-upgrade/{RUN_ID}/plan.md` from `references/PLAN_TEMPLATE.md`"
 - Phase 2 (Plan): "Populate `plan.md` following the HTML-comment instructions in each section"
-- Phase 3 (Execute): "Create `progress.md` from `references/PROGRESS_TEMPLATE.md` before starting execution. Update `progress.md` after each step."
-- Phase 4 (Validate): "Create `summary.md` from `references/SUMMARY_TEMPLATE.md` and populate with final results."
+- Phase 3 (Execute): "Create `.github/java-upgrade/{RUN_ID}/progress.md` from `references/PROGRESS_TEMPLATE.md` before starting execution. Update `progress.md` after each step."
+- Phase 4 (Validate): "Create `.github/java-upgrade/{RUN_ID}/summary.md` from `references/SUMMARY_TEMPLATE.md` and populate with final results."
 
 ### Step 5: Write the Output
 
@@ -310,3 +316,43 @@ After each fix, re-run `waza check` as described in the loop above.
 - The generated skill should be fully self-contained — no external tool dependencies beyond standard shell commands, web fetch, and file system access.
 - The three template files (`PLAN_TEMPLATE.md`, `PROGRESS_TEMPLATE.md`, `SUMMARY_TEMPLATE.md`) contain HTML comments that serve as LLM instructions. The agent reads these comments when creating plan.md/progress.md/summary.md, follows the instructions to populate each section, then removes the comments. This is the primary mechanism for structured plan-driven migration.
 - The upstream templates are located in the `agents/` directory of the EMU project, not in `src/java-upgrade/tools/`. The MCP tools (`ReportEventTool`, `ConfirmPlanTool`) merely copy these templates to the session directory at milestone events — the template content itself is the important part.
+
+## Removal Decision Log
+
+This section documents why each upstream MCP tool and agent section was removed or simplified, and where its content was captured (if applicable). Refer to this log when evaluating whether a removed capability should be restored.
+
+### MCP Tools
+
+| Tool | Decision | Rationale | Content Captured In |
+|---|---|---|---|
+| `#appmod-report-event(...)` (non-milestone) | Removed | Internal telemetry — no skill equivalent. No user-facing value. | N/A |
+| `#appmod-report-event(...)` (milestone: precheckCompleted) | Replaced | Template-copying behavior extracted. | Step 3b → "Create plan.md from PLAN_TEMPLATE.md" |
+| `#appmod-report-event(...)` (milestone: planExecutionCompleted) | Replaced | Template-copying behavior extracted. | Step 3b → "Create summary.md from SUMMARY_TEMPLATE.md" |
+| `#appmod-confirm-upgrade-plan(...)` | Replaced | Non-interactive mode — plan confirmation removed. Template-copying behavior extracted. | Step 3b → "Create progress.md from PROGRESS_TEMPLATE.md" |
+| `#appmod-list-jdks(...)` | Replaced | JDK detection logic translated to platform-specific path instructions. Source: `src/java-upgrade/utils/jdk.ts` → `listJdks()`. | Step 3b expanded replacement ¹ → generated RULES.md |
+| `#appmod-list-mavens(...)` | Replaced | Build tool detection logic translated to path instructions. Source: `src/java-upgrade/utils/maven/index.ts` → `listMavens()`. | Step 3b expanded replacement ² → generated RULES.md |
+| `#appmod-install-jdk(...)` | Removed | Azure SDK migration requires only JDK 8+ (typically already installed). Source: `src/java-upgrade/tools/InstallJdkTool.ts` (downloads from Microsoft/Adoptium). | Prerequisites note in generated RULES.md |
+| `#appmod-install-maven(...)` | Removed | Same rationale as install-jdk. Source: `src/java-upgrade/tools/InstallMavenTool.ts`. | Prerequisites note in generated RULES.md |
+| `#appmod-build-java-project(...)` | Replaced | Tool is **DEPRECATED** even in upstream (comment: "use run_terminal directly"). Source: `src/java-upgrade/tools/BuildProjectTool.ts`. | Step 3b → direct `mvn`/`gradle` commands |
+| `#appmod-run-tests-for-java(...)` | Replaced | Same — **DEPRECATED** upstream. Source: `src/java-upgrade/tools/RunTestsTool.ts`. | Step 3b → direct `mvn`/`gradle` commands |
+| `#appmod-validate-cves-for-java(...)` | Replaced (optional) | CVE scanning retained as optional post-migration step using OWASP Dependency-Check. Source: `src/java-upgrade/tools/ValidateCvesTool.ts`. | Step 3b → optional OWASP command |
+| `#appmod-generate-tests-for-java(...)` | Removed | Test generation is out of scope for Azure SDK migration. Source: `src/java-upgrade/tools/GenerateTestsTool.ts` (contains 106-line orchestration prompt). | N/A — not applicable to Azure SDK scope |
+| `#askQuestions` | Removed | Non-interactive, autonomous mode. | N/A |
+| `#appmod-preview-markdown` | Removed | VS Code-specific UI feature. | N/A |
+| `#generate_upgrade_plan` | Removed | The skill itself IS the plan and executor. | N/A |
+
+### Agent Sections
+
+| Section | Decision | Rationale |
+|---|---|---|
+| Event Reporting section & rules | Removed | Dependent on `#appmod-report-event` which is telemetry-only |
+| SESSION_ID system | Adapted → RUN_ID with `.github/java-upgrade/{RUN_ID}/` directory | MCP session tracking removed; directory structure preserved for plan/progress/summary output |
+| Session ID Consistency section | Removed | Simplified ID doesn't require cross-tool consistency rules |
+| Phase 3: Confirm Plan with User | Removed | Non-interactive mode; plan proceeds directly to execution |
+| Phase 5: CVE scan + coverage | Simplified | CVE retained as optional; coverage collection removed (no JaCoCo dependency) |
+| Phase 6: Follow-up Actions | Removed | Dependent on `#askQuestions` and handoffs (VS Code-specific) |
+| Handoffs (Fix CVEs, Generate Tests) | Removed | VS Code agent handoff mechanism; not applicable to skills |
+| Version Knowledge (Java LTS, Spring Boot) | Removed | Not relevant to Azure SDK migration scope (fixed JDK 8+ requirement) |
+| Intermediate Version Strategy | Removed | Not relevant — Azure SDK migration doesn't require version stepping |
+| Git branch management | Adapted | Stash push/pop removed; branch creation preserved (`java-upgrade/{RUN_ID}`), commit per step, git-optional with warning |
+| Template compliance rule | Adapted | Changed from MCP-specific file references to skill reference paths with `.github/java-upgrade/{RUN_ID}/` output directory |

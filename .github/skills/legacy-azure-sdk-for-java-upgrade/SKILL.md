@@ -13,10 +13,10 @@ Upgrade all `com.microsoft.azure.*` to `com.azure.*` equivalents in one autonomo
 
 ## Workflow
 
-1. **Precheck** — Verify Maven/Gradle project, detect JDK/build tools, create `plan.md` from [Plan Template](./references/PLAN_TEMPLATE.md)
+1. **Precheck** — Verify Maven/Gradle project, detect JDK/build tools, create `.github/java-upgrade/{RUN_ID}/plan.md` from [Plan Template](./references/PLAN_TEMPLATE.md). If git available, create branch `java-upgrade/{RUN_ID}`.
 2. **Plan** — Inventory deps, consult [Migration Guidelines](./references/INSTRUCTION.md), populate `plan.md`
-3. **Execute** — Create `progress.md` from [Progress Template](./references/PROGRESS_TEMPLATE.md), migrate build config then source, build/test/fix
-4. **Validate** — Create `summary.md` from [Summary Template](./references/SUMMARY_TEMPLATE.md), apply [validation checklist](./references/INSTRUCTION.md#validation)
+3. **Execute** — Create `.github/java-upgrade/{RUN_ID}/progress.md` from [Progress Template](./references/PROGRESS_TEMPLATE.md), migrate build config then source, build/test/fix, commit per step
+4. **Validate** — Create `.github/java-upgrade/{RUN_ID}/summary.md` from [Summary Template](./references/SUMMARY_TEMPLATE.md), apply [validation checklist](./references/INSTRUCTION.md#validation)
 
 ## Constraints
 

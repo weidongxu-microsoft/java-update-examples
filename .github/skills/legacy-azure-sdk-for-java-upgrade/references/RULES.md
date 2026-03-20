@@ -52,9 +52,10 @@ After completing changes in each step, review code changes per the rules in the 
 ## Execution Guidelines
 
 - **Wrapper preference**: Use Maven Wrapper (`mvnw`/`mvnw.cmd`) or Gradle Wrapper (`gradlew`/`gradlew.bat`) when present in the project root, unless user explicitly specifies otherwise.
-- **Template compliance**: Follow the HTML-comment instructions in the template reference files when creating and populating `plan.md`, `progress.md`, `summary.md`. You may remove the HTML comments after populating each section.
+- **Template compliance**: Follow the HTML-comment instructions in the template reference files when creating and populating `.github/java-upgrade/{RUN_ID}/plan.md`, `progress.md`, `summary.md`. You may remove the HTML comments after populating each section.
+- **Output directory**: All plan/progress/summary files are created under `.github/java-upgrade/{RUN_ID}/` in the project being migrated. Create this directory at the start of the run.
 - **Uninterrupted run**: Complete each phase fully without pausing for user input.
-- **Git**: Commit changes if git is available. If git is not available, log a warning and proceed — files remain uncommitted in the working directory. Use `N/A` for `<current_branch>` and `<current_commit_id>` placeholders.
+- **Git**: If git is available, create a new branch `java-upgrade/{RUN_ID}` before starting the migration. Commit changes per step on this branch. If git is not available, log a warning and proceed — files remain uncommitted in the working directory. Use `N/A` for `<current_branch>` and `<current_commit_id>` placeholders.
 
 ## Efficiency
 
@@ -96,7 +97,7 @@ Detect build tools:
 
 Report all found installations with their path, version, and source.
 
-**On success**: Create `plan.md` in the project directory from the Plan Template — replace placeholders (`<RUN_ID>`, `<PROJECT_NAME>`, `<current_branch>`, `<current_commit_id>`, datetime) and follow the HTML-comment instructions to populate each section.
+**On success**: Create `.github/java-upgrade/{RUN_ID}/plan.md` from the Plan Template — replace placeholders (`<RUN_ID>`, `<PROJECT_NAME>`, `<current_branch>`, `<current_commit_id>`, datetime) and follow the HTML-comment instructions to populate each section.
 
 ## Phase 2: Generate Upgrade Plan
 
@@ -139,7 +140,7 @@ Report all found installations with their path, version, and source.
 2. Revise plan as needed for completeness and feasibility; document unfixable limitations in "Plan Review" section
 3. Ensure all sections of `plan.md` are fully populated (per **Template compliance** rule) and all HTML comments removed
 
-After plan generation, proceed directly to execution — create `progress.md` from the Progress Template, replace placeholders, and begin execution. Log the migration plan, then proceed without pausing for confirmation.
+After plan generation, proceed directly to execution — create `.github/java-upgrade/{RUN_ID}/progress.md` from the Progress Template, replace placeholders, and begin execution. Log the migration plan, then proceed without pausing for confirmation.
 
 ## Phase 3: Execute Upgrade Plan
 
@@ -165,7 +166,7 @@ For each step:
    - **Final Validation Step**: Achieve **Upgrade Success Criteria** — iterative test & fix loop until 100% pass (or ≥ baseline). NO deferring.
    - Build: `mvn clean test-compile` (or `./gradlew compileTestJava` for Gradle)
    - Test: `mvn clean test` (or `./gradlew test` for Gradle)
-6. Commit with message format (if git available; otherwise, log details in `progress.md`):
+6. Commit on the `java-upgrade/{RUN_ID}` branch with message format (if git available; otherwise, log details in `progress.md`):
    - First line: `Step <x>: <title> - Compile: <result>` or `Step <x>: <title> - Compile: <result>, Tests: <pass>/<total> passed` (if tests run)
    - Body: Changes summary + concise known issues/limitations (≤5 lines)
    - **Security note**: If any security-related changes were made, include "Security: <change description and justification>"
@@ -178,7 +179,7 @@ For each step:
 
 ## Phase 4: Summarize & Validate
 
-1. Create `summary.md` in the project directory from the Summary Template — replace placeholders and follow HTML-comment instructions to populate final results.
+1. Create `.github/java-upgrade/{RUN_ID}/summary.md` from the Summary Template — replace placeholders and follow HTML-comment instructions to populate final results.
 2. Apply the validation checklist from the Migration Guidelines:
    - Migrated project passes compilation
    - All tests pass — don't silently skip tests
