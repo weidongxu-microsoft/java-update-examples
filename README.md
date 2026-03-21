@@ -34,6 +34,8 @@
 - **azure-legacy-sdk-update-llmops-java** – LLMOps platform based on LangChain4j with Azure Cognitive Services integration. Legacy Azure SDKs: `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-websearch:1.0.1`, `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-customsearch:1.0.1`. Uses Maven, JDK 17. From https://github.com/llm-manus/llmops-java
 - **azure-legacy-sdk-update-samza** – Apache Samza distributed stream processing framework with Azure integrations. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-storage:8.6.6`. Uses Gradle, has 19 test files in samza-azure module. From https://github.com/apache/samza
 
+- **azure-legacy-sdk-update-storage-blob-spring-boot** – Spring Boot web app ("Cloud File Manager") with REST API for Azure Blob Storage CRUD operations. Uses Track 1 `azure-storage:8.6.6`. Includes modern file-manager UI, unit tests, and azd deployment configuration. Purpose-built for live demo of legacy SDK upgrade.
+
 ## Example from public repository
 
 - https://github.com/rundeck-plugins/rundeck-azure-plugin

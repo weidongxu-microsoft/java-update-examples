@@ -32,3 +32,4 @@ azure-legacy-sdk-update-storage-v10,https://github.com/Azure/azure-sdk-for-java,
 azure-legacy-sdk-update-storage-v10-advanced,https://github.com/Azure/azure-sdk-for-java,maven,azure-storage-blob:10.5.0
 azure-legacy-sdk-update-storage-v8,https://github.com/Azure/azure-sdk-for-java,maven,azure-storage:8.6.6
 azure-legacy-sdk-update-teamcity-azure-agent,https://github.com/JetBrains/teamcity-azure-agent,gradle,azure:1.41.1|azure-storage:8.4.0
+azure-legacy-sdk-update-storage-blob-spring-boot,new-project,maven,azure-storage:8.6.6
