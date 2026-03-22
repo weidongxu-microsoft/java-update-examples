@@ -9,7 +9,6 @@ import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.BlobProperties;
-import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.example.blobmanager.model.BlobInfo;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -104,9 +103,9 @@ public class BlobStorageService {
             throws IOException {
         BlobContainerClient container = blobServiceClient.getBlobContainerClient(containerName);
         container.createIfNotExists();
-        BlockBlobClient blockBlob = container.getBlobClient(blobName).getBlockBlobClient();
-        blockBlob.upload(data, length, true);
-        blockBlob.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType));
+        BlobClient blob = container.getBlobClient(blobName);
+        blob.getBlockBlobClient().upload(data, length, true);
+        blob.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType));
     }
 
     public void downloadBlob(String containerName, String blobName, OutputStream outputStream) {
