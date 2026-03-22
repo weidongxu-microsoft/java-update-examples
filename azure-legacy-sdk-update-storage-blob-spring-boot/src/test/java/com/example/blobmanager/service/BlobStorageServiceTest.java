@@ -1,35 +1,42 @@
 package com.example.blobmanager.service;
 
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.BlobContainerItem;
+import com.azure.storage.blob.models.BlobHttpHeaders;
+import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.models.BlobItemProperties;
+import com.azure.storage.blob.models.BlobProperties;
+import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.example.blobmanager.model.BlobInfo;
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.blob.BlobProperties;
-import com.microsoft.azure.storage.blob.CloudBlobClient;
-import com.microsoft.azure.storage.blob.CloudBlobContainer;
-import com.microsoft.azure.storage.blob.CloudBlockBlob;
-import com.microsoft.azure.storage.blob.ListBlobItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.OutputStream;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,23 +45,27 @@ import static org.mockito.Mockito.when;
 class BlobStorageServiceTest {
 
     @Mock
-    private CloudBlobClient blobClient;
+    private BlobServiceClient blobServiceClient;
 
     private BlobStorageService service;
 
     @BeforeEach
     void setUp() {
         service = new BlobStorageService();
-        service.setBlobClient(blobClient);
+        service.setBlobServiceClient(blobServiceClient);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void listContainers_returnsContainerNames() {
-        CloudBlobContainer c1 = mock(CloudBlobContainer.class);
-        CloudBlobContainer c2 = mock(CloudBlobContainer.class);
+        BlobContainerItem c1 = mock(BlobContainerItem.class);
+        BlobContainerItem c2 = mock(BlobContainerItem.class);
         when(c1.getName()).thenReturn("photos");
         when(c2.getName()).thenReturn("documents");
-        when(blobClient.listContainers()).thenReturn(Arrays.asList(c1, c2));
+
+        PagedIterable<BlobContainerItem> paged = mock(PagedIterable.class);
+        doReturn(Arrays.asList(c1, c2).iterator()).when(paged).iterator();
+        when(blobServiceClient.listBlobContainers()).thenReturn(paged);
 
         List<String> result = service.listContainers();
 
@@ -64,48 +75,53 @@ class BlobStorageServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void listContainers_emptyWhenNone() {
-        when(blobClient.listContainers()).thenReturn(Collections.emptyList());
+        PagedIterable<BlobContainerItem> paged = mock(PagedIterable.class);
+        doReturn(Collections.emptyIterator()).when(paged).iterator();
+        when(blobServiceClient.listBlobContainers()).thenReturn(paged);
+
         assertTrue(service.listContainers().isEmpty());
     }
 
     @Test
     void createContainer_callsCreateIfNotExists() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("my-container")).thenReturn(container);
-
         service.createContainer("my-container");
 
-        verify(container).createIfNotExists();
+        verify(blobServiceClient).createBlobContainerIfNotExists("my-container");
     }
 
     @Test
     void deleteContainer_callsDeleteIfExists() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("old-container")).thenReturn(container);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        when(blobServiceClient.getBlobContainerClient("old-container")).thenReturn(containerClient);
 
         service.deleteContainer("old-container");
 
-        verify(container).deleteIfExists();
+        verify(containerClient).deleteIfExists();
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void listBlobs_returnsInfoForEachBlob() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("files")).thenReturn(container);
-        when(container.exists()).thenReturn(true);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        when(blobServiceClient.getBlobContainerClient("files")).thenReturn(containerClient);
+        when(containerClient.exists()).thenReturn(true);
 
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        BlobProperties props = mock(BlobProperties.class);
-        when(blob.getName()).thenReturn("readme.txt");
-        when(blob.getUri()).thenReturn(new URI("https://store.blob.core.windows.net/files/readme.txt"));
-        when(blob.getProperties()).thenReturn(props);
-        when(props.getLength()).thenReturn(1024L);
+        BlobItem blobItem = mock(BlobItem.class);
+        BlobItemProperties props = mock(BlobItemProperties.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobItem.getName()).thenReturn("readme.txt");
+        when(blobItem.getProperties()).thenReturn(props);
+        when(props.getContentLength()).thenReturn(1024L);
         when(props.getContentType()).thenReturn("text/plain");
-        when(props.getLastModified()).thenReturn(new Date(1700000000000L));
+        when(props.getLastModified()).thenReturn(OffsetDateTime.now());
 
-        List<ListBlobItem> items = Collections.singletonList(blob);
-        when(container.listBlobs()).thenReturn(items);
+        PagedIterable<BlobItem> pagedBlobs = mock(PagedIterable.class);
+        doReturn(Collections.singletonList(blobItem).iterator()).when(pagedBlobs).iterator();
+        when(containerClient.listBlobs()).thenReturn(pagedBlobs);
+        when(containerClient.getBlobClient("readme.txt")).thenReturn(blobClient);
+        when(blobClient.getBlobUrl()).thenReturn("https://store.blob.core.windows.net/files/readme.txt");
 
         List<BlobInfo> result = service.listBlobs("files");
 
@@ -118,43 +134,45 @@ class BlobStorageServiceTest {
 
     @Test
     void listBlobs_throwsIfContainerNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("missing")).thenReturn(container);
-        when(container.exists()).thenReturn(false);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        when(blobServiceClient.getBlobContainerClient("missing")).thenReturn(containerClient);
+        when(containerClient.exists()).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> service.listBlobs("missing"));
     }
 
     @Test
     void uploadBlob_uploadsWithContentType() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        BlobProperties props = mock(BlobProperties.class);
-        when(blobClient.getContainerReference("uploads")).thenReturn(container);
-        when(container.getBlockBlobReference("photo.jpg")).thenReturn(blob);
-        when(blob.getProperties()).thenReturn(props);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        BlockBlobClient blockBlobClient = mock(BlockBlobClient.class);
+        when(blobServiceClient.getBlobContainerClient("uploads")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("photo.jpg")).thenReturn(blobClient);
+        when(blobClient.getBlockBlobClient()).thenReturn(blockBlobClient);
 
         InputStream data = new ByteArrayInputStream("image-data".getBytes());
         service.uploadBlob("uploads", "photo.jpg", data, 10L, "image/jpeg");
 
-        verify(props).setContentType("image/jpeg");
-        verify(blob).upload(eq(data), eq(10L));
-        verify(container).createIfNotExists();
+        verify(containerClient).createIfNotExists();
+        verify(blockBlobClient).upload(eq(data), eq(10L), eq(true));
+        ArgumentCaptor<BlobHttpHeaders> headersCaptor = ArgumentCaptor.forClass(BlobHttpHeaders.class);
+        verify(blobClient).setHttpHeaders(headersCaptor.capture());
+        assertEquals("image/jpeg", headersCaptor.getValue().getContentType());
     }
 
     @Test
     void downloadBlob_writesToOutputStream() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("docs")).thenReturn(container);
-        when(container.getBlockBlobReference("file.txt")).thenReturn(blob);
-        when(blob.exists()).thenReturn(true);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobServiceClient.getBlobContainerClient("docs")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("file.txt")).thenReturn(blobClient);
+        when(blobClient.exists()).thenReturn(true);
 
         doAnswer(invocation -> {
-            ByteArrayOutputStream out = invocation.getArgument(0);
+            OutputStream out = invocation.getArgument(0);
             out.write("hello world".getBytes());
             return null;
-        }).when(blob).download(org.mockito.ArgumentMatchers.any());
+        }).when(blobClient).downloadStream(any());
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         service.downloadBlob("docs", "file.txt", out);
@@ -164,11 +182,11 @@ class BlobStorageServiceTest {
 
     @Test
     void downloadBlob_throwsIfBlobNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("docs")).thenReturn(container);
-        when(container.getBlockBlobReference("missing.txt")).thenReturn(blob);
-        when(blob.exists()).thenReturn(false);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobServiceClient.getBlobContainerClient("docs")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("missing.txt")).thenReturn(blobClient);
+        when(blobClient.exists()).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.downloadBlob("docs", "missing.txt", new ByteArrayOutputStream()));
@@ -176,38 +194,37 @@ class BlobStorageServiceTest {
 
     @Test
     void deleteBlob_returnsTrueWhenDeleted() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("data")).thenReturn(container);
-        when(container.getBlockBlobReference("old.csv")).thenReturn(blob);
-        when(blob.deleteIfExists()).thenReturn(true);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobServiceClient.getBlobContainerClient("data")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("old.csv")).thenReturn(blobClient);
+        when(blobClient.deleteIfExists()).thenReturn(true);
 
         assertTrue(service.deleteBlob("data", "old.csv"));
     }
 
     @Test
     void deleteBlob_returnsFalseWhenNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("data")).thenReturn(container);
-        when(container.getBlockBlobReference("nope.csv")).thenReturn(blob);
-        when(blob.deleteIfExists()).thenReturn(false);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobServiceClient.getBlobContainerClient("data")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("nope.csv")).thenReturn(blobClient);
+        when(blobClient.deleteIfExists()).thenReturn(false);
 
         assertFalse(service.deleteBlob("data", "nope.csv"));
     }
 
     @Test
     void getBlobInfo_returnsInfo() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
+        BlobContainerClient containerClient = mock(BlobContainerClient.class);
+        BlobClient blobClient = mock(BlobClient.class);
         BlobProperties props = mock(BlobProperties.class);
-        when(blobClient.getContainerReference("info")).thenReturn(container);
-        when(container.getBlockBlobReference("report.pdf")).thenReturn(blob);
-        when(blob.exists()).thenReturn(true);
-        when(blob.getProperties()).thenReturn(props);
-        when(blob.getName()).thenReturn("report.pdf");
-        when(blob.getUri()).thenReturn(new URI("https://store.blob.core.windows.net/info/report.pdf"));
-        when(props.getLength()).thenReturn(5000L);
+        when(blobServiceClient.getBlobContainerClient("info")).thenReturn(containerClient);
+        when(containerClient.getBlobClient("report.pdf")).thenReturn(blobClient);
+        when(blobClient.exists()).thenReturn(true);
+        when(blobClient.getProperties()).thenReturn(props);
+        when(blobClient.getBlobUrl()).thenReturn("https://store.blob.core.windows.net/info/report.pdf");
+        when(props.getBlobSize()).thenReturn(5000L);
         when(props.getContentType()).thenReturn("application/pdf");
         when(props.getLastModified()).thenReturn(null);
 
