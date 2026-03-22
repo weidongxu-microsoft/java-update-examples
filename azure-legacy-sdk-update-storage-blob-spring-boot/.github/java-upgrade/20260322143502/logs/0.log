@@ -1,0 +1,958 @@
+2026-03-22T14:35:02.131Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:35:02.131Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "event": "precheckCompleted",
+  "phase": "precheck",
+  "status": "succeeded"
+}}).
+2026-03-22T14:35:02.138Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:35:02.150Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'precheckCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:35:02.150Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:35:13.302Z [INFO] ---------------------prepare appmod-list-jdks----------------------
+2026-03-22T14:35:13.303Z [INFO] [Tool.prepareInvocation]({name: appmod-list-jdks, input: {
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:35:13.309Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:35:13.316Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "List jdks"
+}}).
+2026-03-22T14:35:13.329Z [INFO] ----------------------prepared appmod-list-jdks----------------------
+2026-03-22T14:35:13.337Z [INFO] ----------------------invoke appmod-list-jdks----------------------
+2026-03-22T14:35:13.346Z [INFO] [Tool.invoke]({name: appmod-list-jdks, input: {
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:35:13.352Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:35:13.579Z [INFO] [Tool.invoke]({result: {
+  "message": "We found following jdks in your system:\n\n1. Java 1.8.0_482\n   📁 Path: /Users/xiaofeicao/.jdk/jdk-8/Contents/Home/bin\n   🏷️ Source: install\n\n2. Java 11.0.30\n   📁 Path: /opt/homebrew/Cellar/openjdk@11/11.0.30/libexec/openjdk.jdk/Contents/Home/bin\n   🏷️ Source: others\n\n3. Java 17.0.9\n   📁 Path: /Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin\n   🏷️ Source: others\n\n4. Java 18.0.2.1\n   📁 Path: /Users/xiaofeicao/.jdk/jdk-18/Contents/Home/bin\n   🏷️ Source: install\n\n5. Java 21.0.3\n   📁 Path: /Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin\n   🏷️ Source: others\n\n6. Java 23.0.2\n   📁 Path: /opt/homebrew/Cellar/openjdk/23.0.2/libexec/openjdk.jdk/Contents/Home/bin\n   🏷️ Source: others\n\nTotal: 6 JDK installation(s) found"
+}}).
+2026-03-22T14:35:13.581Z [INFO] ----------------------invoked appmod-list-jdks----------------------
+2026-03-22T14:35:13.593Z [INFO] ---------------------prepare appmod-list-mavens----------------------
+2026-03-22T14:35:13.596Z [INFO] [Tool.prepareInvocation]({name: appmod-list-mavens, input: {
+  "sessionId": "20260322143502",
+  "includeVersion": true
+}}).
+2026-03-22T14:35:13.598Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:35:13.600Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "List mavens"
+}}).
+2026-03-22T14:35:13.602Z [INFO] ----------------------prepared appmod-list-mavens----------------------
+2026-03-22T14:35:13.606Z [INFO] ----------------------invoke appmod-list-mavens----------------------
+2026-03-22T14:35:13.608Z [INFO] [Tool.invoke]({name: appmod-list-mavens, input: {
+  "sessionId": "20260322143502",
+  "includeVersion": true
+}}).
+2026-03-22T14:35:13.610Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:35:15.981Z [INFO] [Tool.invoke]({result: {
+  "message": "We found following maven installations in your system:\n\n1. Maven 3.9.10\n   📁 Path: /opt/homebrew/Cellar/maven/3.9.10/bin\n   🏷️ Source: Homebrew\n\nTotal: 1 Maven installation(s) found"
+}}).
+2026-03-22T14:35:15.990Z [INFO] ----------------------invoked appmod-list-mavens----------------------
+2026-03-22T14:39:57.660Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:39:57.671Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planInitialized",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:39:57.674Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:39:57.677Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:39:57.680Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:39:57.685Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:39:57.689Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planInitialized",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:39:57.691Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:39:57.695Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planInitialized' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:39:57.698Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:01.015Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:01.027Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "environmentAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:01.035Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:01.040Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:01.045Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:01.054Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:01.062Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "environmentAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:01.067Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:01.072Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'environmentAnalyzed' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:01.077Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:04.204Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:04.212Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "dependenciesAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:04.220Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:04.228Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:04.234Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:04.244Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:04.250Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "dependenciesAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:04.255Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:04.260Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'dependenciesAnalyzed' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:04.266Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:07.545Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:07.549Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "upgradePathDesigned",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:07.553Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:07.557Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:07.561Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:07.569Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:07.576Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "upgradePathDesigned",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:07.579Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:07.582Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradePathDesigned' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:07.586Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:10.795Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:10.795Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planReviewed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:10.800Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:10.803Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:10.805Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:10.810Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:10.814Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planReviewed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:10.817Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:10.819Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planReviewed' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:10.822Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:13.641Z [INFO] ---------------------prepare appmod-confirm-upgrade-plan----------------------
+2026-03-22T14:40:13.642Z [INFO] [Tool.prepareInvocation]({name: appmod-confirm-upgrade-plan, input: {
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:40:13.648Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:13.653Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Review [upgrade plan](/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502/plan.md)",
+  "confirmationMessages": {
+    "title": "Plan generated",
+    "message": "Please review the generated plan and make any necessary adjustments before proceeding. You can modify the generated [`plan.md`](/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502/plan.md) directly."
+  }
+}}).
+2026-03-22T14:40:13.655Z [INFO] ----------------------prepared appmod-confirm-upgrade-plan----------------------
+2026-03-22T14:40:29.699Z [INFO] ----------------------invoke appmod-confirm-upgrade-plan----------------------
+2026-03-22T14:40:29.784Z [INFO] [Tool.invoke]({name: appmod-confirm-upgrade-plan, input: {
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:40:29.835Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:29.843Z [INFO] Upgrade plan confirmed successfully.
+2026-03-22T14:40:29.857Z [INFO] [Tool.invoke]({result: {
+  "message": "Generated plan is reviewed and confirmed by the user! the upgrade process will start now and be tracked in markdown file: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502/progress.md."
+}}).
+2026-03-22T14:40:29.866Z [INFO] ----------------------invoked appmod-confirm-upgrade-plan----------------------
+2026-03-22T14:40:33.743Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:33.751Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planConfirmed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:33.757Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:33.762Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:33.767Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:33.773Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:33.778Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planConfirmed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:33.783Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:33.787Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planConfirmed' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:33.792Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:40:55.897Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:40:55.898Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planExecutionStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:55.905Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:40:55.913Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:40:55.919Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:40:55.925Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:40:55.932Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planExecutionStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:40:55.938Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:40:55.980Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planExecutionStarted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:40:55.984Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:41:16.411Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:41:16.411Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "environmentSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded",
+  "details": {
+    "jdkPath": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "buildToolPath": "/opt/homebrew/Cellar/maven/3.9.10/bin/mvn"
+  }
+}}).
+2026-03-22T14:41:16.418Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:41:16.425Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:41:16.430Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:41:16.440Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:41:16.445Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "environmentSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded",
+  "details": {
+    "jdkPath": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "buildToolPath": "/opt/homebrew/Cellar/maven/3.9.10/bin/mvn"
+  }
+}}).
+2026-03-22T14:41:16.452Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:41:16.458Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot is a maven project, try to get java version from pom.xml
+2026-03-22T14:41:16.463Z [INFO] Project java version: 17
+2026-03-22T14:41:16.469Z [INFO] Maven project detected.
+2026-03-22T14:41:16.474Z [INFO] Build tool type: mvn
+2026-03-22T14:41:16.478Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-22T14:41:16.484Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin/mvn/bin",
+  "version": ""
+}
+2026-03-22T14:41:16.488Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin/mvn/bin",
+    "name": "mvn",
+    "version": ""
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "azure-legacy-sdk-update-storage-blob-spring-boot",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot"
+}
+2026-03-22T14:41:16.588Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'environmentSetup' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:41:16.591Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:41:48.115Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:41:48.116Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "baselineSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:41:48.124Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:41:48.133Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:41:48.141Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:41:48.150Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:41:48.158Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "baselineSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:41:48.163Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:41:48.169Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'baselineSetup' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:41:48.174Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:41:57.538Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:41:57.539Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Migrate pom.xml to Modern Azure SDK"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:41:57.548Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:41:57.555Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:41:57.561Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:41:57.570Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:41:57.581Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Migrate pom.xml to Modern Azure SDK"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:41:57.587Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:41:57.594Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:41:57.600Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:42:42.002Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:42:42.004Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "buildCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "failed",
+  "message": "Expected compilation failure - source code still uses legacy com.microsoft.azure.storage types, to be migrated in Step 4"
+}}).
+2026-03-22T14:42:42.014Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:42:42.022Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:42:42.028Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:42:42.036Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:42:42.044Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "buildCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "failed",
+  "message": "Expected compilation failure - source code still uses legacy com.microsoft.azure.storage types, to be migrated in Step 4"
+}}).
+2026-03-22T14:42:42.051Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:42:42.057Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot is a maven project, try to get java version from pom.xml
+2026-03-22T14:42:42.063Z [INFO] Project java version: 17
+2026-03-22T14:42:42.069Z [INFO] Maven project detected.
+2026-03-22T14:42:42.075Z [INFO] Build tool type: mvn
+2026-03-22T14:42:42.136Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-22T14:42:42.140Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew"
+}
+2026-03-22T14:42:42.142Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "azure-legacy-sdk-update-storage-blob-spring-boot",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot"
+}
+2026-03-22T14:42:42.144Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:42:42.146Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:42:42.148Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-0036b94c-b021-4aa9-a89c-083a1292ff60.log
+/bin/sh: mvn: command not found
+2026-03-22T14:42:42.158Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-0036b94c-b021-4aa9-a89c-083a1292ff60.log'
+2026-03-22T14:42:42.160Z [INFO] [BaseBuildTool] Found 0 modules: 
+2026-03-22T14:42:42.163Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-22T14:42:42.165Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot using Maven
+2026-03-22T14:42:42.167Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+/bin/sh: mvn: command not found
+2026-03-22T14:42:42.176Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:42:42.179Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:42:42.181Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-48ed00a1-53cf-44d3-8787-b81a163c8a64.log
+/bin/sh: mvn: command not found
+2026-03-22T14:42:42.191Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-48ed00a1-53cf-44d3-8787-b81a163c8a64.log'
+2026-03-22T14:42:42.194Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:42:42.196Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:43:01.075Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:43:01.077Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "4bd7feb",
+    "stepNumber": 3,
+    "stepTitle": "Migrate pom.xml to Modern Azure SDK"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:43:01.086Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:43:01.096Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:43:01.103Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:43:01.114Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:43:01.121Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "4bd7feb",
+    "stepNumber": 3,
+    "stepTitle": "Migrate pom.xml to Modern Azure SDK"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:43:01.127Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:43:01.177Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:43:01.181Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:43:10.763Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:43:10.763Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Migrate BlobStorageService.java"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:43:10.776Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:43:10.782Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:43:10.787Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:43:10.793Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:43:10.798Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Migrate BlobStorageService.java"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:43:10.805Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:43:10.810Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:43:10.815Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:44:21.547Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:44:21.549Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "d6609a5",
+    "stepNumber": 4,
+    "stepTitle": "Migrate BlobStorageService.java"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:44:21.562Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:44:21.570Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:44:21.575Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:44:21.581Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:44:21.584Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "d6609a5",
+    "stepNumber": 4,
+    "stepTitle": "Migrate BlobStorageService.java"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:44:21.587Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:44:21.621Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:44:21.623Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:44:31.776Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:44:31.777Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Migrate BlobStorageServiceTest.java"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:44:31.783Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:44:31.790Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:44:31.798Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:44:31.806Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:44:31.809Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Migrate BlobStorageServiceTest.java"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:44:31.811Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:44:31.814Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:44:31.816Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:46:09.838Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:46:09.839Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "efd6fe4",
+    "stepNumber": 5,
+    "stepTitle": "Migrate BlobStorageServiceTest.java"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:46:09.848Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:46:09.856Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:46:09.862Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:46:09.871Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:46:09.879Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "efd6fe4",
+    "stepNumber": 5,
+    "stepTitle": "Migrate BlobStorageServiceTest.java"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:46:09.886Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:46:09.943Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:46:09.947Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:46:19.430Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:46:19.431Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Final Validation"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:46:19.441Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:46:19.452Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:46:19.458Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:46:19.465Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:46:19.472Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Final Validation"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:46:19.477Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:46:19.483Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:46:19.489Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:47:26.764Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:47:26.765Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "buildCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:26.770Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:47:26.773Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:47:26.776Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:47:26.780Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:47:26.782Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "buildCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:26.784Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:47:26.787Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot is a maven project, try to get java version from pom.xml
+2026-03-22T14:47:26.790Z [INFO] Project java version: 17
+2026-03-22T14:47:26.792Z [INFO] Maven project detected.
+2026-03-22T14:47:26.795Z [INFO] Build tool type: mvn
+2026-03-22T14:47:26.831Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-22T14:47:26.835Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew"
+}
+2026-03-22T14:47:26.837Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "azure-legacy-sdk-update-storage-blob-spring-boot",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot"
+}
+2026-03-22T14:47:26.840Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:47:26.842Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:47:26.844Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-cf4297c0-7b63-4c0f-a0cf-d3cbe2215ad9.log
+/bin/sh: mvn: command not found
+2026-03-22T14:47:26.854Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-cf4297c0-7b63-4c0f-a0cf-d3cbe2215ad9.log'
+2026-03-22T14:47:26.856Z [INFO] [BaseBuildTool] Found 0 modules: 
+2026-03-22T14:47:26.858Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-22T14:47:26.860Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot using Maven
+2026-03-22T14:47:26.862Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+/bin/sh: mvn: command not found
+2026-03-22T14:47:26.872Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:47:26.874Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:47:26.876Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-85b4f9a9-671e-48eb-914a-ba035fceb936.log
+/bin/sh: mvn: command not found
+2026-03-22T14:47:26.886Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-85b4f9a9-671e-48eb-914a-ba035fceb936.log'
+2026-03-22T14:47:26.888Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:47:26.890Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:47:30.644Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:47:30.645Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "testCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:30.652Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:47:30.658Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:47:30.665Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:47:30.675Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:47:30.683Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "testCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:30.690Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:47:30.695Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot is a maven project, try to get java version from pom.xml
+2026-03-22T14:47:30.701Z [INFO] Project java version: 17
+2026-03-22T14:47:30.732Z [INFO] Maven project detected.
+2026-03-22T14:47:30.735Z [INFO] Build tool type: mvn
+2026-03-22T14:47:30.780Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-22T14:47:30.783Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew"
+}
+2026-03-22T14:47:30.786Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "azure-legacy-sdk-update-storage-blob-spring-boot",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot"
+}
+2026-03-22T14:47:30.788Z [INFO] [BaseBuildTool] Gathering test results...
+2026-03-22T14:47:30.801Z [INFO] [BaseBuildTool] Summarizing surefire reports.
+2026-03-22T14:47:30.804Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'testCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:47:30.806Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:47:50.540Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:47:50.540Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "f4e4d28",
+    "stepNumber": 6,
+    "stepTitle": "Final Validation"
+  },
+  "event": "upgradeValidationCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:50.543Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:47:50.546Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:47:50.548Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:47:50.551Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:47:50.554Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "commitId": "f4e4d28",
+    "stepNumber": 6,
+    "stepTitle": "Final Validation"
+  },
+  "event": "upgradeValidationCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:50.556Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:47:50.558Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeValidationCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:47:50.560Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:47:54.193Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-22T14:47:54.199Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planExecutionCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:54.207Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:47:54.215Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-22T14:47:54.221Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-22T14:47:54.228Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-22T14:47:54.234Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planExecutionCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502",
+  "status": "succeeded"
+}}).
+2026-03-22T14:47:54.240Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:47:54.303Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planExecutionCompleted' reported!\nSession ID: 20260322143502,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/.github/java-upgrade/20260322143502"
+}}).
+2026-03-22T14:47:54.307Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-22T14:48:23.814Z [INFO] ---------------------prepare appmod-validate-cves-for-java----------------------
+2026-03-22T14:48:23.814Z [INFO] [Tool.prepareInvocation]({name: appmod-validate-cves-for-java, input: {
+  "dependencies": [
+    "com.azure:azure-storage-blob:12.33.2",
+    "com.azure:azure-identity:1.18.2",
+    "org.springframework.boot:spring-boot-starter-web:3.2.5"
+  ],
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:48:23.818Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-22T14:48:23.821Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Validate CVEs"
+}}).
+2026-03-22T14:48:23.824Z [INFO] ----------------------prepared appmod-validate-cves-for-java----------------------
+2026-03-22T14:48:23.827Z [INFO] ----------------------invoke appmod-validate-cves-for-java----------------------
+2026-03-22T14:48:23.830Z [INFO] [Tool.invoke]({name: appmod-validate-cves-for-java, input: {
+  "dependencies": [
+    "com.azure:azure-storage-blob:12.33.2",
+    "com.azure:azure-identity:1.18.2",
+    "org.springframework.boot:spring-boot-starter-web:3.2.5"
+  ],
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot",
+  "sessionId": "20260322143502"
+}}).
+2026-03-22T14:48:23.832Z [INFO] [Tool.invoke] do invoke.
+2026-03-22T14:48:23.834Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot is a maven project, try to get java version from pom.xml
+2026-03-22T14:48:23.836Z [INFO] Project java version: 17
+2026-03-22T14:48:23.838Z [INFO] Maven project detected.
+2026-03-22T14:48:23.841Z [INFO] Build tool type: mvn
+2026-03-22T14:48:23.890Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-22T14:48:23.893Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew"
+}
+2026-03-22T14:48:23.895Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "azure-legacy-sdk-update-storage-blob-spring-boot",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot"
+}
+2026-03-22T14:48:23.897Z [INFO] [Environment] Running command (Java undefined): mvn dependency:tree -B
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.908Z [ERROR] [MavenBuildTool] Failed to get dependencies from dependency tree: Error: Failed to run command: "mvn dependency:tree -B" with error code 127
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.910Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -B
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.921Z [ERROR] [MavenBuildTool] Failed to get dependencies from effective pom: Error: Failed to run command: "mvn help:effective-pom -B" with error code 127
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.923Z [INFO] [MavenBuildTool] Getting Java version of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot from pom.xml
+2026-03-22T14:48:23.925Z [INFO] [MavenBuildTool] Searching for pom.xml files in /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.927Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.929Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.932Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-2f31dfb9-fe49-41e3-9b5a-b8ba88183363.log
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.941Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-2f31dfb9-fe49-41e3-9b5a-b8ba88183363.log'
+2026-03-22T14:48:23.943Z [INFO] [MavenBuildTool] Found pom.xml files: 
+2026-03-22T14:48:23.945Z [INFO] [Environment] Running command (Java undefined): mvn help:evaluate -Dexpression=project.properties -q -DforceStdout
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.954Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -DforceStdout
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.962Z [ERROR] [MavenBuildTool] Failed to get Java version of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.972Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.974Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot
+2026-03-22T14:48:23.976Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-9d542680-6b8f-49d3-b954-e20ce07cf093.log
+/bin/sh: mvn: command not found
+2026-03-22T14:48:23.985Z [INFO] [MavenBuildTool] Failed to get effective POMs: Error: ENOENT: no such file or directory, open '/Users/xiaofeicao/projects/java-update-examples/azure-legacy-sdk-update-storage-blob-spring-boot/effective-pom-9d542680-6b8f-49d3-b954-e20ce07cf093.log'
+2026-03-22T14:48:23.987Z [INFO] Getting CVEs for dependencies: com.azure:azure-storage-blob:12.33.2,com.azure:azure-identity:1.18.2,org.springframework.boot:spring-boot-starter-web:3.2.5
+2026-03-22T14:48:23.989Z [INFO] getting CVEs for dependencies:
+ - com.azure:azure-storage-blob:12.33.2
+  - com.azure:azure-identity:1.18.2
+  - org.springframework.boot:spring-boot-starter-web:3.2.5...
+2026-03-22T14:48:23.991Z [INFO] getting gitHub access token...
+2026-03-22T14:48:32.777Z [INFO] Processing batch 1/1, size: 3
+2026-03-22T14:48:32.778Z [INFO] Proxy configuration: HTTPS_PROXY=(not set), HTTP_PROXY=(not set), NO_PROXY=(not set), NODE_EXTRA_CA_CERTS=(not set), vscode http.proxy=(not set), hasProxy=false
+2026-03-22T14:48:32.806Z [INFO] No proxy detected, using direct connection.
+2026-03-22T14:48:32.819Z [INFO] listing CVEs from GitHub for dependencies [
+  "com.azure:azure-storage-blob:12.33.2",
+  "com.azure:azure-identity:1.18.2",
+  "org.springframework.boot:spring-boot-starter-web:3.2.5"
+]
+2026-03-22T14:48:33.389Z [INFO] Fetched 0 total advisories across all pages
+2026-03-22T14:48:33.391Z [INFO] grouping CVEs and finding max patched version by dep...
+2026-03-22T14:48:33.399Z [INFO] done getting 0 CVEs for 3 dependencies
+2026-03-22T14:48:33.407Z [INFO] calculating patched version by dep...
+2026-03-22T14:48:33.416Z [INFO] finished getting CVEs for dependencies.
+2026-03-22T14:48:33.425Z [INFO] Found 0 dependencies with known CVEs
+2026-03-22T14:48:33.433Z [INFO] No known CVEs that need to be fixed are found for dependencies: com.azure:azure-storage-blob:12.33.2,com.azure:azure-identity:1.18.2,org.springframework.boot:spring-boot-starter-web:3.2.5
+2026-03-22T14:48:33.440Z [INFO] [Tool.invoke]({result: {
+  "message": "No known CVEs that need to be fixed are found for the given dependencies."
+}}).
+2026-03-22T14:48:33.448Z [INFO] ----------------------invoked appmod-validate-cves-for-java----------------------
