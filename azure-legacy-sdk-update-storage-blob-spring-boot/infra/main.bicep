@@ -37,9 +37,10 @@ module appService 'modules/app-service.bicep' = {
     planName: '${abbrs.webServerFarms}${resourceToken}'
     location: location
     tags: tags
-    storageConnectionString: storageAccount.outputs.connectionString
+    storageAccountName: storageAccount.outputs.name
+    storageAccountId: storageAccount.outputs.id
   }
 }
 
-output AZURE_STORAGE_CONNECTION_STRING string = storageAccount.outputs.connectionString
+output AZURE_STORAGE_ACCOUNT_NAME string = storageAccount.outputs.name
 output SERVICE_WEB_ENDPOINT_URL string = appService.outputs.endpoint

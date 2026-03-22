@@ -1,14 +1,18 @@
 package com.example.blobmanager.service;
 
+import com.azure.core.credential.AccessToken;
+import com.azure.core.credential.TokenRequestContext;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.example.blobmanager.model.BlobInfo;
 import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.StorageCredentialsToken;
 import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.blob.BlobProperties;
+import com.microsoft.azure.storage.blob.CloudBlob;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
 import com.microsoft.azure.storage.blob.CloudBlockBlob;
 import com.microsoft.azure.storage.blob.ListBlobItem;
-import com.microsoft.azure.storage.blob.CloudBlob;
-import com.microsoft.azure.storage.blob.BlobProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +20,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.time.OffsetDateTime;
@@ -28,13 +33,41 @@ public class BlobStorageService {
 
     private CloudBlobClient blobClient;
 
-    @Value("${azure.storage.connection-string}")
+    @Value("${azure.storage.account-name:}")
+    private String accountName;
+
+    @Value("${azure.storage.blob-endpoint:}")
+    private String blobEndpoint;
+
+    @Value("${azure.storage.connection-string:}")
     private String connectionString;
 
     @PostConstruct
     public void init() throws URISyntaxException, InvalidKeyException {
-        CloudStorageAccount storageAccount = CloudStorageAccount.parse(connectionString);
-        this.blobClient = storageAccount.createCloudBlobClient();
+        if (accountName != null && !accountName.isBlank()) {
+            // Azure deployment: use Entra ID token via DefaultAzureCredential
+            this.blobClient = createTokenAuthClient();
+        } else if (connectionString != null && !connectionString.isBlank()) {
+            // Local dev / Azurite: use connection string with shared key
+            CloudStorageAccount storageAccount = CloudStorageAccount.parse(connectionString);
+            this.blobClient = storageAccount.createCloudBlobClient();
+        } else {
+            throw new IllegalStateException(
+                    "Configure either AZURE_STORAGE_CONNECTION_STRING (local) or AZURE_STORAGE_ACCOUNT_NAME (Azure)");
+        }
+    }
+
+    private CloudBlobClient createTokenAuthClient() throws URISyntaxException {
+        String endpoint = (blobEndpoint != null && !blobEndpoint.isBlank())
+                ? blobEndpoint
+                : "https://" + accountName + ".blob.core.windows.net";
+
+        AccessToken accessToken = new DefaultAzureCredentialBuilder().build()
+                .getTokenSync(new TokenRequestContext()
+                        .addScopes("https://storage.azure.com/.default"));
+
+        StorageCredentialsToken credentials = new StorageCredentialsToken(accountName, accessToken.getToken());
+        return new CloudBlobClient(new URI(endpoint), credentials);
     }
 
     // Visible for testing
