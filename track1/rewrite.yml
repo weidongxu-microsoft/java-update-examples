@@ -1,0 +1,7 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: com.myorg.ChangePkgName
+recipeList:
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: com.example.blobmanager
+      newPackageName: com.example.blobmanagerv2
