@@ -1,6 +1,6 @@
-package com.example.blobmanager.service;
+package com.example.blobmanagerv2.service;
 
-import com.example.blobmanager.model.BlobInfo;
+import com.example.blobmanagerv2.model.BlobInfo;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.BlobProperties;
 import com.microsoft.azure.storage.blob.CloudBlobClient;

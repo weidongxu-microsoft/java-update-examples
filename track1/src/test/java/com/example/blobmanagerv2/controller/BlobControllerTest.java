@@ -1,7 +1,7 @@
-package com.example.blobmanager.controller;
+package com.example.blobmanagerv2.controller;
 
-import com.example.blobmanager.model.BlobInfo;
-import com.example.blobmanager.service.BlobStorageService;
+import com.example.blobmanagerv2.model.BlobInfo;
+import com.example.blobmanagerv2.service.BlobStorageService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

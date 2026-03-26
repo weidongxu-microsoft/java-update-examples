@@ -1,4 +1,4 @@
-package com.example.blobmanager.model;
+package com.example.blobmanagerv2.model;
 
 import java.time.OffsetDateTime;
 

@@ -1,4 +1,4 @@
-package com.example.blobmanager;
+package com.example.blobmanagerv2;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

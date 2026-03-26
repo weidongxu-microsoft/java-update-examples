@@ -1,9 +1,9 @@
-package com.example.blobmanager.service;
+package com.example.blobmanagerv2.service;
 
 import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.example.blobmanager.model.BlobInfo;
+import com.example.blobmanagerv2.model.BlobInfo;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageCredentialsToken;
 import com.microsoft.azure.storage.StorageException;
