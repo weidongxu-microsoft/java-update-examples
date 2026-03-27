@@ -1,0 +1,1392 @@
+2026-03-26T12:57:09.081Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T12:57:09.081Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "precheckCompleted",
+  "phase": "precheck",
+  "status": "succeeded"
+}}).
+2026-03-26T12:57:09.085Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T12:57:09.099Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'precheckCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T12:57:09.106Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T12:57:18.041Z [INFO] ---------------------prepare appmod-list-jdks----------------------
+2026-03-26T12:57:18.043Z [INFO] [Tool.prepareInvocation]({name: appmod-list-jdks, input: {
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T12:57:18.049Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T12:57:18.054Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "List jdks"
+}}).
+2026-03-26T12:57:18.059Z [INFO] ----------------------prepared appmod-list-jdks----------------------
+2026-03-26T12:57:18.066Z [INFO] ----------------------invoke appmod-list-jdks----------------------
+2026-03-26T12:57:18.072Z [INFO] [Tool.invoke]({name: appmod-list-jdks, input: {
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T12:57:18.077Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T12:57:18.180Z [INFO] [Tool.invoke]({result: {
+  "message": "We found following jdks in your system:\n\n1. Java 1.8.0_482\n   📁 Path: /Users/xiaofeicao/.jdk/jdk-8/Contents/Home/bin\n   🏷️ Source: install\n\n2. Java 11.0.30\n   📁 Path: /opt/homebrew/Cellar/openjdk@11/11.0.30/libexec/openjdk.jdk/Contents/Home/bin\n   🏷️ Source: others\n\n3. Java 17.0.9\n   📁 Path: /Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin\n   🏷️ Source: others\n\n4. Java 18.0.2.1\n   📁 Path: /Users/xiaofeicao/.jdk/jdk-18/Contents/Home/bin\n   🏷️ Source: install\n\n5. Java 21.0.3\n   📁 Path: /Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin\n   🏷️ Source: JAVA_HOME\n\n6. Java 23.0.2\n   📁 Path: /opt/homebrew/Cellar/openjdk/23.0.2/libexec/openjdk.jdk/Contents/Home/bin\n   🏷️ Source: others\n\nTotal: 6 JDK installation(s) found"
+}}).
+2026-03-26T12:57:18.185Z [INFO] ----------------------invoked appmod-list-jdks----------------------
+2026-03-26T12:57:18.204Z [INFO] ---------------------prepare appmod-list-mavens----------------------
+2026-03-26T12:57:18.210Z [INFO] [Tool.prepareInvocation]({name: appmod-list-mavens, input: {
+  "sessionId": "20260326125709",
+  "includeVersion": true
+}}).
+2026-03-26T12:57:18.214Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T12:57:18.219Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "List mavens"
+}}).
+2026-03-26T12:57:18.224Z [INFO] ----------------------prepared appmod-list-mavens----------------------
+2026-03-26T12:57:18.230Z [INFO] ----------------------invoke appmod-list-mavens----------------------
+2026-03-26T12:57:18.235Z [INFO] [Tool.invoke]({name: appmod-list-mavens, input: {
+  "sessionId": "20260326125709",
+  "includeVersion": true
+}}).
+2026-03-26T12:57:18.240Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T12:57:20.253Z [INFO] [Tool.invoke]({result: {
+  "message": "We found following maven installations in your system:\n\n1. Maven 3.9.10\n   📁 Path: /opt/homebrew/Cellar/maven/3.9.10/bin\n   🏷️ Source: Homebrew,PATH\n\nTotal: 1 Maven installation(s) found"
+}}).
+2026-03-26T12:57:20.253Z [INFO] ----------------------invoked appmod-list-mavens----------------------
+2026-03-26T13:04:13.102Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:04:13.105Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planInitialized",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:04:13.117Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:04:13.125Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:04:13.131Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:04:13.137Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:04:13.143Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planInitialized",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:04:13.147Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:04:13.152Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planInitialized' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:04:13.156Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:08:38.115Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:08:38.117Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "environmentAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:38.127Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:08:38.136Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:08:38.143Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:08:38.151Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:08:38.157Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "environmentAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:38.163Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:08:38.169Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'environmentAnalyzed' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:08:38.174Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:08:41.877Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:08:41.889Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "dependenciesAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:41.899Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:08:41.908Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:08:41.915Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:08:41.924Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:08:41.930Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "dependenciesAnalyzed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:41.936Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:08:41.942Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'dependenciesAnalyzed' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:08:41.947Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:08:47.170Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:08:47.184Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "upgradePathDesigned",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:47.193Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:08:47.201Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:08:47.210Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:08:47.219Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:08:47.225Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "upgradePathDesigned",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:47.231Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:08:47.236Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradePathDesigned' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:08:47.240Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:08:51.388Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:08:51.402Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planReviewed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:51.413Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:08:51.420Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:08:51.427Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:08:51.435Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:08:51.441Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planReviewed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:08:51.446Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:08:51.451Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planReviewed' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:08:51.457Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:09:07.575Z [INFO] ---------------------prepare appmod-confirm-upgrade-plan----------------------
+2026-03-26T13:09:07.583Z [INFO] [Tool.prepareInvocation]({name: appmod-confirm-upgrade-plan, input: {
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T13:09:07.588Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:09:07.594Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Review [upgrade plan](/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709/plan.md)",
+  "confirmationMessages": {
+    "title": "Plan generated",
+    "message": "Please review the generated plan and make any necessary adjustments before proceeding. You can modify the generated [`plan.md`](/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709/plan.md) directly."
+  }
+}}).
+2026-03-26T13:09:07.600Z [INFO] ----------------------prepared appmod-confirm-upgrade-plan----------------------
+2026-03-26T13:09:07.608Z [INFO] ----------------------invoke appmod-confirm-upgrade-plan----------------------
+2026-03-26T13:09:07.614Z [INFO] [Tool.invoke]({name: appmod-confirm-upgrade-plan, input: {
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T13:09:07.621Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:09:07.626Z [INFO] Upgrade plan confirmed successfully.
+2026-03-26T13:09:07.642Z [INFO] [Tool.invoke]({result: {
+  "message": "Generated plan is reviewed and confirmed by the user! the upgrade process will start now and be tracked in markdown file: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709/progress.md."
+}}).
+2026-03-26T13:09:07.647Z [INFO] ----------------------invoked appmod-confirm-upgrade-plan----------------------
+2026-03-26T13:09:11.890Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:09:11.904Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "planConfirmed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:09:11.910Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:09:11.919Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:09:11.924Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:09:11.931Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:09:11.938Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "planConfirmed",
+  "phase": "plan",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:09:11.944Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:09:11.949Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planConfirmed' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:09:11.953Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:11:40.538Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:11:40.544Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "planExecutionStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T13:11:40.554Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:11:40.563Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:11:40.569Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:11:40.576Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:11:40.582Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "planExecutionStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "sessionId": "20260326125709"
+}}).
+2026-03-26T13:11:40.587Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:11:40.615Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planExecutionStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:11:40.618Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:12:06.043Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:12:06.045Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 1,
+    "stepTitle": "Setup Environment"
+  }
+}}).
+2026-03-26T13:12:06.056Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:12:06.067Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:12:06.076Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:12:06.085Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:12:06.092Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 1,
+    "stepTitle": "Setup Environment"
+  }
+}}).
+2026-03-26T13:12:06.099Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:12:06.106Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:12:06.111Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:16:01.352Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:16:01.361Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "jdkPath": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+    "buildToolPath": "."
+  },
+  "event": "environmentSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:16:01.366Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:16:01.372Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:16:01.379Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:16:01.386Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:16:01.391Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "jdkPath": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+    "buildToolPath": "."
+  },
+  "event": "environmentSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:16:01.395Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:16:01.400Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-26T13:16:01.406Z [INFO] Project java version: 17
+2026-03-26T13:16:01.411Z [INFO] Maven project detected.
+2026-03-26T13:16:01.416Z [INFO] Build tool type: mvn
+2026-03-26T13:16:01.420Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-26T13:16:01.425Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "bin",
+  "version": ""
+}
+2026-03-26T13:16:01.429Z [INFO] Project config: {
+  "buildTool": {
+    "path": "bin",
+    "name": "mvn",
+    "version": ""
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-26T13:16:06.117Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'environmentSetup' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:16:06.123Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:17:45.948Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:17:45.950Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "event": "baselineSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:17:45.964Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:17:45.975Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:17:45.981Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:17:45.988Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:17:45.993Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "event": "baselineSetup",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:17:45.998Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:17:46.002Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'baselineSetup' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:17:46.006Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:18:15.626Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:18:15.629Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:18:15.632Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:18:15.634Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:18:15.636Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:18:15.639Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:18:15.641Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:18:15.643Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:18:15.646Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:18:15.647Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:20:52.411Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:20:52.424Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename",
+    "commitId": "b047946"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:20:52.436Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:20:52.444Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:20:52.452Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:20:52.459Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:20:52.465Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename",
+    "commitId": "b047946"
+  },
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:20:52.470Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:20:52.519Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:20:52.524Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-26T13:21:16.452Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-26T13:21:16.465Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Update pom.xml"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:21:16.473Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-26T13:21:16.479Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-26T13:21:16.484Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-26T13:21:16.491Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-26T13:21:16.496Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Update pom.xml"
+  },
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "sessionId": "20260326125709",
+  "status": "succeeded"
+}}).
+2026-03-26T13:21:16.500Z [INFO] [Tool.invoke] do invoke.
+2026-03-26T13:21:16.504Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-26T13:21:16.508Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:21.111Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:21.126Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename",
+    "commitId": "b047946"
+  }
+}}).
+2026-03-27T02:10:21.135Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:21.143Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:21.150Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:21.160Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:21.166Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 3,
+    "stepTitle": "Apply OpenRewrite Package Rename",
+    "commitId": "b047946"
+  }
+}}).
+2026-03-27T02:10:21.172Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:21.264Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:21.268Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:24.530Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:24.538Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:24.547Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:24.554Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:24.561Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:24.571Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:24.578Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:24.584Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:24.589Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:10:24.600Z [INFO] Project java version: 17
+2026-03-27T02:10:24.607Z [INFO] Maven project detected.
+2026-03-27T02:10:24.613Z [INFO] Build tool type: mvn
+2026-03-27T02:10:24.747Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:10:24.751Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:10:24.754Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:10:24.757Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:24.760Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:24.763Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-ce830572-a1aa-4649-9007-8d0e0c420b59.log
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- help:3.4.0:effective-pom (default-cli) @ blob-manager ---
+[INFO] Effective-POM written to: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/effective-pom-ce830572-a1aa-4649-9007-8d0e0c420b59.log
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.927 s
+[INFO] Finished at: 2026-03-27T10:10:26+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:10:26.794Z [INFO] [BaseBuildTool] Found 1 modules: .
+2026-03-27T02:10:26.805Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-27T02:10:26.805Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 using Maven
+2026-03-27T02:10:26.808Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+2026-03-27T02:10:27.932Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:27.933Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:33.146Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:33.154Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Update pom.xml",
+    "commitId": "e6fa033"
+  }
+}}).
+2026-03-27T02:10:33.161Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:33.168Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:33.176Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:33.186Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:33.193Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 4,
+    "stepTitle": "Update pom.xml",
+    "commitId": "e6fa033"
+  }
+}}).
+2026-03-27T02:10:33.198Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:33.245Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:33.249Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:36.376Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:36.385Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Rewrite BlobStorageService"
+  }
+}}).
+2026-03-27T02:10:36.394Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:36.402Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:36.408Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:36.416Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:36.422Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Rewrite BlobStorageService"
+  }
+}}).
+2026-03-27T02:10:36.429Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:36.434Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:36.437Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:41.116Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:41.123Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:41.131Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:41.138Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:41.144Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:41.151Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:41.155Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:41.159Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:41.162Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:10:41.166Z [INFO] Project java version: 17
+2026-03-27T02:10:41.168Z [INFO] Maven project detected.
+2026-03-27T02:10:41.171Z [INFO] Build tool type: mvn
+2026-03-27T02:10:41.213Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:10:41.218Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:10:41.220Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:10:41.223Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:41.225Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:41.227Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-4f093bb9-7f95-4aca-a458-fbe042d98f01.log
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- help:3.4.0:effective-pom (default-cli) @ blob-manager ---
+[INFO] Effective-POM written to: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/effective-pom-4f093bb9-7f95-4aca-a458-fbe042d98f01.log
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.406 s
+[INFO] Finished at: 2026-03-27T10:10:42+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:10:42.466Z [INFO] [BaseBuildTool] Found 1 modules: .
+2026-03-27T02:10:42.473Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-27T02:10:42.479Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 using Maven
+2026-03-27T02:10:42.481Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+2026-03-27T02:10:43.350Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:43.359Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:46.410Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:46.410Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Rewrite BlobStorageService",
+    "commitId": "a9fe8e0"
+  }
+}}).
+2026-03-27T02:10:46.417Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:46.424Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:46.430Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:46.439Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:46.447Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 5,
+    "stepTitle": "Rewrite BlobStorageService",
+    "commitId": "a9fe8e0"
+  }
+}}).
+2026-03-27T02:10:46.453Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:46.491Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:46.493Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:51.640Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:51.652Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Update Tests"
+  }
+}}).
+2026-03-27T02:10:51.662Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:51.669Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:51.675Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:51.682Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:51.688Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepStarted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Update Tests"
+  }
+}}).
+2026-03-27T02:10:51.694Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:51.699Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepStarted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:51.703Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:10:54.767Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:10:54.771Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:54.774Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:10:54.776Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:10:54.779Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:10:54.783Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:10:54.786Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:10:54.788Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:10:54.791Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:10:54.794Z [INFO] Project java version: 17
+2026-03-27T02:10:54.797Z [INFO] Maven project detected.
+2026-03-27T02:10:54.799Z [INFO] Build tool type: mvn
+2026-03-27T02:10:54.839Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:10:54.842Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:10:54.844Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:10:54.847Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:54.849Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:10:54.851Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-926cf9db-0fbf-4234-ac98-4468f5a8d842.log
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- help:3.4.0:effective-pom (default-cli) @ blob-manager ---
+[INFO] Effective-POM written to: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/effective-pom-926cf9db-0fbf-4234-ac98-4468f5a8d842.log
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.426 s
+[INFO] Finished at: 2026-03-27T10:10:56+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:10:56.156Z [INFO] [BaseBuildTool] Found 1 modules: .
+2026-03-27T02:10:56.163Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-27T02:10:56.168Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 using Maven
+2026-03-27T02:10:56.171Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+2026-03-27T02:10:57.038Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:10:57.046Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:01.935Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:11:01.936Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Update Tests",
+    "commitId": "67f9407"
+  }
+}}).
+2026-03-27T02:11:01.945Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:01.952Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:11:01.959Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:11:01.967Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:11:01.972Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeStepCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 6,
+    "stepTitle": "Update Tests",
+    "commitId": "67f9407"
+  }
+}}).
+2026-03-27T02:11:01.977Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:02.026Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeStepCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:11:02.029Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:06.547Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:11:06.552Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:06.556Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:06.560Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:11:06.563Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:11:06.568Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:11:06.572Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "buildCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:06.575Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:06.577Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:11:06.581Z [INFO] Project java version: 17
+2026-03-27T02:11:06.584Z [INFO] Maven project detected.
+2026-03-27T02:11:06.586Z [INFO] Build tool type: mvn
+2026-03-27T02:11:06.629Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:11:06.634Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:11:06.637Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:11:06.639Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:06.641Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:06.644Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-48d16d30-3e74-4902-9270-ec4f5ab92c47.log
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- help:3.4.0:effective-pom (default-cli) @ blob-manager ---
+[INFO] Effective-POM written to: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/effective-pom-48d16d30-3e74-4902-9270-ec4f5ab92c47.log
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.417 s
+[INFO] Finished at: 2026-03-27T10:11:07+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:11:07.844Z [INFO] [BaseBuildTool] Found 1 modules: .
+2026-03-27T02:11:07.850Z [INFO] [BaseBuildTool] Finish counting Java and class files
+2026-03-27T02:11:07.850Z [INFO] [MavenBuildTool] Cleaning /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 using Maven
+2026-03-27T02:11:07.854Z [INFO] [Environment] Running command (Java undefined): mvn clean -q -B -fn
+2026-03-27T02:11:08.822Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'buildCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:11:08.827Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:12.015Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:11:12.024Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "testCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:12.031Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:12.039Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:11:12.045Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:11:12.052Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:11:12.058Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "testCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:12.064Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:12.069Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:11:12.074Z [INFO] Project java version: 17
+2026-03-27T02:11:12.078Z [INFO] Maven project detected.
+2026-03-27T02:11:12.082Z [INFO] Build tool type: mvn
+2026-03-27T02:11:12.126Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:11:12.130Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:11:12.133Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:11:12.136Z [INFO] [BaseBuildTool] Gathering test results...
+2026-03-27T02:11:12.144Z [INFO] [BaseBuildTool] Summarizing surefire reports.
+2026-03-27T02:11:12.147Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'testCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:11:12.156Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:14.898Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:11:14.898Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeValidationCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 7,
+    "stepTitle": "Final Validation",
+    "commitId": "67f9407"
+  }
+}}).
+2026-03-27T02:11:14.901Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:14.903Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:11:14.905Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:11:14.909Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:11:14.912Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "upgradeValidationCompleted",
+  "phase": "execute",
+  "status": "succeeded",
+  "details": {
+    "stepNumber": 7,
+    "stepTitle": "Final Validation",
+    "commitId": "67f9407"
+  }
+}}).
+2026-03-27T02:11:14.914Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:14.917Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'upgradeValidationCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:11:14.919Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:18.244Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:11:18.253Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "planExecutionCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:18.259Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:18.265Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:11:18.270Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:11:18.277Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:11:18.283Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "planExecutionCompleted",
+  "phase": "execute",
+  "status": "succeeded"
+}}).
+2026-03-27T02:11:18.288Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:18.328Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'planExecutionCompleted' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:11:18.331Z [INFO] ----------------------invoked appmod-report-event----------------------
+2026-03-27T02:11:48.271Z [INFO] ---------------------prepare appmod-validate-cves-for-java----------------------
+2026-03-27T02:11:48.280Z [INFO] [Tool.prepareInvocation]({name: appmod-validate-cves-for-java, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "dependencies": [
+    "org.springframework.boot:spring-boot-starter-web:3.2.5",
+    "io.clientcore:core:1.0.0-beta.11",
+    "com.azure.v2:azure-core:2.0.0-beta.1",
+    "com.azure.v2:azure-storage-blob:13.0.0-beta.1",
+    "com.azure:azure-identity:1.14.2"
+  ]
+}}).
+2026-03-27T02:11:48.285Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:11:48.289Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Validate CVEs"
+}}).
+2026-03-27T02:11:48.294Z [INFO] ----------------------prepared appmod-validate-cves-for-java----------------------
+2026-03-27T02:11:48.300Z [INFO] ----------------------invoke appmod-validate-cves-for-java----------------------
+2026-03-27T02:11:48.305Z [INFO] [Tool.invoke]({name: appmod-validate-cves-for-java, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "dependencies": [
+    "org.springframework.boot:spring-boot-starter-web:3.2.5",
+    "io.clientcore:core:1.0.0-beta.11",
+    "com.azure.v2:azure-core:2.0.0-beta.1",
+    "com.azure.v2:azure-storage-blob:13.0.0-beta.1",
+    "com.azure:azure-identity:1.14.2"
+  ]
+}}).
+2026-03-27T02:11:48.310Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:11:48.313Z [INFO] Project /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 is a maven project, try to get java version from pom.xml
+2026-03-27T02:11:48.316Z [INFO] Project java version: 17
+2026-03-27T02:11:48.318Z [INFO] Maven project detected.
+2026-03-27T02:11:48.321Z [INFO] Build tool type: mvn
+2026-03-27T02:11:48.364Z [INFO] JDK: {
+  "name": "java",
+  "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+  "version": "17"
+}
+2026-03-27T02:11:48.368Z [INFO] Build tool: {
+  "name": "mvn",
+  "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+  "version": "",
+  "source": "Homebrew,PATH"
+}
+2026-03-27T02:11:48.371Z [INFO] Project config: {
+  "buildTool": {
+    "path": "/opt/homebrew/Cellar/maven/3.9.10/bin",
+    "name": "mvn",
+    "version": "",
+    "source": "Homebrew,PATH"
+  },
+  "jdk": {
+    "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin",
+    "name": "java",
+    "version": "17"
+  },
+  "name": "track1",
+  "dir": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1"
+}
+2026-03-27T02:11:48.373Z [INFO] [Environment] Running command (Java undefined): mvn dependency:tree -B
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.6.1:tree (default-cli) @ blob-manager ---
+[INFO] com.example:blob-manager:jar:1.0.0-SNAPSHOT
+[INFO] +- org.springframework.boot:spring-boot-starter-web:jar:3.2.5:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter:jar:3.2.5:compile
+[INFO] |  |  +- org.springframework.boot:spring-boot:jar:3.2.5:compile
+[INFO] |  |  +- org.springframework.boot:spring-boot-autoconfigure:jar:3.2.5:compile
+[INFO] |  |  +- org.springframework.boot:spring-boot-starter-logging:jar:3.2.5:compile
+[INFO] |  |  |  +- ch.qos.logback:logback-classic:jar:1.4.14:compile
+[INFO] |  |  |  |  \- ch.qos.logback:logback-core:jar:1.4.14:compile
+[INFO] |  |  |  +- org.apache.logging.log4j:log4j-to-slf4j:jar:2.21.1:compile
+[INFO] |  |  |  |  \- org.apache.logging.log4j:log4j-api:jar:2.21.1:compile
+[INFO] |  |  |  \- org.slf4j:jul-to-slf4j:jar:2.0.13:compile
+[INFO] |  |  +- jakarta.annotation:jakarta.annotation-api:jar:2.1.1:compile
+[INFO] |  |  \- org.yaml:snakeyaml:jar:2.2:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter-json:jar:3.2.5:compile
+[INFO] |  |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.15.4:compile
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.15.4:compile
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.15.4:compile
+[INFO] |  |  \- com.fasterxml.jackson.module:jackson-module-parameter-names:jar:2.15.4:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter-tomcat:jar:3.2.5:compile
+[INFO] |  |  +- org.apache.tomcat.embed:tomcat-embed-core:jar:10.1.20:compile
+[INFO] |  |  +- org.apache.tomcat.embed:tomcat-embed-el:jar:10.1.20:compile
+[INFO] |  |  \- org.apache.tomcat.embed:tomcat-embed-websocket:jar:10.1.20:compile
+[INFO] |  +- org.springframework:spring-web:jar:6.1.6:compile
+[INFO] |  |  +- org.springframework:spring-beans:jar:6.1.6:compile
+[INFO] |  |  \- io.micrometer:micrometer-observation:jar:1.12.5:compile
+[INFO] |  |     \- io.micrometer:micrometer-commons:jar:1.12.5:compile
+[INFO] |  \- org.springframework:spring-webmvc:jar:6.1.6:compile
+[INFO] |     +- org.springframework:spring-aop:jar:6.1.6:compile
+[INFO] |     +- org.springframework:spring-context:jar:6.1.6:compile
+[INFO] |     \- org.springframework:spring-expression:jar:6.1.6:compile
+[INFO] +- io.clientcore:core:jar:1.0.0-beta.11:compile
+[INFO] +- com.azure.v2:azure-core:jar:2.0.0-beta.1:compile
+[INFO] +- com.azure.v2:azure-storage-blob:jar:13.0.0-beta.1:compile
+[INFO] +- com.azure:azure-identity:jar:1.14.2:compile
+[INFO] |  +- com.azure:azure-core:jar:1.54.1:compile
+[INFO] |  |  +- com.azure:azure-xml:jar:1.1.0:compile
+[INFO] |  |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.15.4:compile
+[INFO] |  |  +- com.fasterxml.jackson.core:jackson-core:jar:2.15.4:compile
+[INFO] |  |  +- org.slf4j:slf4j-api:jar:2.0.13:compile
+[INFO] |  |  \- io.projectreactor:reactor-core:jar:3.6.5:compile
+[INFO] |  |     \- org.reactivestreams:reactive-streams:jar:1.0.4:compile
+[INFO] |  +- com.azure:azure-core-http-netty:jar:1.15.7:compile
+[INFO] |  |  +- io.netty:netty-handler:jar:4.1.109.Final:compile
+[INFO] |  |  |  +- io.netty:netty-resolver:jar:4.1.109.Final:compile
+[INFO] |  |  |  \- io.netty:netty-transport:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-handler-proxy:jar:4.1.109.Final:compile
+[INFO] |  |  |  \- io.netty:netty-codec-socks:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-buffer:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-codec:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-codec-http:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-codec-http2:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-transport-native-unix-common:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.109.Final:compile
+[INFO] |  |  |  \- io.netty:netty-transport-classes-epoll:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.109.Final:compile
+[INFO] |  |  |  \- io.netty:netty-transport-classes-kqueue:jar:4.1.109.Final:compile
+[INFO] |  |  +- io.netty:netty-tcnative-boringssl-static:jar:2.0.65.Final:compile
+[INFO] |  |  |  +- io.netty:netty-tcnative-classes:jar:2.0.65.Final:compile
+[INFO] |  |  |  +- io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.65.Final:compile
+[INFO] |  |  |  +- io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.65.Final:compile
+[INFO] |  |  |  +- io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.65.Final:compile
+[INFO] |  |  |  +- io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.65.Final:compile
+[INFO] |  |  |  \- io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.65.Final:compile
+[INFO] |  |  +- io.projectreactor.netty:reactor-netty-http:jar:1.1.18:compile
+[INFO] |  |  |  +- io.netty:netty-resolver-dns:jar:4.1.109.Final:compile
+[INFO] |  |  |  |  \- io.netty:netty-codec-dns:jar:4.1.109.Final:compile
+[INFO] |  |  |  +- io.netty:netty-resolver-dns-native-macos:jar:osx-x86_64:4.1.109.Final:compile
+[INFO] |  |  |  |  \- io.netty:netty-resolver-dns-classes-macos:jar:4.1.109.Final:compile
+[INFO] |  |  |  \- io.projectreactor.netty:reactor-netty-core:jar:1.1.18:compile
+[INFO] |  |  \- io.netty:netty-common:jar:4.1.109.Final:compile
+[INFO] |  +- com.azure:azure-json:jar:1.3.0:compile
+[INFO] |  +- com.microsoft.azure:msal4j:jar:1.17.2:compile
+[INFO] |  |  \- com.nimbusds:oauth2-oidc-sdk:jar:11.18:compile
+[INFO] |  |     +- com.github.stephenc.jcip:jcip-annotations:jar:1.0-1:compile
+[INFO] |  |     +- com.nimbusds:content-type:jar:2.3:compile
+[INFO] |  |     +- com.nimbusds:lang-tag:jar:1.7:compile
+[INFO] |  |     \- com.nimbusds:nimbus-jose-jwt:jar:9.40:compile
+[INFO] |  +- com.microsoft.azure:msal4j-persistence-extension:jar:1.3.0:compile
+[INFO] |  |  \- net.java.dev.jna:jna:jar:5.13.0:compile
+[INFO] |  \- net.java.dev.jna:jna-platform:jar:5.13.0:compile
+[INFO] +- org.springframework.boot:spring-boot-starter-test:jar:3.2.5:test
+[INFO] |  +- org.springframework.boot:spring-boot-test:jar:3.2.5:test
+[INFO] |  +- org.springframework.boot:spring-boot-test-autoconfigure:jar:3.2.5:test
+[INFO] |  +- com.jayway.jsonpath:json-path:jar:2.9.0:test
+[INFO] |  +- jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.2:test
+[INFO] |  |  \- jakarta.activation:jakarta.activation-api:jar:2.1.3:test
+[INFO] |  +- net.minidev:json-smart:jar:2.5.1:compile
+[INFO] |  |  \- net.minidev:accessors-smart:jar:2.5.1:compile
+[INFO] |  |     \- org.ow2.asm:asm:jar:9.6:compile
+[INFO] |  +- org.assertj:assertj-core:jar:3.24.2:test
+[INFO] |  |  \- net.bytebuddy:byte-buddy:jar:1.14.13:test
+[INFO] |  +- org.awaitility:awaitility:jar:4.2.1:test
+[INFO] |  +- org.hamcrest:hamcrest:jar:2.2:test
+[INFO] |  +- org.junit.jupiter:junit-jupiter:jar:5.10.2:test
+[INFO] |  |  +- org.junit.jupiter:junit-jupiter-api:jar:5.10.2:test
+[INFO] |  |  |  +- org.opentest4j:opentest4j:jar:1.3.0:test
+[INFO] |  |  |  +- org.junit.platform:junit-platform-commons:jar:1.10.2:test
+[INFO] |  |  |  \- org.apiguardian:apiguardian-api:jar:1.1.2:test
+[INFO] |  |  +- org.junit.jupiter:junit-jupiter-params:jar:5.10.2:test
+[INFO] |  |  \- org.junit.jupiter:junit-jupiter-engine:jar:5.10.2:test
+[INFO] |  |     \- org.junit.platform:junit-platform-engine:jar:1.10.2:test
+[INFO] |  +- org.mockito:mockito-core:jar:5.7.0:test
+[INFO] |  |  +- net.bytebuddy:byte-buddy-agent:jar:1.14.13:test
+[INFO] |  |  \- org.objenesis:objenesis:jar:3.3:test
+[INFO] |  +- org.mockito:mockito-junit-jupiter:jar:5.7.0:test
+[INFO] |  +- org.skyscreamer:jsonassert:jar:1.5.1:test
+[INFO] |  |  \- com.vaadin.external.google:android-json:jar:0.0.20131108.vaadin1:test
+[INFO] |  +- org.springframework:spring-core:jar:6.1.6:compile
+[INFO] |  |  \- org.springframework:spring-jcl:jar:6.1.6:compile
+[INFO] |  +- org.springframework:spring-test:jar:6.1.6:test
+[INFO] |  \- org.xmlunit:xmlunit-core:jar:2.9.1:test
+[INFO] \- org.mockito:mockito-inline:jar:5.2.0:test
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.766 s
+[INFO] Finished at: 2026-03-27T10:11:49+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:11:49.887Z [INFO] [MavenBuildTool] Successfully got dependency tree of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:49.893Z [INFO] [MavenBuildTool] Getting Java version of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1 from pom.xml
+2026-03-27T02:11:49.898Z [INFO] [MavenBuildTool] Searching for pom.xml files in /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:49.903Z [INFO] [MavenBuildTool] Getting all module coordinates of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:49.907Z [INFO] [MavenBuildTool] Getting effective POMs of /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1
+2026-03-27T02:11:49.911Z [INFO] [Environment] Running command (Java undefined): mvn help:effective-pom -Doutput=effective-pom-d5657a61-bc2c-41d9-b633-a8f91cb82883.log
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:blob-manager >----------------------
+[INFO] Building Cloud File Manager 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- help:3.4.0:effective-pom (default-cli) @ blob-manager ---
+[INFO] Effective-POM written to: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/effective-pom-d5657a61-bc2c-41d9-b633-a8f91cb82883.log
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.433 s
+[INFO] Finished at: 2026-03-27T10:11:51+08:00
+[INFO] ------------------------------------------------------------------------
+2026-03-27T02:11:51.168Z [INFO] [MavenBuildTool] Found pom.xml files: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/pom.xml
+2026-03-27T02:11:51.170Z [INFO] [MavenBuildTool] Java version found in /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/pom.xml: 17
+2026-03-27T02:11:51.187Z [INFO] Getting CVEs for dependencies: org.springframework.boot:spring-boot-starter-web:3.2.5,io.clientcore:core:1.0.0-beta.11,com.azure.v2:azure-core:2.0.0-beta.1,com.azure.v2:azure-storage-blob:13.0.0-beta.1,com.azure:azure-identity:1.14.2
+2026-03-27T02:11:51.190Z [INFO] getting CVEs for dependencies:
+ - org.springframework.boot:spring-boot-starter-web:3.2.5
+  - io.clientcore:core:1.0.0-beta.11
+  - com.azure.v2:azure-core:2.0.0-beta.1
+  - com.azure.v2:azure-storage-blob:13.0.0-beta.1
+  - com.azure:azure-identity:1.14.2...
+2026-03-27T02:11:51.193Z [INFO] getting gitHub access token...
+2026-03-27T02:11:51.196Z [INFO] Processing batch 1/1, size: 5
+2026-03-27T02:11:51.198Z [INFO] Proxy configuration: HTTPS_PROXY=(not set), HTTP_PROXY=(not set), NO_PROXY=(not set), NODE_EXTRA_CA_CERTS=(not set), vscode http.proxy=(not set), hasProxy=false
+2026-03-27T02:11:51.201Z [INFO] No proxy detected, using direct connection.
+2026-03-27T02:11:51.205Z [INFO] listing CVEs from GitHub for dependencies [
+  "org.springframework.boot:spring-boot-starter-web:3.2.5",
+  "io.clientcore:core:1.0.0-beta.11",
+  "com.azure.v2:azure-core:2.0.0-beta.1",
+  "com.azure.v2:azure-storage-blob:13.0.0-beta.1",
+  "com.azure:azure-identity:1.14.2"
+]
+2026-03-27T02:11:51.730Z [INFO] Fetched 0 total advisories across all pages
+2026-03-27T02:11:51.734Z [INFO] grouping CVEs and finding max patched version by dep...
+2026-03-27T02:11:51.737Z [INFO] done getting 0 CVEs for 5 dependencies
+2026-03-27T02:11:51.740Z [INFO] calculating patched version by dep...
+2026-03-27T02:11:51.743Z [INFO] finished getting CVEs for dependencies.
+2026-03-27T02:11:51.745Z [INFO] Found 0 dependencies with known CVEs
+2026-03-27T02:11:51.748Z [INFO] No known CVEs that need to be fixed are found for dependencies: org.springframework.boot:spring-boot-starter-web:3.2.5,io.clientcore:core:1.0.0-beta.11,com.azure.v2:azure-core:2.0.0-beta.1,com.azure.v2:azure-storage-blob:13.0.0-beta.1,com.azure:azure-identity:1.14.2
+2026-03-27T02:11:51.751Z [INFO] [Tool.invoke]({result: {
+  "message": "No known CVEs that need to be fixed are found for the given dependencies."
+}}).
+2026-03-27T02:11:51.753Z [INFO] ----------------------invoked appmod-validate-cves-for-java----------------------
+2026-03-27T02:12:27.801Z [INFO] ---------------------prepare appmod-report-event----------------------
+2026-03-27T02:12:27.816Z [INFO] [Tool.prepareInvocation]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "summaryGenerated",
+  "phase": "summarize",
+  "status": "succeeded",
+  "message": "Migrated the sample from Track 1 azure-storage to azure-core-v2 azure-storage-blob, completed the required package rename, and finished with 25/25 passing tests."
+}}).
+2026-03-27T02:12:27.826Z [INFO] [Tool.prepareInvocation] do prepare invocation.
+2026-03-27T02:12:27.833Z [INFO] [Tool.prepareInvocation]({result: {
+  "invocationMessage": "Report upgrade event"
+}}).
+2026-03-27T02:12:27.839Z [INFO] ----------------------prepared appmod-report-event----------------------
+2026-03-27T02:12:27.847Z [INFO] ----------------------invoke appmod-report-event----------------------
+2026-03-27T02:12:27.852Z [INFO] [Tool.invoke]({name: appmod-report-event, input: {
+  "sessionId": "20260326125709",
+  "projectPath": "/Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1",
+  "event": "summaryGenerated",
+  "phase": "summarize",
+  "status": "succeeded",
+  "message": "Migrated the sample from Track 1 azure-storage to azure-core-v2 azure-storage-blob, completed the required package rename, and finished with 25/25 passing tests."
+}}).
+2026-03-27T02:12:27.857Z [INFO] [Tool.invoke] do invoke.
+2026-03-27T02:12:27.902Z [INFO] [Tool.invoke]({result: {
+  "message": "Event 'summaryGenerated' reported!\nSession ID: 20260326125709,\nSession Dir: /Users/xiaofeicao/projects/java-update-examples-storage-blob-spring-boot/track1/.github/java-upgrade/20260326125709"
+}}).
+2026-03-27T02:12:27.906Z [INFO] ----------------------invoked appmod-report-event----------------------
