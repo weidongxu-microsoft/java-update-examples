@@ -1,25 +1,37 @@
 package com.example.blobmanagerv2.service;
 
+import com.azure.v2.storage.blob.BlobClient;
+import com.azure.v2.storage.blob.BlockBlobClient;
+import com.azure.v2.storage.blob.ContainerClient;
+import com.azure.v2.storage.blob.StorageServiceClient;
+import com.azure.v2.storage.blob.models.BlobContainerItem;
+import com.azure.v2.storage.blob.models.BlobFlatListSegment;
+import com.azure.v2.storage.blob.models.BlobHttpHeaders;
+import com.azure.v2.storage.blob.models.BlobItemInternal;
+import com.azure.v2.storage.blob.models.BlobItemPropertiesInternal;
+import com.azure.v2.storage.blob.models.BlobName;
+import com.azure.v2.storage.blob.models.ListBlobsFlatSegmentResponse;
 import com.example.blobmanagerv2.model.BlobInfo;
-import com.microsoft.azure.storage.StorageException;
-import com.microsoft.azure.storage.blob.BlobProperties;
-import com.microsoft.azure.storage.blob.CloudBlobClient;
-import com.microsoft.azure.storage.blob.CloudBlobContainer;
-import com.microsoft.azure.storage.blob.CloudBlockBlob;
-import com.microsoft.azure.storage.blob.ListBlobItem;
+import io.clientcore.core.http.models.HttpHeaderName;
+import io.clientcore.core.http.models.HttpHeaders;
+import io.clientcore.core.http.models.HttpRequest;
+import io.clientcore.core.http.models.HttpResponseException;
+import io.clientcore.core.http.models.Response;
+import io.clientcore.core.http.paging.PagedIterable;
+import io.clientcore.core.http.paging.PagedResponse;
+import io.clientcore.core.models.binarydata.BinaryData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collections;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 
@@ -27,10 +39,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,23 +51,32 @@ import static org.mockito.Mockito.when;
 class BlobStorageServiceTest {
 
     @Mock
-    private CloudBlobClient blobClient;
+    private StorageServiceClient storageServiceClient;
+
+    @Mock
+    private ContainerClient containerClient;
+
+    @Mock
+    private BlobClient blobClient;
+
+    @Mock
+    private BlockBlobClient blockBlobClient;
 
     private BlobStorageService service;
 
     @BeforeEach
     void setUp() {
         service = new BlobStorageService();
-        service.setBlobClient(blobClient);
+        service.setClients(storageServiceClient, containerClient, blobClient, blockBlobClient,
+                "https://store.blob.core.windows.net");
     }
 
     @Test
     void listContainers_returnsContainerNames() {
-        CloudBlobContainer c1 = mock(CloudBlobContainer.class);
-        CloudBlobContainer c2 = mock(CloudBlobContainer.class);
-        when(c1.getName()).thenReturn("photos");
-        when(c2.getName()).thenReturn("documents");
-        when(blobClient.listContainers()).thenReturn(Arrays.asList(c1, c2));
+        when(storageServiceClient.listBlobContainersSegment(null, null, null, null, null, null))
+                .thenReturn(new PagedIterable<>(ignored -> new PagedResponse<>(request(), 200, new HttpHeaders(), List.of(
+                        new BlobContainerItem().setName("photos"),
+                        new BlobContainerItem().setName("documents")))));
 
         List<String> result = service.listContainers();
 
@@ -65,96 +87,96 @@ class BlobStorageServiceTest {
 
     @Test
     void listContainers_emptyWhenNone() {
-        when(blobClient.listContainers()).thenReturn(Collections.emptyList());
+        when(storageServiceClient.listBlobContainersSegment(null, null, null, null, null, null))
+                .thenReturn(new PagedIterable<>(ignored -> new PagedResponse<>(request(), 200, new HttpHeaders(), List.of())));
         assertTrue(service.listContainers().isEmpty());
     }
 
     @Test
-    void createContainer_callsCreateIfNotExists() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("my-container")).thenReturn(container);
-
+    void createContainer_callsCreate() {
         service.createContainer("my-container");
 
-        verify(container).createIfNotExists();
+        verify(containerClient).create("my-container", null, null, null, null, null);
     }
 
     @Test
-    void deleteContainer_callsDeleteIfExists() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("old-container")).thenReturn(container);
+    void createContainer_ignoresAlreadyExists() {
+        doThrow(httpResponseException(409)).when(containerClient)
+                .create("my-container", null, null, null, null, null);
 
+        service.createContainer("my-container");
+    }
+
+    @Test
+    void deleteContainer_callsDelete() {
         service.deleteContainer("old-container");
 
-        verify(container).deleteIfExists();
+        verify(containerClient).delete("old-container", null, null, null, null, null);
     }
 
     @Test
-    void listBlobs_returnsInfoForEachBlob() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("files")).thenReturn(container);
-        when(container.exists()).thenReturn(true);
+    void deleteContainer_ignoresMissingContainer() {
+        doThrow(httpResponseException(404)).when(containerClient)
+                .delete("old-container", null, null, null, null, null);
 
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        BlobProperties props = mock(BlobProperties.class);
-        when(blob.getName()).thenReturn("readme.txt");
-        when(blob.getUri()).thenReturn(new URI("https://store.blob.core.windows.net/files/readme.txt"));
-        when(blob.getProperties()).thenReturn(props);
-        when(props.getLength()).thenReturn(1024L);
-        when(props.getContentType()).thenReturn("text/plain");
-        when(props.getLastModified()).thenReturn(new Date(1700000000000L));
+        service.deleteContainer("old-container");
+    }
 
-        List<ListBlobItem> items = Collections.singletonList(blob);
-        when(container.listBlobs()).thenReturn(items);
+    @Test
+    void listBlobs_returnsInfoForEachBlob() {
+        when(containerClient.getPropertiesWithResponse(eq("files"), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyResponse(200));
+        when(containerClient.listBlobFlatSegment("files", null, null, null, null, null, null))
+            .thenReturn(new ListBlobsFlatSegmentResponse()
+                .setSegment(new BlobFlatListSegment()
+                    .setBlobItems(List.of(
+                        new BlobItemInternal()
+                            .setName(new BlobName().setContent("readme.txt"))
+                            .setProperties(new BlobItemPropertiesInternal()
+                                .setContentLength(1024L)
+                                .setContentType("text/plain")
+                                .setLastModified(OffsetDateTime.ofInstant(
+                                    new Date(1700000000000L).toInstant(), ZoneOffset.UTC)))))));
 
         List<BlobInfo> result = service.listBlobs("files");
 
         assertEquals(1, result.size());
         BlobInfo info = result.get(0);
         assertEquals("readme.txt", info.getName());
+        assertEquals("https://store.blob.core.windows.net/files/readme.txt", info.getUrl());
         assertEquals(1024L, info.getSize());
         assertEquals("text/plain", info.getContentType());
     }
 
     @Test
-    void listBlobs_throwsIfContainerNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        when(blobClient.getContainerReference("missing")).thenReturn(container);
-        when(container.exists()).thenReturn(false);
+    void listBlobs_throwsIfContainerNotFound() {
+        when(containerClient.getPropertiesWithResponse(eq("missing"), isNull(), isNull(), isNull(), any()))
+                .thenThrow(httpResponseException(404));
 
         assertThrows(IllegalArgumentException.class, () -> service.listBlobs("missing"));
     }
 
     @Test
     void uploadBlob_uploadsWithContentType() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        BlobProperties props = mock(BlobProperties.class);
-        when(blobClient.getContainerReference("uploads")).thenReturn(container);
-        when(container.getBlockBlobReference("photo.jpg")).thenReturn(blob);
-        when(blob.getProperties()).thenReturn(props);
-
         InputStream data = new ByteArrayInputStream("image-data".getBytes());
         service.uploadBlob("uploads", "photo.jpg", data, 10L, "image/jpeg");
 
-        verify(props).setContentType("image/jpeg");
-        verify(blob).upload(eq(data), eq(10L));
-        verify(container).createIfNotExists();
+        verify(containerClient).create("uploads", null, null, null, null, null);
+        verify(blockBlobClient).upload(eq("uploads"), eq("photo.jpg"), eq(10L), any(BinaryData.class), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                argThat((BlobHttpHeaders headers) -> "image/jpeg".equals(headers.getContentType())), isNull(),
+                isNull());
     }
 
     @Test
     void downloadBlob_writesToOutputStream() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("docs")).thenReturn(container);
-        when(container.getBlockBlobReference("file.txt")).thenReturn(blob);
-        when(blob.exists()).thenReturn(true);
-
-        doAnswer(invocation -> {
-            ByteArrayOutputStream out = invocation.getArgument(0);
-            out.write("hello world".getBytes());
-            return null;
-        }).when(blob).download(org.mockito.ArgumentMatchers.any());
+        when(blobClient.getPropertiesWithResponse(eq("docs"), eq("file.txt"), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyResponse(200));
+        when(blobClient.download("docs", "file.txt", null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null))
+                .thenReturn(new ByteArrayInputStream("hello world".getBytes()));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         service.downloadBlob("docs", "file.txt", out);
@@ -163,58 +185,72 @@ class BlobStorageServiceTest {
     }
 
     @Test
-    void downloadBlob_throwsIfBlobNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("docs")).thenReturn(container);
-        when(container.getBlockBlobReference("missing.txt")).thenReturn(blob);
-        when(blob.exists()).thenReturn(false);
+    void downloadBlob_throwsIfBlobNotFound() {
+        when(blobClient.getPropertiesWithResponse(eq("docs"), eq("missing.txt"), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenThrow(httpResponseException(404));
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.downloadBlob("docs", "missing.txt", new ByteArrayOutputStream()));
     }
 
     @Test
-    void deleteBlob_returnsTrueWhenDeleted() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("data")).thenReturn(container);
-        when(container.getBlockBlobReference("old.csv")).thenReturn(blob);
-        when(blob.deleteIfExists()).thenReturn(true);
-
+    void deleteBlob_returnsTrueWhenDeleted() {
         assertTrue(service.deleteBlob("data", "old.csv"));
     }
 
     @Test
-    void deleteBlob_returnsFalseWhenNotFound() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        when(blobClient.getContainerReference("data")).thenReturn(container);
-        when(container.getBlockBlobReference("nope.csv")).thenReturn(blob);
-        when(blob.deleteIfExists()).thenReturn(false);
+    void deleteBlob_returnsFalseWhenNotFound() {
+        doThrow(httpResponseException(404)).when(blobClient)
+                .delete("data", "nope.csv", null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertFalse(service.deleteBlob("data", "nope.csv"));
     }
 
     @Test
-    void getBlobInfo_returnsInfo() throws Exception {
-        CloudBlobContainer container = mock(CloudBlobContainer.class);
-        CloudBlockBlob blob = mock(CloudBlockBlob.class);
-        BlobProperties props = mock(BlobProperties.class);
-        when(blobClient.getContainerReference("info")).thenReturn(container);
-        when(container.getBlockBlobReference("report.pdf")).thenReturn(blob);
-        when(blob.exists()).thenReturn(true);
-        when(blob.getProperties()).thenReturn(props);
-        when(blob.getName()).thenReturn("report.pdf");
-        when(blob.getUri()).thenReturn(new URI("https://store.blob.core.windows.net/info/report.pdf"));
-        when(props.getLength()).thenReturn(5000L);
-        when(props.getContentType()).thenReturn("application/pdf");
-        when(props.getLastModified()).thenReturn(null);
+    void getBlobInfo_returnsInfo() {
+        when(blobClient.getPropertiesWithResponse(eq("info"), eq("report.pdf"), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(blobInfoResponse(5000L, "application/pdf", null));
 
         BlobInfo info = service.getBlobInfo("info", "report.pdf");
 
         assertEquals("report.pdf", info.getName());
+        assertEquals("https://store.blob.core.windows.net/info/report.pdf", info.getUrl());
         assertEquals(5000L, info.getSize());
         assertEquals("application/pdf", info.getContentType());
+    }
+
+    @Test
+    void getBlobInfo_throwsIfMissing() {
+        when(blobClient.getPropertiesWithResponse(eq("info"), eq("missing.pdf"), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenThrow(httpResponseException(404));
+
+        assertThrows(IllegalArgumentException.class, () -> service.getBlobInfo("info", "missing.pdf"));
+    }
+
+    private static HttpRequest request() {
+        return new HttpRequest().setUri("https://example.test");
+    }
+
+    private static Response<Void> emptyResponse(int statusCode) {
+        return new Response<>(request(), statusCode, new HttpHeaders(), null);
+    }
+
+    private static Response<Void> blobInfoResponse(long size, String contentType, String lastModified) {
+        HttpHeaders headers = new HttpHeaders()
+                .set(HttpHeaderName.CONTENT_LENGTH, String.valueOf(size))
+                .set(HttpHeaderName.CONTENT_TYPE, contentType);
+        if (lastModified != null) {
+            headers.set(HttpHeaderName.LAST_MODIFIED, lastModified);
+        }
+        return new Response<>(request(), 200, headers, null);
+    }
+
+    private static HttpResponseException httpResponseException(int statusCode) {
+        return new HttpResponseException("storage error",
+                new Response<>(request(), statusCode, new HttpHeaders(), (BinaryData) null),
+                (Object) null);
     }
 }
