@@ -15,11 +15,10 @@
     <artifactId>blob-manager</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>Cloud File Manager</name>
-    <description>Spring Boot web app for Azure Blob Storage management using Track 1 SDK</description>
+    <description>Spring Boot web app for Azure Blob Storage management using azure-core-v2</description>
 
     <properties>
         <java.version>17</java.version>
-        <azure-storage.version>8.6.6</azure-storage.version>
     </properties>
 
     <dependencies>
@@ -29,9 +28,21 @@
         </dependency>
 
         <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-storage</artifactId>
-            <version>${azure-storage.version}</version>
+            <groupId>io.clientcore</groupId>
+            <artifactId>core</artifactId>
+            <version>1.0.0-beta.11</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.azure.v2</groupId>
+            <artifactId>azure-core</artifactId>
+            <version>2.0.0-beta.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.azure.v2</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>13.0.0-beta.1</version>
         </dependency>
 
         <dependency>
@@ -45,6 +56,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>5.2.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -52,17 +70,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.openrewrite.maven</groupId>
-                <artifactId>rewrite-maven-plugin</artifactId>
-                <version>5.46.0</version>
-                <configuration>
-                    <activeRecipes>
-                        <recipe>com.myorg.ChangePkgName</recipe>
-                    </activeRecipes>
-                    <configLocation>rewrite.yml</configLocation>
-                </configuration>
             </plugin>
         </plugins>
     </build>
