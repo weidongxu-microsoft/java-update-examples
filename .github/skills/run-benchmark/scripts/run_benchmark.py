@@ -98,11 +98,24 @@ async def main():
         build_command = [get_command("mvn"), "clean", "package", "verify"]
         build_tool_name = "Maven"
     
+    # Pass JAVA_HOME to the build subprocess if available
+    # There's a case where previous Copilot session might have switched Java version to adapt to the project settings
+    # In that case we want to make sure the build subprocess uses the same Java version by passing JAVA_HOME explicitly.
+    java_home = os.environ.get("JAVA_HOME")
+    build_env = None
+    if java_home:
+        build_env = os.environ.copy()
+        build_env["JAVA_HOME"] = java_home
+        print(f"Using JAVA_HOME: {java_home}")
+    else:
+        print("JAVA_HOME is not set; letting the subprocess detect Java on its own.")
+
     process = await asyncio.create_subprocess_exec(
         *build_command,
         cwd=project_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=build_env,
     )
     stdout, stderr = await process.communicate()
     log_file = os.path.join(project_path, "build_failure.log")
