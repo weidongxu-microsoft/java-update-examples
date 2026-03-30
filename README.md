@@ -32,7 +32,7 @@
 - **azure-legacy-sdk-update-learn-azure-cosmosdb** – Getting started samples for Azure Cosmos DB (SQL API, MongoDB, Gremlin, Cassandra). Legacy Azure SDKs: `com.microsoft.azure:azure-cosmosdb:2.4.3`, `com.microsoft.azure:azure-documentdb:2.4.3`. Uses Maven, JDK 8. From https://github.com/yaravind/learn-azure-cosmosdb
 - **azure-legacy-sdk-update-eventgrid-connector** – Spring Boot application demonstrating connectivity to Azure Event Grid. Legacy Azure SDKs: `com.microsoft.azure:azure-eventgrid:1.2.0`, `com.microsoft.azure:azure-storage-spring-boot-starter`. Uses Maven, JDK 14. From https://github.com/crostonj/EventGridConnector
 - **azure-legacy-sdk-update-llmops-java** – LLMOps platform based on LangChain4j with Azure Cognitive Services integration. Legacy Azure SDKs: `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-websearch:1.0.1`, `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-customsearch:1.0.1`. Uses Maven, JDK 17. From https://github.com/llm-manus/llmops-java
-- **azure-legacy-sdk-update-samza** – Apache Samza distributed stream processing framework with Azure integrations. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-storage:8.6.6`. Uses Gradle, has 19 test files in samza-azure module. From https://github.com/apache/samza
+
 
 ## Example from public repository
 
@@ -49,7 +49,7 @@
 - https://github.com/yaravind/learn-azure-cosmosdb (use Maven, JDK 8)
 - https://github.com/crostonj/EventGridConnector (use Maven/Spring Boot, JDK 14)
 - https://github.com/llm-manus/llmops-java (use Maven, JDK 17)
-- https://github.com/apache/samza (use Gradle)
+
 
 ## Attempted but failed
 
