@@ -28,6 +28,7 @@ Follow these steps:
 ## Migrate pom.xml
 
 It is recommended to use azure-sdk-bom (version higher than 1.3.0).
+Help with looking up the latest stable version on https://repo1.maven.org/maven2/ and proceed with migration. `azure-resourcemanager-xx` should have groupId `com.azure.resourcemanager` instead of `com.azure`.
 
 Example of pom.xml
 ```
@@ -67,7 +68,7 @@ dependencies {
 ## Migrate Java Code
 
 - Make a list of source code/maven/gradle files that contains legacy SDK packages. Migrate each of them.
-- Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Package-Specific Migration Guides](#package-specific-migration-guides) and follow the guides whenever possible.
+- Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Package-Specific Migration Guides](#package-specific-migration-guides) and follow the guides whenever possible. Record which migration guide URL you used for each legacy package (e.g., in your plan or commit messages), so you can validate against them later.
 - Do not change the Java `package ...;` declaration at the top of each source file; update import statements and type usages as needed.
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
@@ -186,6 +187,14 @@ AzureResourceManager.configure()
 - Migrated project pass compilation.
 - All tests pass. Don't silently skip tests.
 - No legacy SDK dependencies/references exist.
+- If azure-sdk-bom is used, ensure no explicit version dependencies for Azure libraries that are in azure-sdk-bom.
+  E.g. Instead of `implementation 'com.azure.resourcemanager:azure-resourcemanager:2.60.0'`, we should use `implementation 'com.azure.resourcemanager:azure-resourcemanager'`.
+  For Azure libraries in azure-sdk-bom, check https://repo1.maven.org/maven2/com/azure/azure-sdk-bom/{bom_version}/azure-sdk-bom-{bom_version}.pom (bom_version be version used during migration)
+- For each migration guide you recorded during migration:
+  1. Fetch and read the full content of the guide URL.
+  2. Identify the migrated source files that correspond to that guide's package.
+  3. Verify the migrated code follows the guide's recommended API replacements, class mappings, authentication patterns, and async/sync conventions.
+  4. Fix any deviations — do not just report them.
 
 ## Package-Specific Migration Guides
 
