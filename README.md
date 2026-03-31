@@ -40,6 +40,7 @@
 
 
 - **azure-legacy-sdk-update-storage-blob-spring-boot** – Spring Boot web app ("Cloud File Manager") with REST API for Azure Blob Storage CRUD operations. Uses Track 1 `azure-storage:8.6.6`. Includes modern file-manager UI, unit tests, and azd deployment configuration. Purpose-built for live demo of legacy SDK upgrade.
+- **azure-legacy-sdk-update-secure-data-pipeline** – Encrypted document storage pipeline using Azure Key Vault for encryption key management and Azure Blob Storage for persistence. Legacy Azure SDKs: `com.microsoft.azure:azure-storage:8.6.6`, `com.microsoft.azure:azure-keyvault:1.2.6`. Uses Maven, JDK 8, has 47 JUnit 4 + Mockito tests.
 
 ## Example from public repository
 
