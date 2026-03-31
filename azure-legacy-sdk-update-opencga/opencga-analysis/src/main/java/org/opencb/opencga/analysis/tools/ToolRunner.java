@@ -1,0 +1,298 @@
+/*
+ * Copyright 2015-2020 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.analysis.tools;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.opencga.analysis.variant.manager.VariantStorageManager;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.catalog.managers.CatalogManager;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.config.Configuration;
+import org.opencb.opencga.core.exceptions.ToolException;
+import org.opencb.opencga.core.models.job.Job;
+import org.opencb.opencga.core.tools.ToolParams;
+import org.opencb.opencga.core.tools.result.ExecutionResult;
+import org.opencb.opencga.storage.core.StorageEngineFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+public class ToolRunner {
+
+    private final VariantStorageManager variantStorageManager;
+    private Logger logger = LoggerFactory.getLogger(ToolRunner.class);
+
+    private final CatalogManager catalogManager;
+    private final String opencgaHome;
+    private final ToolFactory toolFactory;
+
+    private final Configuration configuration;
+
+    public ToolRunner(String opencgaHome, CatalogManager catalogManager, StorageEngineFactory storageEngineFactory) {
+        this(opencgaHome, catalogManager, new VariantStorageManager(catalogManager, storageEngineFactory));
+    }
+
+    public ToolRunner(String opencgaHome, CatalogManager catalogManager, StorageEngineFactory storageEngineFactory,
+                      Configuration configuration) {
+        this(opencgaHome, catalogManager, new VariantStorageManager(catalogManager, storageEngineFactory), configuration);
+    }
+
+    public ToolRunner(String opencgaHome, CatalogManager catalogManager, VariantStorageManager variantStorageManager) {
+        this(opencgaHome, catalogManager, variantStorageManager, null);
+    }
+
+    public ToolRunner(String opencgaHome, CatalogManager catalogManager, VariantStorageManager variantStorageManager,
+                      Configuration configuration) {
+        this.opencgaHome = opencgaHome;
+        this.catalogManager = catalogManager;
+
+        this.variantStorageManager = variantStorageManager;
+        this.toolFactory = new ToolFactory();
+
+        this.configuration = configuration;
+    }
+
+    /**
+     * Execute a command tool.
+     * @param study Study containing the job
+     * @param jobId jobId of the job containing the relevant information.
+     * @param token session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(String study, String jobId, String token) throws CatalogException, ToolException {
+        // We get the job information.
+        Job job = catalogManager.getJobManager().get(study, jobId, QueryOptions.empty(), token).first();
+        return execute(study, job, token);
+    }
+
+    /**
+     * Execute a command tool.
+     *
+     * @param study Study containing the job
+     * @param job   job to execute
+     * @param token session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(String study, Job job, String token) throws CatalogException, ToolException {
+        return execute(study, job, Paths.get(job.getOutDir().getUri()), token);
+    }
+
+    /**
+     * Execute a command tool.
+     *
+     * @param study
+     * @param job    job to execute
+     * @param outDir job output directory
+     * @param token  session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(String study, Job job, Path outDir, String token) throws CatalogException, ToolException {
+        String toolId = ToolFactory.getToolId(job.getType(), job.getTool());
+        return execute(toolId, new ObjectMap(job.getParams()), outDir, study, job.getId(), job.isDryRun(), token);
+    }
+
+    /**
+     * Execute a tool
+     *
+     * @param toolId Tool identifier. It can be either the tool id itself, or the class name.
+     * @param params Params for the execution.
+     * @param outDir Output directory. Mandatory
+     * @param study  Study containing the job
+     * @param jobId  Job Id (if any)
+     * @param dryRun Dry-run mode.
+     * @param token  session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(String toolId, ObjectMap params, Path outDir, String study, String jobId, boolean dryRun, String token)
+            throws ToolException {
+        OpenCgaTool tool;
+        if (configuration != null && configuration.getAnalysis() != null
+                && CollectionUtils.isNotEmpty(configuration.getAnalysis().getPackages())) {
+            tool = toolFactory.createTool(toolId, configuration.getAnalysis().getPackages());
+        } else {
+            tool = toolFactory.createTool(toolId);
+        }
+        return tool.setUp(opencgaHome, catalogManager, variantStorageManager, params, outDir, study, jobId, dryRun, token)
+                .start();
+    }
+
+    /**
+     * Execute a tool
+     *
+     * @param tool       Tool class
+     * @param study      Study id
+     * @param toolParams Specific ToolParams for the execution.
+     * @param outDir     Output directory. Mandatory
+     * @param jobId      Job Id (if any)
+     * @param dryRun     Dry-run mode.
+     * @param token      session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(Class<? extends OpenCgaTool> tool, String study, ToolParams toolParams, Path outDir, String jobId,
+                                   boolean dryRun, String token)
+            throws ToolException {
+        ObjectMap params = new ObjectMap();
+        params.putIfNotEmpty(ParamConstants.STUDY_PARAM, study);
+        return execute(tool, toolParams, params, outDir, jobId, dryRun, token);
+    }
+
+    /**
+     * Execute a tool
+     *
+     * @param tool       Tool class
+     * @param toolParams Specific ToolParams for the execution.
+     * @param params     Params for the execution.
+     * @param outDir     Output directory. Mandatory
+     * @param jobId      Job Id (if any)
+     * @param dryRun     Dry-run mode.
+     * @param token      session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(Class<? extends OpenCgaTool> tool, ToolParams toolParams, ObjectMap params, Path outDir, String jobId,
+                                   boolean dryRun, String token)
+            throws ToolException {
+        if (toolParams != null) {
+            params = toolParams.toObjectMap(params);
+        }
+        return execute(tool, params, outDir, jobId, dryRun, token);
+    }
+
+    /**
+     * Execute a tool
+     *
+     * @param tool       Tool class
+     * @param toolParams Specific ToolParams for the execution.
+     * @param outDir     Output directory. Mandatory
+     * @param jobId      Job Id (if any)
+     * @param dryRun     Dry-run mode.
+     * @param token      session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(Class<? extends OpenCgaTool> tool, ToolParams toolParams, Path outDir, String jobId, boolean dryRun,
+                                   String token)
+            throws ToolException {
+        ObjectMap params;
+        if (toolParams != null) {
+            params = toolParams.toObjectMap();
+        } else {
+            params = new ObjectMap();
+        }
+        return execute(tool, params, outDir, jobId, dryRun, token);
+    }
+
+    /**
+     * Execute a tool
+     *
+     * @param tool   Tool class
+     * @param params Params for the execution.
+     * @param outDir Output directory. Mandatory
+     * @param jobId  Job Id (if any)
+     * @param dryRun
+     * @param token  session id of the user that will execute the tool.
+     * @return Execution result
+     * @throws ToolException if the execution fails
+     */
+    public ExecutionResult execute(Class<? extends OpenCgaTool> tool, ObjectMap params, Path outDir, String jobId, boolean dryRun,
+                                   String token) throws ToolException {
+
+        return toolFactory
+                .createTool(tool)
+                .setUp(opencgaHome, catalogManager, variantStorageManager, params, outDir, "", jobId, dryRun, token)
+                .start();
+    }
+
+//    /**
+//     * Execute a command tool.
+//     * @param jobId jobId of the job containing the relevant information.
+//     * @param sessionId session id of the user that will execute the tool.
+//     */
+//    public void execute(long jobId, String sessionId) {
+//        try {
+//            // We get the job information.
+//            Query query = new Query();
+//            query.put(JobDBAdaptor.QueryParams.UID.key(), jobId);
+//            Job job = jobManager.search(null, query, QueryOptions.empty(), sessionId).first();
+//            long studyUid = jobManager.getStudyId(jobId);
+//
+//            // get the study FQN we need
+//            query = new Query();
+//            query.put(StudyDBAdaptor.QueryParams.UID.key(), studyUid);
+//            String studyFqn = catalogManager.getStudyManager().get(query, QueryOptions.empty(), sessionId).first().getFqn();
+//
+//            String outDir = (String) job.getAttributes().get(Job.OPENCGA_TMP_DIR);
+//            Path outDirPath = Paths.get(outDir);
+//
+//            String tool = job.getToolId();
+//            String execution = job.getExecution();
+//
+//            // Create the OpenCGA output folder
+//            fileManager.createFolder(studyFqn, (String) job.getAttributes().get(Job.OPENCGA_OUTPUT_DIR),
+//                    new File.FileStatus(), true, "", QueryOptions.empty(), sessionId);
+//
+//            // Convert the input and output files to uris in the filesystem
+//            Map<String, String> params = new HashMap<>(job.getParams());
+//            List<Param> inputParams = toolManager.getInputParams(tool, execution);
+//            QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, FileDBAdaptor.QueryParams.URI.key());
+//            for (Param inputParam : inputParams) {
+//                if (inputParam.isRequired() && !params.containsKey(inputParam.getName())) {
+//                    throw new CatalogException("Missing mandatory input parameter " + inputParam.getName());
+//                }
+//                if (params.containsKey(inputParam.getName())) {
+//                    // Get the file uri
+//                    String fileString = params.get(inputParam.getName());
+//                    DataResult<File> fileQueryResult = fileManager.get(studyFqn, fileString, options, sessionId);
+//                    if (fileQueryResult.getNumResults() == 0) {
+//                        throw new CatalogException("File " + fileString + " not found");
+//                    }
+//                    params.put(inputParam.getName(), fileQueryResult.first().getUri().getPath());
+//                }
+//            }
+//
+//            // Convert output file params to be stored in the output directory specified
+//            List<Param> outputParams = toolManager.getOutputParams(tool, execution);
+//            for (Param outputParam : outputParams) {
+//                if (outputParam.isRequired() && !params.containsKey(outputParam.getName())) {
+//                    throw new CatalogException("Missing mandatory output parameter " + outputParam.getName());
+//                }
+//                if (params.containsKey(outputParam.getName())) {
+//                    // Contextualise the file name in the uri where it should be written. /jobs/jobX/file.txt where /jobs/jobX = outDir and
+//                    // file.txt = outputFileName
+//                    Path name = Paths.get(params.get(outputParam.getName()));
+//                    String absolutePath = outDirPath.resolve(name.toFile().getName()).toString();
+//                    params.put(outputParam.getName(), absolutePath);
+//                }
+//            }
+//
+//            // Execute the tool
+//            String commandLine = toolManager.createCommandLine(tool, execution, params);
+//            toolManager.runCommandLine(commandLine, Paths.get(outDir), false);
+//        } catch (CatalogException | AnalysisToolException e) {
+//            logger.error("{}", e.getMessage(), e);
+//        }
+//    }
+}

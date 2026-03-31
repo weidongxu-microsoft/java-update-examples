@@ -1,0 +1,2001 @@
+/*
+ * Copyright 2015-2020 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.catalog.db.mongodb;
+
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Projections;
+import com.mongodb.client.model.Updates;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.StringUtils;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.opencb.commons.datastore.core.*;
+import org.opencb.commons.datastore.mongodb.MongoDBCollection;
+import org.opencb.commons.datastore.mongodb.MongoDBIterator;
+import org.opencb.opencga.catalog.db.api.DBIterator;
+import org.opencb.opencga.catalog.db.api.ProjectDBAdaptor;
+import org.opencb.opencga.catalog.db.api.SampleDBAdaptor;
+import org.opencb.opencga.catalog.db.api.StudyDBAdaptor;
+import org.opencb.opencga.catalog.db.mongodb.converters.StudyConverter;
+import org.opencb.opencga.catalog.db.mongodb.converters.VariableSetConverter;
+import org.opencb.opencga.catalog.db.mongodb.iterators.StudyCatalogMongoDBIterator;
+import org.opencb.opencga.catalog.exceptions.*;
+import org.opencb.opencga.catalog.io.CatalogIOManager;
+import org.opencb.opencga.catalog.utils.Constants;
+import org.opencb.opencga.catalog.utils.FqnUtils;
+import org.opencb.opencga.catalog.utils.ParamUtils;
+import org.opencb.opencga.catalog.utils.UuidUtils;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.common.TimeUtils;
+import org.opencb.opencga.core.config.Configuration;
+import org.opencb.opencga.core.models.common.Annotable;
+import org.opencb.opencga.core.models.common.Enums;
+import org.opencb.opencga.core.models.common.InternalStatus;
+import org.opencb.opencga.core.models.file.File;
+import org.opencb.opencga.core.models.file.FileInternal;
+import org.opencb.opencga.core.models.project.Project;
+import org.opencb.opencga.core.models.study.*;
+import org.opencb.opencga.core.response.OpenCGAResult;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.net.URI;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static org.opencb.opencga.catalog.db.api.ClinicalAnalysisDBAdaptor.QueryParams.MODIFICATION_DATE;
+import static org.opencb.opencga.catalog.db.mongodb.AuthorizationMongoDBUtils.checkCanViewStudy;
+import static org.opencb.opencga.catalog.db.mongodb.AuthorizationMongoDBUtils.checkStudyPermission;
+import static org.opencb.opencga.catalog.db.mongodb.MongoDBUtils.*;
+
+/**
+ * Created on 07/09/15.
+ *
+ * @author Jacobo Coll &lt;jacobo167@gmail.com&gt;
+ */
+public class StudyMongoDBAdaptor extends CatalogMongoDBAdaptor implements StudyDBAdaptor {
+
+    private final MongoDBCollection studyCollection;
+    private final MongoDBCollection deletedStudyCollection;
+    private StudyConverter studyConverter;
+    private VariableSetConverter variableSetConverter;
+
+    private final CatalogIOManager ioManager;
+
+    public StudyMongoDBAdaptor(MongoDBCollection studyCollection, MongoDBCollection deletedStudyCollection,
+                               CatalogIOManager catalogIOManager, Configuration configuration,
+                               OrganizationMongoDBAdaptorFactory dbAdaptorFactory) {
+        super(configuration, LoggerFactory.getLogger(StudyMongoDBAdaptor.class));
+        this.dbAdaptorFactory = dbAdaptorFactory;
+        this.studyCollection = studyCollection;
+        this.ioManager = catalogIOManager;
+        this.deletedStudyCollection = deletedStudyCollection;
+        this.studyConverter = new StudyConverter();
+        this.variableSetConverter = new VariableSetConverter();
+    }
+
+    static Document getDocumentUpdateParams(ObjectMap parameters) throws CatalogDBException {
+        Document studyParameters = new Document();
+
+        String[] acceptedParams = {QueryParams.ALIAS.key(), QueryParams.NAME.key(), QueryParams.DESCRIPTION.key()};
+        filterStringParams(parameters, studyParameters, acceptedParams);
+
+        if (StringUtils.isNotEmpty(parameters.getString(QueryParams.CREATION_DATE.key()))) {
+            String time = parameters.getString(QueryParams.CREATION_DATE.key());
+            Date date = TimeUtils.toDate(time);
+            studyParameters.put(QueryParams.CREATION_DATE.key(), time);
+            studyParameters.put(PRIVATE_CREATION_DATE, date);
+        }
+        if (StringUtils.isNotEmpty(parameters.getString(MODIFICATION_DATE.key()))) {
+            String time = parameters.getString(QueryParams.MODIFICATION_DATE.key());
+            Date date = TimeUtils.toDate(time);
+            studyParameters.put(QueryParams.MODIFICATION_DATE.key(), time);
+            studyParameters.put(PRIVATE_MODIFICATION_DATE, date);
+        }
+
+        String[] acceptedLongParams = {QueryParams.SIZE.key()};
+        filterLongParams(parameters, studyParameters, acceptedLongParams);
+
+        String[] acceptedMapParams = {QueryParams.ATTRIBUTES.key()};
+        filterMapParams(parameters, studyParameters, acceptedMapParams);
+
+        final String[] acceptedObjectParams = {QueryParams.TYPE.key(), QueryParams.SOURCES.key(), QueryParams.STATUS.key(),
+                QueryParams.INTERNAL_CONFIGURATION_CLINICAL.key(), QueryParams.INTERNAL_CONFIGURATION_VARIANT_ENGINE.key(),
+                QueryParams.INTERNAL_INDEX_RECESSIVE_GENE.key(), QueryParams.ADDITIONAL_INFO.key(), QueryParams.INTERNAL_STATUS.key(),
+                QueryParams.INTERNAL_VARIANT_SECONDARY_SAMPLE_INDEX.key()};
+        filterObjectParams(parameters, studyParameters, acceptedObjectParams);
+
+        if (studyParameters.containsKey(QueryParams.STATUS.key())) {
+            nestedPut(QueryParams.STATUS_DATE.key(), TimeUtils.getTime(), studyParameters);
+        }
+
+        if (parameters.containsKey(QueryParams.URI.key())) {
+            URI uri = parameters.get(QueryParams.URI.key(), URI.class);
+            studyParameters.put(QueryParams.URI.key(), uri.toString());
+        }
+
+        if (parameters.containsKey(QueryParams.NOTIFICATION_WEBHOOK.key())) {
+            Object value = parameters.get(QueryParams.NOTIFICATION_WEBHOOK.key());
+            studyParameters.put(QueryParams.NOTIFICATION_WEBHOOK.key(), value);
+        }
+
+        if (!studyParameters.isEmpty()) {
+            String time = TimeUtils.getTime();
+            if (StringUtils.isEmpty(parameters.getString(MODIFICATION_DATE.key()))) {
+                // Update modificationDate param
+                Date date = TimeUtils.toDate(time);
+                studyParameters.put(QueryParams.MODIFICATION_DATE.key(), time);
+                studyParameters.put(PRIVATE_MODIFICATION_DATE, date);
+            }
+            studyParameters.put(INTERNAL_LAST_MODIFIED, time);
+        }
+        return studyParameters;
+    }
+
+    public void checkId(ClientSession clientSession, long studyId) throws CatalogDBException {
+        if (studyId < 0) {
+            throw CatalogDBException.newInstance("Study id '{}' is not valid: ", studyId);
+        }
+        Long count = count(clientSession, new Query(QueryParams.UID.key(), studyId)).getNumMatches();
+        if (count <= 0) {
+            throw CatalogDBException.newInstance("Study id '{}' does not exist", studyId);
+        } else if (count > 1) {
+            throw CatalogDBException.newInstance("'{}' documents found with the Study id '{}'", count, studyId);
+        }
+    }
+
+    private boolean studyIdExists(ClientSession clientSession, long projectId, String studyId) throws CatalogDBException {
+        if (projectId < 0) {
+            throw CatalogDBException.newInstance("Project id '{}' is not valid: ", projectId);
+        }
+
+        Query query = new Query(QueryParams.PROJECT_ID.key(), projectId).append(QueryParams.ID.key(), studyId);
+        OpenCGAResult<Long> count = count(clientSession, query);
+        return count.getNumMatches() != 0;
+    }
+
+    @Override
+    public OpenCGAResult<Study> nativeInsert(Map<String, Object> study) throws CatalogDBException {
+        Document studyDocument = getMongoDBDocument(study, "study");
+        return new OpenCGAResult<>(studyCollection.insert(studyDocument, null));
+    }
+
+//    @Override
+//    public OpenCGAResult<Study> insert(Project project, Study study, QueryOptions options) throws CatalogDBException {
+//        ClientSession clientSession = getClientSession();
+//        TransactionBody<OpenCGAResult> txnBody = () -> {
+//            long tmpStartTime = startQuery();
+//            logger.debug("Starting study insert transaction for study id '{}'", study.getId());
+//
+//            try {
+//                insert(clientSession, project, study);
+//                return endWrite(tmpStartTime, 1, 1, 0, 0, null, null);
+//            } catch (CatalogDBException e) {
+//                throw new CatalogDBRuntimeException("Could not create study " + study.getId(), e);
+//            }
+//        };
+//
+//        try {
+//            return commitTransaction(clientSession, txnBody);
+//        } catch (CatalogDBRuntimeException e) {
+//            logger.error("Could not create study {}: {}", study.getId(), e.getMessage());
+//            throw new CatalogDBException(e);
+//        }
+//    }
+
+    @Override
+    public OpenCGAResult<Study> insert(Project project, Study study, QueryOptions options) throws CatalogDBException {
+        try {
+            return runTransaction(clientSession -> {
+                long tmpStartTime = startQuery();
+                logger.debug("Starting study insert transaction for study id '{}'", study.getId());
+
+                insert(clientSession, project, study);
+                return endWrite(tmpStartTime, 1, 1, 0, 0, null);
+            });
+        } catch (Exception e) {
+            throw new CatalogDBException("Could not create study '" + study.getFqn() + "'", e);
+        }
+    }
+
+    Study insert(ClientSession clientSession, Project project, Study study)
+            throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException, CatalogIOException {
+        if (project.getUid() < 0) {
+            throw CatalogDBException.uidNotFound("Project", project.getUid());
+        }
+        if (StringUtils.isEmpty(project.getId())) {
+            throw CatalogDBException.idNotFound("Project", project.getId());
+        }
+
+        // Check if study.id already exists.
+        if (studyIdExists(clientSession, project.getUid(), study.getId())) {
+            throw new CatalogDBException("Study {id:\"" + study.getId() + "\"} already exists");
+        }
+
+        //Set new ID
+        long studyUid = getNewUid(clientSession);
+        study.setUid(studyUid);
+
+        if (StringUtils.isEmpty(study.getUuid())) {
+            study.setUuid(UuidUtils.generateOpenCgaUuid(UuidUtils.Entity.STUDY));
+        }
+
+        study.setFqn(project.getFqn() + ":" + study.getId());
+
+        List<VariableSet> variableSets = study.getVariableSets();
+        List<Document> variableSetDocuments = null;
+        if (variableSets != null) {
+            variableSetDocuments = new ArrayList<>(variableSets.size());
+            for (VariableSet variableSet : variableSets) {
+                long vsetUid = getNewUid(clientSession);
+                variableSet.setUid(vsetUid);
+                variableSetDocuments.add(variableSetConverter.convertToStorageType(variableSet));
+            }
+        }
+        study.setVariableSets(null);
+
+        FqnUtils.FQN fqn = FqnUtils.parse(study.getFqn());
+        String organization = fqn.getOrganization();
+        try {
+            URI studyUri = ioManager.getStudyUri(organization, Long.toString(project.getUid()), Long.toString(study.getUid()));
+            study.setUri(studyUri);
+        } catch (CatalogIOException e) {
+            throw new CatalogIOException("Could not obtain study uri.", e);
+        }
+
+        //Create Document and store in the database
+        Document studyObject = studyConverter.convertToStorageType(study);
+        studyObject.put(PRIVATE_UID, studyUid);
+        studyObject.put(QueryParams.VARIABLE_SET.key(), variableSetDocuments);
+
+        //Set ProjectId - This is in use in ProjectMongoDBAdaptor. Any changes here should force changes in ProjectMongoDBAdaptor as well
+        studyObject.put(PRIVATE_PROJECT, new Document()
+                .append(ID, project.getId())
+                .append(PRIVATE_UID, project.getUid())
+                .append(PRIVATE_UUID, project.getUuid())
+        );
+
+        studyObject.put(PRIVATE_CREATION_DATE,
+                StringUtils.isNotEmpty(study.getCreationDate()) ? TimeUtils.toDate(study.getCreationDate()) : TimeUtils.getDate());
+        studyObject.put(PRIVATE_MODIFICATION_DATE,
+                StringUtils.isNotEmpty(study.getModificationDate()) ? TimeUtils.toDate(study.getModificationDate()) : TimeUtils.getDate());
+        studyCollection.insert(clientSession, studyObject, null);
+
+        // Create default folders for study
+        List<File> files = Arrays.asList(
+                new File(".", File.Type.DIRECTORY, File.Format.UNKNOWN, File.Bioformat.UNKNOWN, "", study.getUri(),
+                        "study root folder", FileInternal.init(), false, 0, project.getCurrentRelease()),
+                new File("JOBS", File.Type.DIRECTORY, File.Format.UNKNOWN, File.Bioformat.UNKNOWN, "JOBS/",
+                        ioManager.getJobsUri(), "Default jobs folder", FileInternal.init(), false, 0, project.getCurrentRelease()),
+                new File(ParamConstants.RESOURCES_FOLDER, File.Type.DIRECTORY, File.Format.UNKNOWN, File.Bioformat.UNKNOWN,
+                        ParamConstants.RESOURCES_FOLDER + "/", Paths.get(study.getUri()).resolve(ParamConstants.RESOURCES_FOLDER).toUri(),
+                        "Default resources folder", FileInternal.init(), true, 0, project.getCurrentRelease())
+        );
+
+        // Create default folders
+        for (File file : files) {
+            dbAdaptorFactory.getCatalogFileDBAdaptor().insert(clientSession, study.getUid(), file, Collections.emptyList(),
+                    Collections.emptyList(), Collections.emptyList());
+        }
+
+        if (!study.getInternal().isFederated()) {
+            try {
+                ioManager.createStudy(organization, Long.toString(project.getUid()), Long.toString(study.getUid()));
+            } catch (CatalogIOException e) {
+                throw new CatalogIOException("Could not create study folder '" + study.getUri() + "' in file system.", e);
+            }
+        }
+
+        return study;
+    }
+
+    @Override
+    public OpenCGAResult<Study> getAllStudiesInProject(long projectUid, QueryOptions options) throws CatalogDBException {
+        long startTime = startQuery();
+        dbAdaptorFactory.getCatalogProjectDBAdaptor().checkId(projectUid);
+        Query query = new Query(QueryParams.PROJECT_UID.key(), projectUid);
+        return endQuery(startTime, get(query, options));
+    }
+
+    @Override
+    public boolean hasStudyPermission(long studyId, String user, StudyPermissions.Permissions permission) throws CatalogDBException {
+        Query query = new Query(QueryParams.UID.key(), studyId);
+        OpenCGAResult queryResult = nativeGet(query, QueryOptions.empty());
+        if (queryResult.getNumResults() == 0) {
+            throw new CatalogDBException("Study " + studyId + " not found");
+        }
+
+        return checkStudyPermission(dbAdaptorFactory.getOrganizationId(), (Document) queryResult.first(), user, permission.name());
+    }
+
+    @Override
+    public long getId(long projectId, String studyAlias) throws CatalogDBException {
+        Query query1 = new Query(QueryParams.PROJECT_ID.key(), projectId).append(QueryParams.ID.key(), studyAlias);
+        QueryOptions queryOptions = new QueryOptions(QueryOptions.INCLUDE, QueryParams.UID.key());
+        OpenCGAResult<Study> studyDataResult = get(query1, queryOptions);
+        List<Study> studies = studyDataResult.getResults();
+        return studies == null || studies.isEmpty() ? -1 : studies.get(0).getUid();
+    }
+
+    int getCurrentRelease(ClientSession clientSession, long studyUid) throws CatalogDBException {
+        Query query = new Query(QueryParams.UID.key(), studyUid);
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, QueryParams.FQN.key());
+        OpenCGAResult<Study> studyResult = get(clientSession, query, options);
+
+        if (studyResult.getNumResults() == 0) {
+            throw new CatalogDBException("Study uid '" + studyUid + "' not found.");
+        }
+
+        String projectFqn = FqnUtils.parse(studyResult.first().getFqn()).getProjectFqn();
+
+        query = new Query(ProjectDBAdaptor.QueryParams.FQN.key(), projectFqn);
+        options = new QueryOptions(QueryOptions.INCLUDE, ProjectDBAdaptor.QueryParams.CURRENT_RELEASE.key());
+        OpenCGAResult<Project> projectResult = dbAdaptorFactory.getCatalogProjectDBAdaptor().get(clientSession, query, options);
+        if (projectResult.getNumResults() == 0) {
+            throw new CatalogDBException("Project '" + projectFqn + "' not found.");
+        }
+
+        return projectResult.first().getCurrentRelease();
+    }
+
+    private Document getPrivateProject(long studyUid) throws CatalogDBException {
+        Query query = new Query(QueryParams.UID.key(), studyUid);
+        QueryOptions queryOptions = new QueryOptions("include", FILTER_ROUTE_STUDIES + PRIVATE_PROJECT_UID);
+        OpenCGAResult result = nativeGet(query, queryOptions);
+
+        Document privateProjet;
+        if (!result.getResults().isEmpty()) {
+            Document study = (Document) result.getResults().get(0);
+            privateProjet = study.get(PRIVATE_PROJECT, Document.class);
+        } else {
+            throw CatalogDBException.uidNotFound("Study", studyUid);
+        }
+        return privateProjet;
+    }
+
+    @Override
+    public OpenCGAResult<Study> createGroup(long studyId, Group group) throws CatalogDBException {
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), new Document("$ne", group.getId()));
+        Document update = new Document("$push", new Document(QueryParams.GROUPS.key(), getMongoDBDocument(group, "Group")));
+
+        DataResult result = studyCollection.update(query, update, null);
+
+        if (result.getNumUpdated() != 1) {
+            OpenCGAResult<Group> group1 = getGroup(studyId, group.getId(), Collections.emptyList());
+            if (group1.getNumResults() > 0) {
+                throw new CatalogDBException("Unable to create the group " + group.getId() + ". Group already existed.");
+            } else {
+                throw new CatalogDBException("Unable to create the group " + group.getId() + ".");
+            }
+        }
+        return new OpenCGAResult<>(result);
+    }
+
+    @Override
+    public OpenCGAResult<Group> getGroup(long studyId, @Nullable String groupId, List<String> userIds) throws CatalogDBException {
+        long startTime = startQuery();
+        checkId(studyId);
+
+        if (userIds == null) {
+            userIds = Collections.emptyList();
+        }
+
+        List<Bson> aggregation = new ArrayList<>();
+        aggregation.add(Aggregates.match(Filters.eq(PRIVATE_UID, studyId)));
+        aggregation.add(Aggregates.project(Projections.include(QueryParams.GROUPS.key())));
+        aggregation.add(Aggregates.unwind("$" + QueryParams.GROUPS.key()));
+
+        if (userIds.size() > 0) {
+            aggregation.add(Aggregates.match(Filters.in(QueryParams.GROUP_USER_IDS.key(), userIds)));
+        }
+        if (groupId != null && groupId.length() > 0) {
+            aggregation.add(Aggregates.match(Filters.eq(QueryParams.GROUP_ID.key(), groupId)));
+        }
+
+        DataResult<Document> queryResult = studyCollection.aggregate(aggregation, null);
+
+        List<Study> studies = MongoDBUtils.parseStudies(queryResult);
+        List<Group> groups = new ArrayList<>();
+        studies.stream().filter(study -> study.getGroups() != null).forEach(study -> groups.addAll(study.getGroups()));
+        return endQuery(startTime, groups);
+    }
+
+    @Override
+    public OpenCGAResult<Group> setUsersToGroup(long studyId, String groupId, List<String> members)
+            throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException {
+        if (members == null) {
+            members = Collections.emptyList();
+        }
+
+        // Check that the members exist.
+        if (members.size() > 0) {
+            dbAdaptorFactory.getCatalogUserDBAdaptor().checkIds(members);
+        }
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Document update = new Document("$set", new Document("groups.$.userIds", members));
+        DataResult result = studyCollection.update(query, update, null);
+
+        if (result.getNumMatches() != 1) {
+            throw new CatalogDBException("Unable to set users to group " + groupId + ". The group does not exist.");
+        }
+        return new OpenCGAResult<>(result);
+    }
+
+    void addUsersToGroup(ClientSession clientSession, long studyId, String groupId, List<String> members) throws CatalogDBException {
+        if (CollectionUtils.isEmpty(members)) {
+            return;
+        }
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Document update = new Document("$addToSet", new Document("groups.$.userIds", new Document("$each", members)));
+        DataResult<?> result = studyCollection.update(clientSession, query, update, null);
+
+        if (result.getNumMatches() != 1) {
+            throw new CatalogDBException("Unable to add members to group " + groupId + ". The group does not exist.");
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Group> addUsersToGroup(long studyId, String groupId, List<String> members) throws CatalogDBException {
+        if (CollectionUtils.isEmpty(members)) {
+            throw new CatalogDBException("List of 'members' is missing or empty.");
+        }
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Document update = new Document("$addToSet", new Document("groups.$.userIds", new Document("$each", members)));
+        DataResult result = studyCollection.update(query, update, null);
+
+        if (result.getNumMatches() != 1) {
+            throw new CatalogDBException("Unable to add members to group " + groupId + ". The group does not exist.");
+        }
+        return new OpenCGAResult<>(result);
+    }
+
+    void addUsersToAdminsAndMembersGroup(ClientSession clientSession, List<String> members) throws CatalogDBException {
+        if (CollectionUtils.isEmpty(members)) {
+            throw new CatalogDBException("List of 'members' is missing or empty.");
+        }
+
+        Document query = new Document(QueryParams.GROUP_ID.key(), ParamConstants.ADMINS_GROUP);
+        Document update = new Document("$addToSet", new Document("groups.$.userIds", new Document("$each", members)));
+        studyCollection.update(clientSession, query, update, new QueryOptions(MongoDBCollection.MULTI, true));
+
+        query = new Document(QueryParams.GROUP_ID.key(), ParamConstants.MEMBERS_GROUP);
+        studyCollection.update(clientSession, query, update, new QueryOptions(MongoDBCollection.MULTI, true));
+    }
+
+    @Override
+    public OpenCGAResult<Group> removeUsersFromGroup(long studyId, String groupId, List<String> members) throws CatalogDBException {
+        if (CollectionUtils.isEmpty(members)) {
+            throw new CatalogDBException("Unable to remove members from group. List of members is empty");
+        }
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Bson pull = Updates.pullAll("groups.$.userIds", members);
+        DataResult update = studyCollection.update(query, pull, null);
+        if (update.getNumMatches() != 1) {
+            throw new CatalogDBException("Unable to remove members from group " + groupId + ". The group does not exist.");
+        }
+        return new OpenCGAResult<>(update);
+    }
+
+    OpenCGAResult<Group> removeUsersFromAdminsGroup(ClientSession clientSession, List<String> members) throws CatalogDBException {
+        if (CollectionUtils.isEmpty(members)) {
+            throw new CatalogDBException("Unable to remove members from group. List of members is empty.");
+        }
+
+        Document query = new Document()
+                .append(QueryParams.GROUP_ID.key(), ParamConstants.ADMINS_GROUP);
+        Bson pull = Updates.pullAll("groups.$.userIds", members);
+        DataResult update = studyCollection.update(clientSession, query, pull, new QueryOptions(MongoDBCollection.MULTI, true));
+        return new OpenCGAResult<>(update);
+    }
+
+    @Override
+    public OpenCGAResult<Group> removeUsersFromAllGroups(long studyId, List<String> users) throws CatalogException {
+        if (CollectionUtils.isEmpty(users)) {
+            throw new CatalogDBException("Unable to remove users from groups. List of users is empty");
+        }
+
+        try {
+            return runTransaction(clientSession -> {
+                long tmpStartTime = startQuery();
+                logger.debug("Removing list of users '{}' from all groups from study '{}'", users, studyId);
+
+                Document query = new Document()
+                        .append(PRIVATE_UID, studyId)
+                        .append(QueryParams.GROUP_USER_IDS.key(), new Document("$in", users));
+                Bson pull = Updates.pullAll("groups.$.userIds", users);
+
+                // Pull those users while they are still there
+                DataResult<?> update;
+                do {
+                    update = studyCollection.update(clientSession, query, pull, null);
+                } while (update.getNumUpdated() > 0);
+
+                return endWrite(tmpStartTime, -1, -1, null);
+            });
+        } catch (Exception e) {
+            logger.error("Could not remove users from all groups of the study. {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Group> removeUsersFromAllGroups(List<String> users) throws CatalogException {
+        if (CollectionUtils.isEmpty(users)) {
+            throw new CatalogDBException("Unable to remove users from groups. List of users is empty");
+        }
+
+        try {
+            return runTransaction(clientSession -> {
+                long tmpStartTime = startQuery();
+                logger.debug("Removing list of users '{}' from all groups from all studies", users);
+
+                Document query = new Document()
+                        .append(QueryParams.GROUP_USER_IDS.key(), new Document("$in", users));
+                Bson pull = Updates.pullAll("groups.$.userIds", users);
+
+                QueryOptions multi = new QueryOptions(MongoDBCollection.MULTI, true);
+                // Pull those users while they are still there
+                DataResult<?> update;
+                do {
+                    update = studyCollection.update(clientSession, query, pull, multi);
+                } while (update.getNumUpdated() > 0);
+
+                return endWrite(tmpStartTime, -1, -1, null);
+            });
+        } catch (Exception e) {
+            logger.error("Could not remove users from all groups from all studies. {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Group> deleteGroup(long studyId, String groupId) throws CatalogDBException {
+        Bson queryBson = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Document pull = new Document("$pull", new Document("groups", new Document("id", groupId)));
+        DataResult result = studyCollection.update(queryBson, pull, null);
+
+        if (result.getNumUpdated() != 1) {
+            throw new CatalogDBException("Could not remove the group " + groupId);
+        }
+        return new OpenCGAResult<>(result);
+    }
+
+    @Override
+    public OpenCGAResult<Group> syncGroup(long studyId, String groupId, Group.Sync syncedFrom) throws CatalogDBException {
+        Document mongoDBDocument = getMongoDBDocument(syncedFrom, "Group.Sync");
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.GROUP_ID.key(), groupId);
+        Document updates = new Document("$set", new Document("groups.$.syncedFrom", mongoDBDocument));
+        return new OpenCGAResult<>(studyCollection.update(query, updates, null));
+    }
+
+    @Override
+    public OpenCGAResult<Group> resyncUserWithSyncedGroups(String user, List<String> groupList, String authOrigin) throws CatalogException {
+        if (StringUtils.isEmpty(user)) {
+            throw new CatalogDBException("Missing user field");
+        }
+
+        return runTransaction(clientSession -> {
+            // 1. Take the user out from all synced groups
+            Document query = new Document()
+                    .append(QueryParams.GROUPS.key(), new Document("$elemMatch", new Document()
+                            .append("userIds", user)
+                            .append("syncedFrom.authOrigin", authOrigin)
+                    ));
+            Bson pull = Updates.pull("groups.$.userIds", user);
+
+            // Pull the user while it still belongs to a synced group
+            QueryOptions multi = new QueryOptions(MongoDBCollection.MULTI, true);
+            DataResult<?> update;
+            do {
+                update = studyCollection.update(clientSession, query, pull, multi);
+            } while (update.getNumUpdated() > 0);
+
+            // 2. Add user to all synced groups
+            if (groupList != null && groupList.size() > 0) {
+                // Add the user to all the synced groups matching
+                query = new Document()
+                        .append(QueryParams.GROUPS.key(), new Document("$elemMatch", new Document()
+                                .append("userIds", new Document("$ne", user))
+                                .append("syncedFrom.remoteGroup", new Document("$in", groupList))
+                                .append("syncedFrom.authOrigin", authOrigin)
+                        ));
+                Document push = new Document("$addToSet", new Document("groups.$.userIds", user));
+                do {
+                    update = studyCollection.update(clientSession, query, push, multi);
+                } while (update.getNumUpdated() > 0);
+
+                // We need to be updated with the internal @members group, so we fetch all the studies where the user has been added
+                // and attempt to add it to all @members groups
+                query = new Document()
+                        .append(QueryParams.GROUP_USER_IDS.key(), user)
+                        .append(QueryParams.GROUP_SYNCED_FROM_AUTH_ORIGIN.key(), authOrigin);
+                DataResult<Study> studyDataResult = studyCollection.find(clientSession, query, studyConverter,
+                        new QueryOptions(QueryOptions.INCLUDE, QueryParams.UID.key()));
+                for (Study study : studyDataResult.getResults()) {
+                    addUsersToGroup(clientSession, study.getUid(), "@members", Collections.singletonList(user));
+                }
+            }
+
+            return OpenCGAResult.empty(Group.class);
+        });
+    }
+
+    @Override
+    public OpenCGAResult<Group> updateUserFromGroups(String user, List<Long> studyUids, List<String> groupList,
+                                                     ParamUtils.AddRemoveAction action) throws CatalogException {
+
+        if (StringUtils.isEmpty(user)) {
+            throw new CatalogParameterException("Missing user parameter");
+        }
+        if (action == null) {
+            throw new CatalogParameterException("Missing action parameter");
+        }
+        if (CollectionUtils.isEmpty(groupList)) {
+            throw new CatalogParameterException("Missing list of groups");
+        }
+
+        // Fix group ids
+        List<String> fixedGroupList = groupList.stream()
+                .map((group) -> {
+                    if (!group.startsWith("@")) {
+                        return "@" + group;
+                    }
+                    return group;
+                })
+                .collect(Collectors.toList());
+
+        QueryOptions multi = new QueryOptions(MongoDBCollection.MULTI, true);
+
+        return runTransaction(clientSession -> {
+            switch (action) {
+                case ADD:
+                    Document addQuery = new Document()
+                            // Do not apply changes in the admin study
+                            .append(QueryParams.FQN.key(), new Document("$ne", ParamConstants.ADMIN_STUDY_FQN))
+                            // Add the user to all the groups matching the list
+                            .append(QueryParams.GROUPS.key(), new Document("$elemMatch", new Document()
+                                    .append("userIds", new Document("$ne", user))
+                                    .append("id", new Document("$in", fixedGroupList))
+                            ));
+                    if (studyUids != null) {
+                        addQuery.put(QueryParams.UID.key(), new Document("$in", studyUids));
+                    }
+
+                    Document push = new Document("$addToSet", new Document("groups.$.userIds", user));
+                    DataResult<?> update;
+                    do {
+                        update = studyCollection.update(clientSession, addQuery, push, multi);
+                    } while (update.getNumUpdated() > 0);
+
+                    // We need to be updated with the internal @members group, so we fetch all the studies where the user has been added
+                    // and attempt to add it to all @members groups
+                    addQuery = new Document()
+                            .append(QueryParams.GROUP_USER_IDS.key(), user)
+                            .append(QueryParams.GROUP_ID.key(), new Document("$in", fixedGroupList));
+                    if (studyUids != null) {
+                        addQuery.put(QueryParams.UID.key(), new Document("$in", studyUids));
+                    }
+
+                    DataResult<Study> studyDataResult = studyCollection.find(clientSession, addQuery, studyConverter,
+                            new QueryOptions(QueryOptions.INCLUDE, QueryParams.UID.key()));
+                    for (Study study : studyDataResult.getResults()) {
+                        addUsersToGroup(clientSession, study.getUid(), "@members", Collections.singletonList(user));
+                    }
+                    break;
+                case REMOVE:
+                    // 1. Take the user out from all groups
+                    Document removeQuery = new Document()
+                            .append(QueryParams.GROUPS.key(), new Document("$elemMatch", new Document()
+                                    .append("userIds", user)
+                                    .append("id", new Document("$in", fixedGroupList))
+                            ));
+                    if (studyUids != null) {
+                        removeQuery.put(QueryParams.UID.key(), new Document("$in", studyUids));
+                    }
+                    Bson pull = Updates.pull("groups.$.userIds", user);
+                    DataResult<?> pullUpdate;
+                    do {
+                        pullUpdate = studyCollection.update(clientSession, removeQuery, pull, multi);
+                    } while (pullUpdate.getNumUpdated() > 0);
+
+                    break;
+                default:
+                    break;
+            }
+
+            return OpenCGAResult.empty(Group.class);
+        });
+    }
+
+    @Override
+    public OpenCGAResult<PermissionRule> createPermissionRule(long studyId, Enums.Entity entry, PermissionRule permissionRule)
+            throws CatalogDBException {
+        if (entry == null) {
+            throw new CatalogDBException("Missing entry parameter");
+        }
+
+        // Get permission rules from study
+        OpenCGAResult<PermissionRule> permissionRulesResult = getPermissionRules(studyId, entry);
+
+        List<Document> permissionDocumentList = new ArrayList<>();
+        if (permissionRulesResult.getNumResults() > 0) {
+            for (PermissionRule rule : permissionRulesResult.getResults()) {
+                // We add all the permission rules with different id
+                if (!rule.getId().equals(permissionRule.getId())) {
+                    permissionDocumentList.add(getMongoDBDocument(rule, "PermissionRules"));
+                } else {
+                    throw new CatalogDBException("Permission rule " + permissionRule.getId() + " already exists.");
+                }
+            }
+        }
+
+        permissionDocumentList.add(getMongoDBDocument(permissionRule, "PermissionRules"));
+
+        // We update the study document to contain the new permission rules
+        Query query = new Query(QueryParams.UID.key(), studyId);
+        Document update = new Document("$set", new Document(QueryParams.PERMISSION_RULES.key() + "." + entry, permissionDocumentList));
+        DataResult result = studyCollection.update(parseQuery(query), update, QueryOptions.empty());
+
+        if (result.getNumUpdated() == 0) {
+            throw new CatalogDBException("Unexpected error occurred when adding new permission rules to study");
+        }
+        return new OpenCGAResult<>(result);
+    }
+
+    @Override
+    public OpenCGAResult<PermissionRule> markDeletedPermissionRule(long studyId, Enums.Entity entry, String permissionRuleId,
+                                                                   PermissionRule.DeleteAction deleteAction) throws CatalogDBException {
+        if (entry == null) {
+            throw new CatalogDBException("Missing entry parameter");
+        }
+
+        String newPermissionRuleId = permissionRuleId + INTERNAL_DELIMITER + "DELETE_" + deleteAction.name();
+
+        Document query = new Document()
+                .append(PRIVATE_UID, studyId)
+                .append(QueryParams.PERMISSION_RULES.key() + "." + entry + ".id", permissionRuleId);
+        // Change permissionRule id
+        Document update = new Document("$set", new Document(QueryParams.PERMISSION_RULES.key() + "." + entry + ".$.id",
+                newPermissionRuleId));
+
+        logger.debug("Mark permission rule for deletion: Query {}, Update {}", query.toBsonDocument(), update.toBsonDocument());
+
+        DataResult result = studyCollection.update(query, update, QueryOptions.empty());
+        if (result.getNumMatches() == 0) {
+            throw new CatalogDBException("Permission rule " + permissionRuleId + " not found");
+        }
+
+        if (result.getNumUpdated() == 0) {
+            throw new CatalogDBException("Unexpected error: Permission rule " + permissionRuleId + " could not be marked for deletion");
+        }
+
+        return new OpenCGAResult<>(result);
+    }
+
+    /*
+     * Variables Methods
+     * ***************************
+     */
+
+    @Override
+    public OpenCGAResult<PermissionRule> getPermissionRules(long studyId, Enums.Entity entry) throws CatalogDBException {
+        // Get permission rules from study
+        Query query = new Query(QueryParams.UID.key(), studyId);
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, QueryParams.PERMISSION_RULES.key());
+
+        OpenCGAResult<Study> studyDataResult = get(query, options);
+        if (studyDataResult.getNumResults() == 0) {
+            throw new CatalogDBException("Unexpected error: Study " + studyId + " not found");
+        }
+
+        List<PermissionRule> permissionRules = studyDataResult.first().getPermissionRules().get(entry);
+        if (permissionRules == null) {
+            permissionRules = Collections.emptyList();
+        }
+
+        // Remove all permission rules that are pending of some actions such as deletion
+        permissionRules.removeIf(permissionRule ->
+                StringUtils.splitByWholeSeparatorPreserveAllTokens(permissionRule.getId(), INTERNAL_DELIMITER, 2).length == 2);
+
+        return new OpenCGAResult<>(studyDataResult.getTime(), Collections.emptyList(), permissionRules.size(), permissionRules,
+                permissionRules.size(), new ObjectMap());
+    }
+
+    @Override
+    public Long variableSetExists(long variableSetId) {
+        List<Bson> aggregation = new ArrayList<>();
+        aggregation.add(Aggregates.match(Filters.elemMatch(QueryParams.VARIABLE_SET.key(),
+                Filters.eq(VariableSetParams.UID.key(), variableSetId))));
+        aggregation.add(Aggregates.project(Projections.include(QueryParams.VARIABLE_SET.key())));
+        aggregation.add(Aggregates.unwind("$" + QueryParams.VARIABLE_SET.key()));
+        aggregation.add(Aggregates.match(Filters.eq(QueryParams.VARIABLE_SET_UID.key(), variableSetId)));
+        DataResult<VariableSet> queryResult = studyCollection.aggregate(aggregation, variableSetConverter, new QueryOptions());
+
+        return (long) queryResult.getResults().size();
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> createVariableSet(long studyId, VariableSet variableSet) throws CatalogDBException {
+        if (variableSetExists(variableSet.getId(), studyId) > 0) {
+            throw new CatalogDBException("VariableSet { id: '" + variableSet.getId() + "'} already exists.");
+        }
+
+        long variableSetId = getNewUid();
+        variableSet.setUid(variableSetId);
+        Document object = variableSetConverter.convertToStorageType(variableSet);
+        object.put(PRIVATE_UID, variableSetId);
+
+        Bson bsonQuery = Filters.and(
+                Filters.eq(PRIVATE_UID, studyId),
+                Filters.ne(QueryParams.VARIABLE_SET_ID.key(), variableSet.getId())
+        );
+        Bson update = Updates.push("variableSets", object);
+        DataResult result = studyCollection.update(bsonQuery, update, null);
+
+        if (result.getNumUpdated() == 0) {
+            throw new CatalogDBException("CreateVariableSet: Could not create the VariableSet '" + variableSet.getId() + "'");
+        }
+
+        return new OpenCGAResult<>(result);
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> addFieldToVariableSet(long studyUid, long variableSetId, Variable variable, String user)
+            throws CatalogException {
+        OpenCGAResult<VariableSet> variableSet = getVariableSet(variableSetId, new QueryOptions(), user);
+        checkVariableNotInVariableSet(variableSet.first(), variable.getId());
+
+        Bson bsonQuery = Filters.eq(QueryParams.VARIABLE_SET_UID.key(), variableSetId);
+        Bson update = Updates.push(QueryParams.VARIABLE_SET.key() + ".$." + VariableSetParams.VARIABLE.key(),
+                getMongoDBDocument(variable, "variable"));
+        DataResult result = studyCollection.update(bsonQuery, update, null);
+        if (result.getNumUpdated() == 0) {
+            throw CatalogDBException.updateError("VariableSet", variableSetId);
+        }
+        if (variable.isRequired()) {
+            dbAdaptorFactory.getCatalogSampleDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+            dbAdaptorFactory.getCatalogCohortDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+            dbAdaptorFactory.getCatalogIndividualDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+            dbAdaptorFactory.getCatalogFamilyDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+            dbAdaptorFactory.getCatalogFileDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+            dbAdaptorFactory.getClinicalAnalysisDBAdaptor().addVariableToAnnotations(studyUid, variableSetId, variable);
+        }
+
+        return new OpenCGAResult<>(result);
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> renameFieldVariableSet(long variableSetId, String oldName, String newName, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        // TODO
+        throw new UnsupportedOperationException("Operation not yet supported");
+//        long startTime = startQuery();
+//
+//        OpenCGAResult<VariableSet> variableSet = getVariableSet(variableSetId, new QueryOptions(), user);
+//        checkVariableNotInVariableSet(variableSet.first(), newName);
+//
+//        // The field can be changed if we arrive to this point.
+//        // 1. we obtain the variable
+//        Variable variable = getVariable(variableSet.first(), oldName);
+//        if (variable == null) {
+//            throw new CatalogDBException("VariableSet {id: " + variableSet.getId() + "}. The variable {id: " + oldName + "} does not "
+//                    + "exist.");
+//        }
+//
+//        // 2. we take it out from the array.
+//        Bson bsonQuery = Filters.eq(QueryParams.VARIABLE_SET_UID.key(), variableSetId);
+//        Bson update = Updates.pull(QueryParams.VARIABLE_SET.key() + ".$." + VariableSetParams.VARIABLE.key(),
+// Filters.eq("name", oldName));
+//        OpenCGAResult<UpdateResult> queryResult = studyCollection.update(bsonQuery, update, null);
+//
+//        if (queryResult.first().getModifiedCount() == 0) {
+//            throw new CatalogDBException("VariableSet {id: " + variableSetId + "} - Could not rename the field " + oldName);
+//        }
+//        if (queryResult.first().getModifiedCount() > 1) {
+//            throw new CatalogDBException("VariableSet {id: " + variableSetId + "} - An unexpected error happened when extracting the "
+//                    + "variable from the variableSet to do the rename. Please, report this error to the OpenCGA developers.");
+//        }
+//
+//        // 3. we change the name in the variable object and push it again in the array.
+//        variable.setName(newName);
+//        update = Updates.push(QueryParams.VARIABLE_SET.key() + ".$." + VariableSetParams.VARIABLE.key(),
+//                getMongoDBDocument(variable, "Variable"));
+//        queryResult = studyCollection.update(bsonQuery, update, null);
+//
+//        if (queryResult.first().getModifiedCount() != 1) {
+//            throw new CatalogDBException("VariableSet {id: " + variableSetId + "} - A critical error happened when trying to rename one "
+//                    + "of the variables of the variableSet object. Please, report this error to the OpenCGA developers.");
+//        }
+//
+//        // 4. Change the field id in the annotations
+//        dbAdaptorFactory.getCatalogSampleDBAdaptor().renameAnnotationField(variableSetId, oldName, newName);
+//        dbAdaptorFactory.getCatalogCohortDBAdaptor().renameAnnotationField(variableSetId, oldName, newName);
+//        dbAdaptorFactory.getCatalogFamilyDBAdaptor().renameAnnotationField(variableSetId, oldName, newName);
+//        dbAdaptorFactory.getCatalogIndividualDBAdaptor().renameAnnotationField(variableSetId, oldName, newName);
+//
+//        return endQuery("Rename field in variableSet", startTime, getVariableSet(variableSetId, null));
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> removeFieldFromVariableSet(long studyUid, long variableSetId, String name, String user)
+            throws CatalogException {
+        OpenCGAResult<VariableSet> variableSet = getVariableSet(variableSetId, new QueryOptions(), user);
+        checkVariableInVariableSet(variableSet.first(), name);
+
+        Bson bsonQuery = Filters.eq(QueryParams.VARIABLE_SET_UID.key(), variableSetId);
+        Bson update = Updates.pull(QueryParams.VARIABLE_SET.key() + ".$." + VariableSetParams.VARIABLE.key(),
+                Filters.eq("id", name));
+        DataResult result = studyCollection.update(bsonQuery, update, null);
+        if (result.getNumUpdated() != 1) {
+            throw new CatalogDBException("Remove field from Variable Set. Could not remove the field " + name
+                    + " from the variableSet id " + variableSetId);
+        }
+
+        // Remove all the annotations from that field
+        dbAdaptorFactory.getCatalogSampleDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+        dbAdaptorFactory.getCatalogCohortDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+        dbAdaptorFactory.getCatalogIndividualDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+        dbAdaptorFactory.getCatalogFamilyDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+        dbAdaptorFactory.getCatalogFileDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+        dbAdaptorFactory.getClinicalAnalysisDBAdaptor().removeAnnotationField(studyUid, variableSetId, name);
+
+        return new OpenCGAResult<>(result);
+    }
+
+    private Variable getVariable(VariableSet variableSet, String variableId) throws CatalogDBException {
+        for (Variable variable : variableSet.getVariables()) {
+            if (variable.getId().equals(variableId)) {
+                return variable;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Checks if the variable given is present in the variableSet.
+     *
+     * @param variableSet Variable set.
+     * @param variableId  VariableId that will be checked.
+     * @throws CatalogDBException when the variableId is not present in the variableSet.
+     */
+    private void checkVariableInVariableSet(VariableSet variableSet, String variableId) throws CatalogDBException {
+        if (getVariable(variableSet, variableId) == null) {
+            throw new CatalogDBException("VariableSet {id: " + variableSet.getUid() + "}. The variable {id: " + variableId + "} does not "
+                    + "exist.");
+        }
+    }
+
+    /**
+     * Checks if the variable given is not present in the variableSet.
+     *
+     * @param variableSet Variable set.
+     * @param variableId  VariableId that will be checked.
+     * @throws CatalogDBException when the variableId is present in the variableSet.
+     */
+    private void checkVariableNotInVariableSet(VariableSet variableSet, String variableId) throws CatalogDBException {
+        if (getVariable(variableSet, variableId) != null) {
+            throw new CatalogDBException("VariableSet {id: " + variableSet.getUid() + "}. The variable {id: " + variableId + "} already "
+                    + "exists.");
+        }
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> getVariableSet(long variableSetUid, QueryOptions options) throws CatalogDBException {
+        long startTime = startQuery();
+
+        Query query = new Query(QueryParams.VARIABLE_SET_UID.key(), variableSetUid);
+        Bson projection = Projections.elemMatch("variableSets", Filters.eq(PRIVATE_UID, variableSetUid));
+        if (options == null) {
+            options = new QueryOptions();
+        }
+        QueryOptions qOptions = new QueryOptions(options);
+        qOptions.put(MongoDBCollection.ELEM_MATCH, projection);
+        OpenCGAResult<Study> studyDataResult = get(query, qOptions);
+
+        if (studyDataResult.getResults().isEmpty() || studyDataResult.first().getVariableSets().isEmpty()) {
+            throw new CatalogDBException("VariableSet {uid: " + variableSetUid + "} does not exist.");
+        }
+
+        return endQuery(startTime, studyDataResult.first().getVariableSets());
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> getVariableSet(long variableSetId, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        long startTime = startQuery();
+
+        Bson query = new Document("variableSets", new Document("$elemMatch", new Document(PRIVATE_UID, variableSetId)));
+        QueryOptions qOptions = new QueryOptions(QueryOptions.INCLUDE, "variableSets.$,groups,_acl");
+        DataResult<Document> studyDataResult = studyCollection.find(query, qOptions);
+
+        if (studyDataResult.getNumResults() == 0) {
+            throw new CatalogDBException("Variable set not found.");
+        }
+        if (!checkCanViewStudy(dbAdaptorFactory.getOrganizationId(), studyDataResult.first(), user)) {
+            throw CatalogAuthorizationException.deny(user, "view", "VariableSet", variableSetId, "");
+        }
+        Study study = studyConverter.convertToDataModelType(studyDataResult.first());
+        if (study.getVariableSets() == null || study.getVariableSets().isEmpty()) {
+            throw new CatalogDBException("Variable set not found.");
+        }
+        // Check if it is confidential
+        if (study.getVariableSets().get(0).isConfidential()) {
+            if (!checkStudyPermission(dbAdaptorFactory.getOrganizationId(), studyDataResult.first(), user,
+                    StudyPermissions.Permissions.CONFIDENTIAL_VARIABLE_SET_ACCESS.toString())) {
+                throw CatalogAuthorizationException.deny(user, StudyPermissions.Permissions.CONFIDENTIAL_VARIABLE_SET_ACCESS.toString(),
+                        "VariableSet", variableSetId, "");
+            }
+        }
+
+        return endQuery(startTime, study.getVariableSets());
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> getVariableSet(long studyUid, String variableSetId, QueryOptions options) throws CatalogDBException {
+        long startTime = startQuery();
+
+        Query query = new Query()
+                .append(QueryParams.VARIABLE_SET_ID.key(), variableSetId)
+                .append(QueryParams.UID.key(), studyUid);
+        Bson projection = Projections.elemMatch("variableSets", Filters.eq("id", variableSetId));
+        if (options == null) {
+            options = new QueryOptions();
+        }
+        QueryOptions qOptions = new QueryOptions(options);
+        qOptions.put(MongoDBCollection.ELEM_MATCH, projection);
+        OpenCGAResult<Study> studyDataResult = get(query, qOptions);
+
+        if (studyDataResult.getResults().isEmpty() || studyDataResult.first().getVariableSets().isEmpty()) {
+            throw new CatalogDBException("VariableSet {id: " + variableSetId + "} does not exist.");
+        }
+
+        return endQuery(startTime, studyDataResult.first().getVariableSets());
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> getVariableSets(Query query, QueryOptions queryOptions) throws CatalogDBException {
+        long startTime = startQuery();
+
+        List<Document> mongoQueryList = new LinkedList<>();
+        long studyId = -1;
+
+        for (Map.Entry<String, Object> entry : query.entrySet()) {
+            String key = entry.getKey().split("\\.")[0];
+            try {
+                if (isDataStoreOption(key) || isOtherKnownOption(key)) {
+                    continue;   //Exclude DataStore options
+                }
+                StudyDBAdaptor.VariableSetParams option = StudyDBAdaptor.VariableSetParams.getParam(key) != null
+                        ? StudyDBAdaptor.VariableSetParams.getParam(key)
+                        : StudyDBAdaptor.VariableSetParams.getParam(entry.getKey());
+                if (option == null) {
+                    logger.warn("{} unknown", entry.getKey());
+                    continue;
+                }
+                switch (option) {
+                    case STUDY_UID:
+                        studyId = query.getLong(VariableSetParams.STUDY_UID.key());
+                        break;
+                    default:
+                        String optionsKey = "variableSets." + entry.getKey().replaceFirst(option.name(), option.key());
+                        addCompQueryFilter(option, entry.getKey(), optionsKey, query, mongoQueryList);
+                        break;
+                }
+            } catch (IllegalArgumentException e) {
+                throw new CatalogDBException(e);
+            }
+        }
+
+        if (studyId == -1) {
+            throw new CatalogDBException("Cannot look for variable sets if studyId is not passed");
+        }
+
+        List<Bson> aggregation = new ArrayList<>();
+        aggregation.add(Aggregates.match(Filters.eq(PRIVATE_UID, studyId)));
+        aggregation.add(Aggregates.project(Projections.include("variableSets")));
+        aggregation.add(Aggregates.unwind("$variableSets"));
+        if (mongoQueryList.size() > 0) {
+            List<Bson> bsonList = new ArrayList<>(mongoQueryList.size());
+            bsonList.addAll(mongoQueryList);
+            aggregation.add(Aggregates.match(Filters.and(bsonList)));
+        }
+
+        QueryOptions options = filterOptions(queryOptions, FILTER_ROUTE_STUDIES);
+        fixAclProjection(options);
+
+        DataResult<Document> queryResult = studyCollection.aggregate(aggregation, options);
+
+        List<VariableSet> variableSets = parseObjects(queryResult, Study.class).stream().map(study -> study.getVariableSets().get(0))
+                .collect(Collectors.toList());
+
+        return endQuery(startTime, variableSets);
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> getVariableSets(Query query, QueryOptions queryOptions, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        long startTime = startQuery();
+
+        List<Document> mongoQueryList = new LinkedList<>();
+        long studyUid = -1;
+
+        for (Map.Entry<String, Object> entry : query.entrySet()) {
+            String key = entry.getKey().split("\\.")[0];
+            try {
+                if (isDataStoreOption(key) || isOtherKnownOption(key)) {
+                    continue;   //Exclude DataStore options
+                }
+                StudyDBAdaptor.VariableSetParams option = StudyDBAdaptor.VariableSetParams.getParam(key) != null
+                        ? StudyDBAdaptor.VariableSetParams.getParam(key)
+                        : StudyDBAdaptor.VariableSetParams.getParam(entry.getKey());
+                if (option == null) {
+                    logger.warn("{} unknown", entry.getKey());
+                    continue;
+                }
+                switch (option) {
+                    case STUDY_UID:
+                        studyUid = query.getLong(VariableSetParams.STUDY_UID.key());
+                        break;
+                    default:
+                        String optionsKey = "variableSets." + entry.getKey().replaceFirst(option.name(), option.key());
+                        addCompQueryFilter(option, entry.getKey(), optionsKey, query, mongoQueryList);
+                        break;
+                }
+            } catch (IllegalArgumentException e) {
+                throw new CatalogDBException(e);
+            }
+        }
+
+        if (studyUid == -1) {
+            throw new CatalogDBException("Cannot look for variable sets if studyUid is not passed");
+        }
+
+        List<Bson> aggregation = new ArrayList<>();
+        aggregation.add(Aggregates.match(Filters.eq(PRIVATE_UID, studyUid)));
+        aggregation.add(Aggregates.unwind("$variableSets"));
+        if (mongoQueryList.size() > 0) {
+            List<Bson> bsonList = new ArrayList<>(mongoQueryList.size());
+            bsonList.addAll(mongoQueryList);
+            aggregation.add(Aggregates.match(Filters.and(bsonList)));
+        }
+
+        QueryOptions options = filterOptions(queryOptions, FILTER_ROUTE_STUDIES);
+        fixAclProjection(options);
+
+        DataResult<Document> queryResult = studyCollection.aggregate(aggregation, options);
+        if (queryResult.getNumResults() == 0) {
+            return endQuery(startTime, Collections.emptyList());
+        }
+
+        if (!checkCanViewStudy(dbAdaptorFactory.getOrganizationId(), queryResult.first(), user)) {
+            throw new CatalogAuthorizationException("Permission denied: " + user + " cannot see any variable set");
+        }
+
+        boolean hasConfidentialPermission = checkStudyPermission(dbAdaptorFactory.getOrganizationId(), queryResult.first(), user,
+                StudyPermissions.Permissions.CONFIDENTIAL_VARIABLE_SET_ACCESS.toString());
+        List<VariableSet> variableSets = new ArrayList<>();
+        for (Document studyDocument : queryResult.getResults()) {
+            Study study = studyConverter.convertToDataModelType(studyDocument);
+            VariableSet vs = study.getVariableSets().get(0);
+            if (!vs.isConfidential() || hasConfidentialPermission) {
+                variableSets.add(vs);
+            }
+        }
+
+        return endQuery(startTime, variableSets);
+    }
+
+    @Override
+    public OpenCGAResult<VariableSet> deleteVariableSet(long studyUid, VariableSet variableSet, boolean force) throws CatalogException {
+        try {
+            return runTransaction(clientSession -> {
+                if (force) {
+                    deleteAllAnnotationSetsByVariableSet(clientSession, studyUid, variableSet);
+                } else {
+                    checkVariableSetInUse(variableSet);
+                }
+
+                Bson query = Filters.eq(QueryParams.VARIABLE_SET_UID.key(), variableSet.getUid());
+                Bson operation = Updates.pull("variableSets", Filters.eq(PRIVATE_UID, variableSet.getUid()));
+                DataResult result = studyCollection.update(query, operation, null);
+
+                if (result.getNumUpdated() == 0) {
+                    throw CatalogDBException.idNotFound("VariableSet", variableSet.getId());
+                }
+                return new OpenCGAResult<>(result);
+            });
+        } catch (CatalogDBException e) {
+            throw new CatalogDBException("Could not delete VariableSet '" + variableSet.getId() + "': " + e.getMessage(), e);
+        }
+    }
+
+    private void deleteAllAnnotationSetsByVariableSet(ClientSession session, long studyUid, VariableSet variableSet)
+            throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException {
+        List<VariableSet.AnnotableDataModels> entities = variableSet.getEntities();
+        if (CollectionUtils.isEmpty(entities)) {
+            entities = new ArrayList<>(EnumSet.allOf(VariableSet.AnnotableDataModels.class));
+        }
+
+        // Delete all existing annotationSets
+        for (VariableSet.AnnotableDataModels entity : entities) {
+            switch (entity) {
+                case SAMPLE:
+                    dbAdaptorFactory.getCatalogSampleDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, true);
+                    break;
+                case COHORT:
+                    dbAdaptorFactory.getCatalogCohortDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, false);
+                    break;
+                case INDIVIDUAL:
+                    dbAdaptorFactory.getCatalogIndividualDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, true);
+                    break;
+                case FAMILY:
+                    dbAdaptorFactory.getCatalogFamilyDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, true);
+                    break;
+                case FILE:
+                    dbAdaptorFactory.getCatalogFileDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, false);
+                    break;
+                case CLINICAL_ANALYSIS:
+                    dbAdaptorFactory.getClinicalAnalysisDBAdaptor()
+                            .removeAllAnnotationSetsByVariableSetId(session, studyUid, variableSet, false);
+                    break;
+                default:
+                    throw new CatalogDBException("Unexpected entity '" + entity + "'");
+            }
+        }
+    }
+
+    private void checkVariableSetInUse(VariableSet variableSet)
+            throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException {
+        List<VariableSet.AnnotableDataModels> entities = variableSet.getEntities();
+        if (CollectionUtils.isEmpty(entities)) {
+            entities = new ArrayList<>(EnumSet.allOf(VariableSet.AnnotableDataModels.class));
+        }
+
+        Query query = new Query(SampleDBAdaptor.QueryParams.ANNOTATION.key(), Constants.VARIABLE_SET + "=" + variableSet.getUid());
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, "id");
+        for (VariableSet.AnnotableDataModels entity : entities) {
+            OpenCGAResult<? extends Annotable> result;
+            switch (entity) {
+                case SAMPLE:
+                    result = dbAdaptorFactory.getCatalogSampleDBAdaptor().get(query, options);
+                    break;
+                case COHORT:
+                    result = dbAdaptorFactory.getCatalogCohortDBAdaptor().get(query, options);
+                    break;
+                case INDIVIDUAL:
+                    result = dbAdaptorFactory.getCatalogIndividualDBAdaptor().get(query, options);
+                    break;
+                case FAMILY:
+                    result = dbAdaptorFactory.getCatalogFamilyDBAdaptor().get(query, options);
+                    break;
+                case FILE:
+                    result = dbAdaptorFactory.getCatalogFileDBAdaptor().get(query, options);
+                    break;
+                case CLINICAL_ANALYSIS:
+                    result = dbAdaptorFactory.getClinicalAnalysisDBAdaptor().get(query, options);
+                    break;
+                default:
+                    throw new CatalogDBException("Unexpected entity '" + entity + "'");
+            }
+
+            if (result.getNumResults() != 0) {
+                String msg = "Can't delete VariableSet, still in use in " + entity + " : [";
+                for (Annotable tmpResult : result.getResults()) {
+                    msg += " {id: " + tmpResult.getId() + "},";
+                }
+                msg += "]";
+                throw new CatalogDBException(msg);
+            }
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Long> count(Query query) throws CatalogDBException {
+        return count(null, query);
+    }
+
+    public OpenCGAResult<Long> count(ClientSession clientSession, Query query) throws CatalogDBException {
+        Bson bson = parseQuery(query);
+        return new OpenCGAResult<>(studyCollection.count(clientSession, bson));
+    }
+
+    @Override
+    public OpenCGAResult<Long> count(Query query, String user, StudyPermissions.Permissions studyPermission) throws CatalogDBException {
+        throw new NotImplementedException("Count not implemented for study collection");
+    }
+
+    @Override
+    public OpenCGAResult distinct(Query query, String field) throws CatalogDBException {
+        Bson bson = parseQuery(query);
+        return new OpenCGAResult(studyCollection.distinct(field, bson));
+    }
+
+    @Override
+    public OpenCGAResult stats(Query query) {
+        return null;
+    }
+
+    void updateProjectId(ClientSession clientSession, long projectUid, String newProjectId) throws CatalogDBException {
+        Query query = new Query(QueryParams.PROJECT_UID.key(), projectUid);
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, Arrays.asList(
+                QueryParams.FQN.key(), QueryParams.UID.key()
+        ));
+        DBIterator<Study> studyIterator = iterator(clientSession, query, options);
+
+        while (studyIterator.hasNext()) {
+            Study study = studyIterator.next();
+            FqnUtils.FQN oldFqn = FqnUtils.parse(study.getFqn());
+            String newFqn = FqnUtils.buildFqn(oldFqn.getOrganization(), newProjectId, oldFqn.getStudy());
+
+            // Update the internal project id and fqn
+            Bson update = new Document("$set", new Document()
+                    .append(QueryParams.FQN.key(), newFqn)
+                    .append(PRIVATE_PROJECT_ID, newProjectId)
+            );
+            Bson bsonQuery = Filters.eq(QueryParams.UID.key(), study.getUid());
+
+            DataResult result = studyCollection.update(clientSession, bsonQuery, update, null);
+            if (result.getNumUpdated() == 0) {    //Check if the the project id was modified
+                throw new CatalogDBException("Could not update new project id references in study " + study.getFqn());
+            }
+        }
+    }
+
+    @Override
+    public OpenCGAResult update(long studyUid, ObjectMap parameters, QueryOptions queryOptions)
+            throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException {
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE,
+                Arrays.asList(QueryParams.ID.key(), QueryParams.UID.key(), QueryParams.PROJECT_UID.key()));
+        OpenCGAResult<Study> studyResult = get(studyUid, options);
+        if (studyResult.getNumResults() == 0) {
+            throw new CatalogDBException("Could not update study. Study uid '" + studyUid + "' not found.");
+        }
+        String studyId = studyResult.first().getId();
+
+        try {
+            return runTransaction(clientSession -> privateUpdate(clientSession, studyResult.first(), parameters));
+        } catch (CatalogException e) {
+            logger.error("Could not update study {}: {}", studyId, e.getMessage(), e);
+            throw new CatalogDBException("Could not update study '" + studyId + "': " + e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public OpenCGAResult update(Query query, ObjectMap parameters, QueryOptions queryOptions) throws CatalogDBException {
+        Document updateParams = getDocumentUpdateParams(parameters);
+        if (updateParams.isEmpty() && !parameters.containsKey(QueryParams.ID.key())) {
+            throw new CatalogDBException("Nothing to update");
+        }
+
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE,
+                Arrays.asList(QueryParams.ID.key(), QueryParams.UID.key(), QueryParams.PROJECT_UID.key()));
+        DBIterator<Study> iterator = iterator(query, options);
+
+        OpenCGAResult<Study> result = OpenCGAResult.empty();
+
+        while (iterator.hasNext()) {
+            Study study = iterator.next();
+            try {
+                result.append(runTransaction(clientSession -> privateUpdate(clientSession, study, parameters)));
+            } catch (CatalogException e) {
+                logger.error("Could not update study {}: {}", study.getId(), e.getMessage(), e);
+                result.getEvents().add(new Event(Event.Type.ERROR, study.getId(), e.getMessage()));
+                result.setNumMatches(result.getNumMatches() + 1);
+            }
+        }
+
+        return result;
+    }
+
+    OpenCGAResult<Object> privateUpdate(ClientSession clientSession, Study study, ObjectMap parameters) throws CatalogDBException {
+        long tmpStartTime = startQuery();
+
+        Document updateParams = getDocumentUpdateParams(parameters);
+        if (updateParams.isEmpty() && !parameters.containsKey(QueryParams.ID.key())) {
+            throw new CatalogDBException("Nothing to update");
+        }
+
+        if (parameters.containsKey(QueryParams.ID.key())) {
+            editId(clientSession, study.getUid(), parameters.getString(QueryParams.ID.key()));
+        }
+        List<Event> events = new ArrayList<>();
+        if (!updateParams.isEmpty()) {
+            Document updates = new Document("$set", updateParams);
+
+            Query tmpQuery = new Query(QueryParams.UID.key(), study.getUid());
+            Bson finalQuery = parseQuery(tmpQuery);
+
+            logger.debug("Update study. Query: {}, update: {}", finalQuery.toBsonDocument(), updates.toBsonDocument());
+            DataResult result = studyCollection.update(clientSession, finalQuery, updates, null);
+
+            if (result.getNumMatches() == 0) {
+                throw new CatalogDBException("Study " + study.getId() + " not found");
+            }
+            if (result.getNumUpdated() == 0) {
+                events.add(new Event(Event.Type.WARNING, study.getId(), "Study was already updated"));
+            }
+        }
+
+        logger.debug("Study {} successfully updated", study.getId());
+        return endWrite(tmpStartTime, 1, 1, events);
+    }
+
+    private void editId(ClientSession clientSession, long studyUid, String newId) throws CatalogDBException {
+        Query query = new Query(QueryParams.UID.key(), studyUid);
+        QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, Arrays.asList(QueryParams.FQN.key(), QueryParams.ID.key()));
+
+        OpenCGAResult<Study> studyDataResult = get(clientSession, query, options);
+        if (studyDataResult.getNumResults() == 0) {
+            throw new CatalogDBException("Cannot update study id. Study " + studyUid + " not found");
+        }
+
+        String oldId = studyDataResult.first().getId();
+        String newFqn = studyDataResult.first().getFqn().replace(oldId, newId);
+
+        Bson bsonQuery = parseQuery(query);
+        Bson update = Updates.combine(
+                Updates.set(QueryParams.ID.key(), newId),
+                Updates.set(QueryParams.FQN.key(), newFqn)
+        );
+        DataResult writeResult = studyCollection.update(bsonQuery, update, null);
+        if (writeResult.getNumUpdated() == 0) {
+            throw new CatalogDBException("Could not update study id");
+        }
+    }
+
+    @Deprecated
+    @Override
+    public OpenCGAResult delete(long id, QueryOptions queryOptions) throws CatalogDBException {
+        throw new NotImplementedException("Use other delete method");
+//        checkId(id);
+//        // Check the study is active
+//        Query query = new Query(QueryParams.UID.key(), id);
+//        if (count(query).first() == 0) {
+//            query.put(QueryParams.STATUS_NAME.key(), Status.DELETED);
+//            QueryOptions options = new QueryOptions(QueryOptions.INCLUDE, QueryParams.STATUS_NAME.key());
+//            Study study = get(query, options).first();
+//            throw new CatalogDBException("The study {" + id + "} was already " + study.getStatus().getName());
+//        }
+//
+//        // If we don't find the force parameter, we check first if the user does not have an active project.
+//        if (!queryOptions.containsKey(FORCE) || !queryOptions.getBoolean(FORCE)) {
+//            checkCanDelete(id);
+//        }
+//
+//        if (queryOptions.containsKey(FORCE) && queryOptions.getBoolean(FORCE)) {
+//            // Delete the active studies (if any)
+//            query = new Query(PRIVATE_STUDY_UID, id);
+//            dbAdaptorFactory.getCatalogFileDBAdaptor().setStatus(query, Status.DELETED);
+//            dbAdaptorFactory.getCatalogJobDBAdaptor().setStatus(query, Status.DELETED);
+//            dbAdaptorFactory.getCatalogSampleDBAdaptor().setStatus(query, Status.DELETED);
+//            dbAdaptorFactory.getCatalogIndividualDBAdaptor().setStatus(query, Status.DELETED);
+//            dbAdaptorFactory.getCatalogCohortDBAdaptor().setStatus(query, Status.DELETED);
+//        }
+//
+//        // Change the status of the project to deleted
+//        return setStatus(id, Status.DELETED);
+    }
+
+    @Deprecated
+    @Override
+    public OpenCGAResult delete(Query query, QueryOptions queryOptions) throws CatalogDBException {
+        return delete(query);
+    }
+
+    @Override
+    public OpenCGAResult delete(Study study) throws CatalogDBException, CatalogParameterException, CatalogAuthorizationException {
+        try {
+            Query query = new Query(QueryParams.UID.key(), study.getUid());
+            OpenCGAResult<Document> result = nativeGet(query, new QueryOptions());
+            if (result.getNumResults() == 0) {
+                throw new CatalogDBException("Could not find study " + study.getId() + " with uid " + study.getUid());
+            }
+            return runTransaction(clientSession -> privateDelete(clientSession, result.first()));
+        } catch (CatalogException e) {
+            logger.error("Could not delete study {}: {}", study.getId(), e.getMessage(), e);
+            throw new CatalogDBException("Could not delete study " + study.getId() + ": " + e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public OpenCGAResult delete(Query query) throws CatalogDBException {
+        DBIterator<Document> iterator = nativeIterator(query, QueryOptions.empty());
+
+        OpenCGAResult<Study> result = OpenCGAResult.empty();
+        while (iterator.hasNext()) {
+            Document study = iterator.next();
+            String studyId = study.getString(QueryParams.ID.key());
+            try {
+                result.append(runTransaction(clientSession -> privateDelete(clientSession, study)));
+            } catch (CatalogException e) {
+                logger.error("Could not delete study {}: {}", studyId, e.getMessage(), e);
+                result.getEvents().add(new Event(Event.Type.ERROR, studyId, e.getMessage()));
+                result.setNumMatches(result.getNumMatches() + 1);
+            }
+        }
+        return result;
+    }
+
+    OpenCGAResult<Object> privateDelete(ClientSession clientSession, Document studyDocument) throws CatalogDBException {
+        long tmpStartTime = startQuery();
+
+        String studyId = studyDocument.getString(QueryParams.ID.key());
+        long studyUid = studyDocument.getLong(PRIVATE_UID);
+
+        logger.debug("Deleting study {} ({})", studyId, studyUid);
+
+        // TODO: In the future, we will want to delete also all the files, samples, cohorts... associated
+
+        // Add status DELETED
+        Document internal = studyDocument.get("internal", Document.class);
+        if (internal != null) {
+            internal.put("status", getMongoDBDocument(new InternalStatus(InternalStatus.DELETED), "status"));
+        }
+
+        // Upsert the document into the DELETED collection
+        Bson query = new Document(PRIVATE_UID, studyUid);
+        deletedStudyCollection.update(clientSession, query, new Document("$set", studyDocument),
+                new QueryOptions(MongoDBCollection.UPSERT, true));
+
+        // Delete the document from the main STUDY collection
+        DataResult remove = studyCollection.remove(clientSession, query, null);
+        if (remove.getNumMatches() == 0) {
+            throw new CatalogDBException("Study " + studyId + " not found");
+        }
+        if (remove.getNumDeleted() == 0) {
+            throw new CatalogDBException("Study " + studyId + " could not be deleted");
+        }
+        logger.debug("Study {} successfully deleted", studyId);
+
+        return endWrite(tmpStartTime, 1, 0, 0, 1, null);
+    }
+
+//    /**
+//     * Checks whether the studyId has any active document in the study.
+//     *
+//     * @param studyId study id.
+//     * @throws CatalogDBException when the study has active documents.
+//     */
+//    private void checkCanDelete(long studyId) throws CatalogDBException {
+//        checkId(studyId);
+//        Query query = new Query(PRIVATE_STUDY_UID, studyId)
+//                .append(QueryParams.STATUS_NAME.key(), "!=" + Status.DELETED);
+//
+//        Long count = dbAdaptorFactory.getCatalogFileDBAdaptor().count(query).first();
+//        if (count > 0) {
+//            throw new CatalogDBException("The study {" + studyId + "} cannot be deleted. The study has " + count
+//                    + " files in use.");
+//        }
+//        count = dbAdaptorFactory.getCatalogJobDBAdaptor().count(query).first();
+//        if (count > 0) {
+//            throw new CatalogDBException("The study {" + studyId + "} cannot be deleted. The study has " + count
+//                    + " jobs in use.");
+//        }
+//        count = dbAdaptorFactory.getCatalogSampleDBAdaptor().count(query).first();
+//        if (count > 0) {
+//            throw new CatalogDBException("The study {" + studyId + "} cannot be deleted. The study has " + count
+//                    + " samples in use.");
+//        }
+//        count = dbAdaptorFactory.getCatalogIndividualDBAdaptor().count(query).first();
+//        if (count > 0) {
+//            throw new CatalogDBException("The study {" + studyId + "} cannot be deleted. The study has " + count
+//                    + " individuals in use.");
+//        }
+//        count = dbAdaptorFactory.getCatalogCohortDBAdaptor().count(query).first();
+//        if (count > 0) {
+//            throw new CatalogDBException("The study {" + studyId + "} cannot be deleted. The study has " + count
+//                    + " cohorts in use.");
+//        }
+//    }
+
+    @Override
+    public OpenCGAResult remove(long id, QueryOptions queryOptions) throws CatalogDBException {
+        return null;
+    }
+
+    @Override
+    public OpenCGAResult remove(Query query, QueryOptions queryOptions) throws CatalogDBException {
+        return null;
+    }
+
+    @Override
+    public OpenCGAResult restore(Query query, QueryOptions queryOptions) throws CatalogDBException {
+        throw new NotImplementedException("Not yet implemented");
+    }
+
+    @Override
+    public OpenCGAResult restore(long id, QueryOptions queryOptions) throws CatalogDBException {
+        throw new NotImplementedException("Not yet implemented");
+    }
+
+    @Override
+    public OpenCGAResult<Study> get(long studyId, QueryOptions options) throws CatalogDBException {
+        checkId(studyId);
+        Query query = new Query(QueryParams.UID.key(), studyId);
+        return get(query, options);
+    }
+
+    @Override
+    public OpenCGAResult<Study> get(Query query, QueryOptions options) throws CatalogDBException {
+        return get(null, query, options);
+    }
+
+    OpenCGAResult<Study> get(ClientSession clientSession, Query query, QueryOptions options) throws CatalogDBException {
+        long startTime = startQuery();
+        try (DBIterator<Study> dbIterator = iterator(clientSession, query, options)) {
+            return endQuery(startTime, dbIterator);
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Study> get(Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException, CatalogParameterException {
+        long startTime = startQuery();
+        try (DBIterator<Study> dbIterator = iterator(query, options, user)) {
+            return endQuery(startTime, dbIterator);
+        }
+    }
+
+    @Override
+    public OpenCGAResult<Document> nativeGet(Query query, QueryOptions options) throws CatalogDBException {
+        return nativeGet(null, query, options);
+    }
+
+    public OpenCGAResult<Document> nativeGet(ClientSession clientSession, Query query, QueryOptions options) throws CatalogDBException {
+        long startTime = startQuery();
+        try (DBIterator<Document> dbIterator = nativeIterator(clientSession, query, options)) {
+            return endQuery(startTime, dbIterator);
+        }
+    }
+
+    @Override
+    public OpenCGAResult nativeGet(Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        return nativeGet(null, query, options, user);
+    }
+
+    public OpenCGAResult nativeGet(ClientSession clientSession, Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        long startTime = startQuery();
+        try (DBIterator<Document> dbIterator = nativeIterator(clientSession, query, options, user)) {
+            return endQuery(startTime, dbIterator);
+        }
+    }
+
+    @Override
+    public DBIterator<Study> iterator(Query query, QueryOptions options) throws CatalogDBException {
+        return iterator(null, query, options);
+    }
+
+    private DBIterator<Study> iterator(ClientSession clientSession, Query query, QueryOptions options) throws CatalogDBException {
+        MongoDBIterator<Document> mongoCursor = getMongoCursor(clientSession, query, options);
+        return new StudyCatalogMongoDBIterator<>(mongoCursor, clientSession, dbAdaptorFactory, options, studyConverter, null, null);
+    }
+
+    @Override
+    public DBIterator nativeIterator(Query query, QueryOptions options) throws CatalogDBException {
+        return nativeIterator(null, query, options);
+    }
+
+    DBIterator nativeIterator(ClientSession clientSession, Query query, QueryOptions options) throws CatalogDBException {
+        QueryOptions queryOptions = options != null ? new QueryOptions(options) : new QueryOptions();
+        queryOptions.put(NATIVE_QUERY, true);
+        MongoDBIterator<Document> mongoCursor = getMongoCursor(clientSession, query, queryOptions);
+        return new StudyCatalogMongoDBIterator<>(mongoCursor, clientSession, dbAdaptorFactory, options, null, null, null);
+    }
+
+    @Override
+    public DBIterator<Study> iterator(Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        MongoDBIterator<Document> mongoCursor = getMongoCursor(null, query, options);
+        Function<Document, Boolean> iteratorFilter = (d) -> checkCanViewStudy(dbAdaptorFactory.getOrganizationId(), d, user);
+        return new StudyCatalogMongoDBIterator<>(mongoCursor, null, dbAdaptorFactory, options, studyConverter, iteratorFilter, user);
+    }
+
+    @Override
+    public DBIterator nativeIterator(Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        return nativeIterator(null, query, options, user);
+    }
+
+
+    public DBIterator nativeIterator(ClientSession clientSession, Query query, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        QueryOptions queryOptions = options != null ? new QueryOptions(options) : new QueryOptions();
+        queryOptions.put(NATIVE_QUERY, true);
+        MongoDBIterator<Document> mongoCursor = getMongoCursor(clientSession, query, queryOptions);
+        Function<Document, Boolean> iteratorFilter = (d) -> checkCanViewStudy(dbAdaptorFactory.getOrganizationId(), d, user);
+        return new StudyCatalogMongoDBIterator<Document>(mongoCursor, null, dbAdaptorFactory, options, null, iteratorFilter, user);
+    }
+
+    private MongoDBIterator<Document> getMongoCursor(ClientSession clientSession, Query query, QueryOptions options)
+            throws CatalogDBException {
+        options = ParamUtils.defaultObject(options, QueryOptions::new);
+        QueryOptions qOptions = new QueryOptions(options);
+        qOptions = filterQueryOptionsToIncludeKeys(qOptions,
+                Arrays.asList(AuthorizationMongoDBUtils.PRIVATE_ACL, QueryParams.GROUPS.key()));
+        qOptions = filterOptions(qOptions, FILTER_ROUTE_STUDIES);
+        fixAclProjection(qOptions);
+
+        Bson bson = parseQuery(query);
+
+        logger.debug("Study native get: query : {}", bson.toBsonDocument());
+        if (!query.getBoolean(QueryParams.DELETED.key())) {
+            return studyCollection.iterator(clientSession, bson, null, null, qOptions);
+        } else {
+            return deletedStudyCollection.iterator(clientSession, bson, null, null, qOptions);
+        }
+    }
+
+    @Override
+    public OpenCGAResult rank(Query query, String field, int numResults, boolean asc) throws CatalogDBException {
+        Bson bsonQuery = parseQuery(query);
+        return rank(studyCollection, bsonQuery, field, "name", numResults, asc);
+    }
+
+    @Override
+    public OpenCGAResult groupBy(Query query, String field, QueryOptions options) throws CatalogDBException {
+        Bson bsonQuery = parseQuery(query);
+        return groupBy(studyCollection, bsonQuery, field, "name", options);
+    }
+
+    @Override
+    public OpenCGAResult groupBy(Query query, List<String> fields, QueryOptions options) throws CatalogDBException {
+        Bson bsonQuery = parseQuery(query);
+        return groupBy(studyCollection, bsonQuery, fields, "name", options);
+    }
+
+    @Override
+    public OpenCGAResult groupBy(Query query, String field, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        return null;
+    }
+
+    @Override
+    public OpenCGAResult groupBy(Query query, List<String> fields, QueryOptions options, String user)
+            throws CatalogDBException, CatalogAuthorizationException {
+        return null;
+    }
+
+    @Override
+    public void forEach(Query query, Consumer<? super Object> action, QueryOptions options) throws CatalogDBException {
+        Objects.requireNonNull(action);
+        try (DBIterator<Study> catalogDBIterator = iterator(query, options)) {
+            while (catalogDBIterator.hasNext()) {
+                action.accept(catalogDBIterator.next());
+            }
+        }
+    }
+
+    @Override
+    public void updateWorkspaceUri(String oldBaseUri, String newBaseUri) throws CatalogParameterException {
+        String fixedOldBaseUri = fixBaseUri(oldBaseUri);
+        String fixedNewBaseUri = fixBaseUri(newBaseUri);
+
+        if (fixedOldBaseUri.equals(fixedNewBaseUri)) {
+            logger.info("Base URI '{}' is the same as '{}'. Nothing to update.", fixedOldBaseUri, fixedNewBaseUri);
+            return;
+        }
+
+        // Filter: documents where uri starts with fixedOldBaseUri
+        Bson filter = Filters.regex("uri", Pattern.compile("^" + fixedOldBaseUri));
+
+        // Aggregation pipeline for the update
+        Document replaceOneStage = new Document("$replaceOne",
+                new Document("input", "$uri")
+                        .append("find", fixedOldBaseUri)
+                        .append("replacement", fixedNewBaseUri)
+        );
+
+        List<Document> setStage = Collections.singletonList(new Document("$set",
+                new Document("uri", replaceOneStage)
+        ));
+
+        try {
+            runTransaction(clientSession -> {
+                DataResult update = studyCollection.updateWithPipeline(clientSession, filter, setStage,
+                        new QueryOptions(MongoDBCollection.MULTI, true));
+                deletedStudyCollection.updateWithPipeline(clientSession, filter, setStage, new QueryOptions(MongoDBCollection.MULTI, true));
+                dbAdaptorFactory.getCatalogFileDBAdaptor().updateWorkspaceUri(clientSession, fixedOldBaseUri, fixedNewBaseUri);
+
+                logger.info("Organization '{}': Updated URI from {} Study documents", dbAdaptorFactory.getOrganizationId(),
+                        update.getNumUpdated());
+                return update;
+            });
+        } catch (CatalogException e) {
+            logger.error("Could not update base URI from '{}' to '{}': {}", oldBaseUri, newBaseUri, e.getMessage(), e);
+        }
+    }
+
+    private String fixBaseUri(String uri) throws CatalogParameterException {
+        if (StringUtils.isEmpty(uri)) {
+            throw new CatalogParameterException("URI cannot be empty");
+        }
+        if (uri.startsWith("file://")) {
+            return uri;
+        }
+        if (!uri.startsWith("/")) {
+            throw new CatalogParameterException("URI '" + uri + "' does not start with '/' or 'file://'");
+        }
+        if (!uri.endsWith("/")) {
+            uri += "/";
+        }
+        return "file://" + uri;
+    }
+
+    private Bson parseQuery(Query query) throws CatalogDBException {
+        List<Bson> andBsonList = new ArrayList<>();
+
+        Query queryCopy = new Query(query);
+        queryCopy.remove(QueryParams.DELETED.key());
+
+        fixComplexQueryParam(QueryParams.ATTRIBUTES.key(), queryCopy);
+
+        // Flag indicating whether and OR between ID and ALIAS has been performed and already added to the andBsonList object
+        boolean idOrAliasFlag = false;
+
+        for (Map.Entry<String, Object> entry : queryCopy.entrySet()) {
+            String key = entry.getKey().split("\\.")[0];
+            QueryParams queryParam = QueryParams.getParam(entry.getKey()) != null ? QueryParams.getParam(entry.getKey())
+                    : QueryParams.getParam(key);
+            if (queryParam == null) {
+                throw new CatalogDBException("Unexpected parameter " + entry.getKey() + ". The parameter does not exist or cannot be "
+                        + "queried for.");
+            }
+            try {
+                switch (queryParam) {
+                    case UID:
+                        addAutoOrQuery(PRIVATE_UID, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case PROJECT_UID:
+                        addAutoOrQuery(PRIVATE_PROJECT_UID, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case PROJECT_ID:
+                        addAutoOrQuery(PRIVATE_PROJECT_ID, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case PROJECT_UUID:
+                        addAutoOrQuery(PRIVATE_PROJECT_UUID, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case ATTRIBUTES:
+                        addAutoOrQuery(entry.getKey(), entry.getKey(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case CREATION_DATE:
+                        addAutoOrQuery(PRIVATE_CREATION_DATE, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case MODIFICATION_DATE:
+                        addAutoOrQuery(PRIVATE_MODIFICATION_DATE, queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    case ID:
+                    case ALIAS:
+                        // We perform an OR if both ID and ALIAS are present in the query and both have the exact same value
+                        if (StringUtils.isNotEmpty(queryCopy.getString(QueryParams.ID.key()))
+                                && StringUtils.isNotEmpty(queryCopy.getString(QueryParams.ALIAS.key()))
+                                && queryCopy.getString(QueryParams.ID.key()).equals(queryCopy.getString(QueryParams.ALIAS.key()))) {
+                            if (!idOrAliasFlag) {
+                                List<Document> orList = Arrays.asList(
+                                        new Document(QueryParams.ID.key(), queryCopy.getString(QueryParams.ID.key())),
+                                        new Document(QueryParams.ALIAS.key(), queryCopy.getString(QueryParams.ALIAS.key()))
+                                );
+                                andBsonList.add(new Document("$or", orList));
+                                idOrAliasFlag = true;
+                            }
+                        } else {
+                            addAutoOrQuery(queryParam.key(), queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        }
+                        break;
+                    case INTERNAL_STATUS:
+                    case INTERNAL_STATUS_ID:
+                        // Convert the status to a positive status
+                        queryCopy.put(queryParam.key(),
+                                InternalStatus.getPositiveStatus(InternalStatus.STATUS_LIST, queryCopy.getString(queryParam.key())));
+                        addAutoOrQuery(StudyDBAdaptor.QueryParams.INTERNAL_STATUS_ID.key(), queryParam.key(), queryCopy,
+                                StudyDBAdaptor.QueryParams.INTERNAL_STATUS_ID.type(), andBsonList);
+                        break;
+                    case STATUS:
+                    case STATUS_ID:
+                        addAutoOrQuery(StudyDBAdaptor.QueryParams.STATUS_ID.key(), queryParam.key(), queryCopy,
+                                StudyDBAdaptor.QueryParams.STATUS_ID.type(), andBsonList);
+                        break;
+                    case FQN:
+                    case UUID:
+                    case NAME:
+                    case DESCRIPTION:
+                    case INTERNAL_FEDERATED:
+                    case INTERNAL_STATUS_DATE:
+                    case DATASTORES:
+                    case SIZE:
+                    case URI:
+                    case GROUPS:
+                    case GROUP_ID:
+                    case GROUP_USER_IDS:
+                    case RELEASE:
+                    case VARIABLE_SET:
+                    case VARIABLE_SET_UID:
+                    case VARIABLE_SET_ID:
+                    case VARIABLE_SET_NAME:
+                    case VARIABLE_SET_DESCRIPTION:
+                        addAutoOrQuery(queryParam.key(), queryParam.key(), queryCopy, queryParam.type(), andBsonList);
+                        break;
+                    default:
+                        throw new CatalogDBException("Cannot query by parameter " + queryParam.key());
+                }
+            } catch (Exception e) {
+                throw new CatalogDBException(e);
+            }
+        }
+
+        if (andBsonList.size() > 0) {
+            return Filters.and(andBsonList);
+        } else {
+            return new Document();
+        }
+    }
+
+    public MongoDBCollection getStudyCollection() {
+        return studyCollection;
+    }
+
+    /***
+     * This method is called every time a file has been inserted, modified or deleted to keep track of the current study size.
+     *
+     * @param clientSession Client session.
+     * @param studyId   Study Identifier
+     * @param size disk usage of a new created, updated or deleted file belonging to studyId. This argument
+     *                  will be > 0 to increment the size field in the study collection or < 0 to decrement it.
+     * @throws CatalogDBException An exception is launched when the update crashes.
+     */
+    @Override
+    public void updateDiskUsage(ClientSession clientSession, long studyId, long size) throws CatalogDBException {
+        Bson query = new Document(QueryParams.UID.key(), studyId);
+        Bson update = Updates.inc(QueryParams.SIZE.key(), size);
+        if (studyCollection.update(clientSession, query, update, null).getNumMatches() == 0) {
+            throw new CatalogDBException("CatalogMongoStudyDBAdaptor updateDiskUsage: Couldn't update the size field of"
+                    + " the study " + studyId);
+        }
+    }
+}

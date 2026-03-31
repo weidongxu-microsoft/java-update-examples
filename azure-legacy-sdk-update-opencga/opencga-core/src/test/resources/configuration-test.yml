@@ -1,0 +1,46 @@
+---
+logLevel: "INFO"
+logDir: null
+
+databasePrefix: "opencga_test"
+workspace: "/tmp/opencga/sessions"
+maxLoginAttempts: 5
+
+audit:
+  manager: ""             # Java manager of the audit implementation to be used to audit. If empty, catalog database will be used.
+  maxDocuments: 20000000  # Maximum number of documents that will be created in the audit collection.
+  maxSize: 100            # Maximum size that the audit collection will have in Gigabytes (GB).
+
+monitor:
+  daysToRemove: 30
+  executionDaemonInterval: 4000 # number of milliseconds between checks
+  fileDaemonInterval: 8000      # number of milliseconds between checks
+  port: 9092
+
+email:
+  host: "localhost"
+  port: ""
+  user: ""
+  password: ""
+  from: ""
+  ssl: false
+
+catalog:
+  database:
+    hosts:
+    - "localhost:27017"
+    user: ""
+    password: ""
+    options:
+      authenticationDatabase: ""
+
+server:
+  rest:
+    port: 8080
+    logFile: "some_file_but_this_field_is_deprecated"
+    defaultLimit: 2000
+    maxLimit: 5000
+
+  grpc:
+    port: 8081
+    logFile: null

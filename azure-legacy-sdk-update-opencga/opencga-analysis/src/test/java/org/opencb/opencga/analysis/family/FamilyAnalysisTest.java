@@ -1,0 +1,552 @@
+package org.opencb.opencga.analysis.family;
+
+import org.apache.commons.lang3.StringUtils;
+import org.junit.*;
+import org.junit.experimental.categories.Category;
+import org.junit.rules.ExpectedException;
+import org.opencb.biodata.models.clinical.Disorder;
+import org.opencb.biodata.models.clinical.Phenotype;
+import org.opencb.biodata.models.core.SexOntologyTermAnnotation;
+import org.opencb.biodata.models.pedigree.IndividualProperty;
+import org.opencb.commons.datastore.core.DataResult;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.commons.test.GenericTest;
+import org.opencb.opencga.TestParamConstants;
+import org.opencb.opencga.analysis.tools.ToolRunner;
+import org.opencb.opencga.analysis.variant.OpenCGATestExternalResource;
+import org.opencb.opencga.analysis.variant.manager.VariantStorageManager;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.catalog.managers.CatalogManager;
+import org.opencb.opencga.catalog.managers.FamilyManager;
+import org.opencb.opencga.catalog.utils.PedigreeGraphUtils;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.exceptions.ToolException;
+import org.opencb.opencga.core.models.family.Family;
+import org.opencb.opencga.core.models.family.FamilyUpdateParams;
+import org.opencb.opencga.core.models.family.PedigreeGraph;
+import org.opencb.opencga.core.models.family.PedigreeGraphAnalysisParams;
+import org.opencb.opencga.core.models.individual.Individual;
+import org.opencb.opencga.core.models.individual.IndividualUpdateParams;
+import org.opencb.opencga.core.models.organizations.OrganizationCreateParams;
+import org.opencb.opencga.core.models.organizations.OrganizationUpdateParams;
+import org.opencb.opencga.core.models.sample.Sample;
+import org.opencb.opencga.core.models.sample.SampleReferenceParam;
+import org.opencb.opencga.core.response.OpenCGAResult;
+import org.opencb.opencga.core.testclassification.duration.MediumTests;
+import org.opencb.opencga.storage.core.StorageEngineFactory;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+@Category(MediumTests.class)
+public class FamilyAnalysisTest extends GenericTest {
+
+    public static final String USER = "user";
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
+
+    @ClassRule
+    public static OpenCGATestExternalResource opencga = new OpenCGATestExternalResource();
+
+    protected static CatalogManager catalogManager;
+    private static FamilyManager familyManager;
+    private static String opencgaToken;
+    protected static String sessionIdUser;
+
+    private static String ORGANIZATION = "test";
+    public final static String STUDY = ORGANIZATION + "@1000G:phase1";
+
+    private static boolean firstExecution = true;
+
+    protected static Family family;
+    protected static Family family2;
+    protected static Family family3;
+
+    protected static String projectId;
+    protected static String studyId;
+
+    private static final QueryOptions INCLUDE_RESULT = new QueryOptions(ParamConstants.INCLUDE_RESULT_PARAM, true);
+
+    @BeforeClass
+    public static void setUp() throws IOException, CatalogException {
+        catalogManager = opencga.getCatalogManager();
+        familyManager = catalogManager.getFamilyManager();
+        setUpCatalogManager(catalogManager);
+    }
+
+    public static void setUpCatalogManager(CatalogManager catalogManager) throws CatalogException {
+        opencgaToken = opencga.getAdminToken();
+
+        catalogManager.getOrganizationManager().create(new OrganizationCreateParams().setId(ORGANIZATION), QueryOptions.empty(),
+                opencga.getAdminToken());
+        catalogManager.getUserManager().create(USER, USER, "my@email.org", TestParamConstants.PASSWORD, ORGANIZATION, 1000L, opencga.getAdminToken());
+        catalogManager.getOrganizationManager().update(ORGANIZATION, new OrganizationUpdateParams().setAdmins(Collections.singletonList(USER)),
+                null,
+                opencga.getAdminToken());
+        sessionIdUser = catalogManager.getUserManager().login(ORGANIZATION, USER, TestParamConstants.PASSWORD).first().getToken();
+
+        projectId = catalogManager.getProjectManager().create("1000G", "Project about some genomes", "", "Homo sapiens", null, "GRCh38",
+                INCLUDE_RESULT, sessionIdUser).first().getId();
+        studyId = catalogManager.getStudyManager().create(projectId, "phase1", null, "Phase 1", "Done", null, null, null, null, INCLUDE_RESULT,
+                sessionIdUser).first().getId();
+
+        family = createDummyFamily("Martinez-Martinez").first();
+        family2 = createDummyFamily("Lopez-Lopez", Arrays.asList("father11-sample", "mother11-sample"), 1).first();
+        family3 = createDummyFamily("Perez-Perez", Arrays.asList("father22-sample", "mother22-sample", "child222-sample"), 0).first();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+    }
+
+    @Test
+    public void creationTest() throws IOException {
+        PedigreeGraph pedigreeGraph = family.getPedigreeGraph();
+        testBase64Image(pedigreeGraph, "family/creationTest.png");
+
+    }
+
+    @Test
+    public void twoMemberFamilyTest() throws CatalogException {
+        FamilyUpdateParams updateParams = new FamilyUpdateParams();
+
+        QueryOptions queryOptions = new QueryOptions()
+                .append(ParamConstants.FAMILY_UPDATE_ROLES_PARAM, true)
+                .append(ParamConstants.INCLUDE_RESULT_PARAM, true);
+        Family updatedFamily = catalogManager.getFamilyManager().update(studyId, family2.getId(), updateParams, queryOptions, sessionIdUser)
+                .first();
+
+        PedigreeGraph pedigreeGraph = updatedFamily.getPedigreeGraph();
+        assertTrue(StringUtils.isEmpty(pedigreeGraph.getBase64()));
+    }
+
+    @Test
+    public void threeMemberNoDisorderFamilyTest() throws CatalogException, IOException {
+        FamilyUpdateParams updateParams = new FamilyUpdateParams();
+
+        QueryOptions queryOptions = new QueryOptions()
+                .append(ParamConstants.FAMILY_UPDATE_ROLES_PARAM, true)
+                .append(ParamConstants.INCLUDE_RESULT_PARAM, true);
+        Family updatedFamily = catalogManager.getFamilyManager().update(studyId, family3.getId(), updateParams, queryOptions, sessionIdUser)
+                .first();
+
+        PedigreeGraph pedigreeGraph = updatedFamily.getPedigreeGraph();
+        testBase64Image(pedigreeGraph, "family/threeMemberNoDisorderFamilyTest.png");
+
+
+    }
+
+    @Test
+    public void threeGenerationFamilyTest() throws CatalogException, IOException {
+        Family threeGenFamily = createThreeGenerationFamily("Cos-Cos", true).first();
+        PedigreeGraph pedigreeGraph = threeGenFamily.getPedigreeGraph();
+        testBase64Image(pedigreeGraph, "family/threeGenerationFamilyTest.png");
+    }
+
+    @Test
+    public void threeGenerationFamilyWithoutDisorderTest() throws CatalogException, IOException {
+        Family threeGenFamily = createThreeGenerationFamily("Hello-Hello", false).first();
+        PedigreeGraph pedigreeGraph = threeGenFamily.getPedigreeGraph();
+        testBase64Image(pedigreeGraph, "family/threeGenerationFamilyWithoutDisorderTest.png");
+    }
+
+    @Test
+    public void test2Member2GenerationFamilyTest() throws CatalogException, IOException {
+        Family family = create2Member2GenerationDummyFamily("Colo-Colo", "father222-sample", "child2222-sample").first();
+        PedigreeGraph pedigreeGraph = family.getPedigreeGraph();
+        testBase64Image(pedigreeGraph, "family/test2Member2GenerationFamilyTest.png");
+    }
+
+    @Test
+    public void updateTest() throws Exception {
+        FamilyUpdateParams updateParams = new FamilyUpdateParams();
+
+        Family prevFamily = catalogManager.getFamilyManager().get(studyId, family.getId(), null, sessionIdUser).first();
+        assertEquals(prevFamily.getPedigreeGraph().getBase64(), family.getPedigreeGraph().getBase64());
+
+        QueryOptions queryOptions = new QueryOptions()
+                .append(ParamConstants.FAMILY_UPDATE_ROLES_PARAM, true);
+        catalogManager.getFamilyManager().update(studyId, family.getId(), updateParams, queryOptions, sessionIdUser);
+        // Wait for the async pedigree graph generation to finish before fetching the family again
+        catalogManager.getFamilyManager().asyncPedigreeWait();
+        Family updatedFamily = catalogManager.getFamilyManager().get(studyId, family.getId(), null, sessionIdUser).first();
+
+        assertEquals(prevFamily.getPedigreeGraph().getBase64(), updatedFamily.getPedigreeGraph().getBase64());
+        assertEquals(prevFamily.getVersion() + 1, updatedFamily.getVersion());
+    }
+
+    @Test
+    public void testPedigreeGraphAnalysis() throws ToolException, IOException {
+        Path outDir = Paths.get(opencga.createTmpOutdir("_pedigree_graph"));
+        System.out.println("out dir = " + outDir.toAbsolutePath());
+        System.out.println("opencga home = " + opencga.getOpencgaHome().toAbsolutePath());
+        System.out.println(Paths.get("workspace parent = " + catalogManager.getConfiguration().getWorkspace()).getParent());
+
+        VariantStorageManager variantStorageManager = new VariantStorageManager(catalogManager, opencga.getStorageEngineFactory());
+        ToolRunner toolRunner = new ToolRunner(opencga.getOpencgaHome().toString(), catalogManager,
+                StorageEngineFactory.get(variantStorageManager.getStorageConfiguration()));
+
+        // Pedigree graph params
+        PedigreeGraphAnalysisParams params = new PedigreeGraphAnalysisParams();
+        params.setFamilyId(family.getId());
+
+        toolRunner.execute(PedigreeGraphAnalysis.class, params, new ObjectMap(ParamConstants.STUDY_PARAM, studyId), outDir, null,
+                false, sessionIdUser);
+
+        String b64Image = PedigreeGraphUtils.getB64Image(outDir);
+        assertEquals(family.getPedigreeGraph().getBase64(), b64Image);
+    }
+
+    private static DataResult<Family> createDummyFamily(String familyName) throws CatalogException {
+        return createDummyFamily(familyName, Arrays.asList("father-sample", "mother-sample", "child1-sample", "child2-sample",
+                "child3-sample"), 2);
+    }
+
+    private static DataResult<Family> createDummyFamily(String familyName, List<String> sampleNames, int numDisorders)
+            throws CatalogException {
+        int numMembers = sampleNames.size();
+        if (numMembers > 0) {
+            Sample sample = new Sample().setId(sampleNames.get(0));
+            catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 1) {
+            Sample sample = new Sample().setId(sampleNames.get(1));
+            catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 2) {
+            Sample sample = new Sample().setId(sampleNames.get(2));
+            catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 3) {
+            Sample sample = new Sample().setId(sampleNames.get(3));
+            catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 4) {
+            Sample sample = new Sample().setId(sampleNames.get(4));
+            catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+        }
+
+        Phenotype phenotype1 = new Phenotype("dis1", "Phenotype 1", "HPO");
+        Phenotype phenotype2 = new Phenotype("dis2", "Phenotype 2", "HPO");
+
+        List<Disorder> disorders = new ArrayList<>();
+        if (numDisorders > 0) {
+            Disorder disorder1 = new Disorder("disorder-1", null, null, null, null, null, null);
+            disorders.add(disorder1);
+        }
+
+        if (numDisorders > 1) {
+            Disorder disorder2 = new Disorder("disorder-2", null, null, null, null, null, null);
+            disorders.add(disorder2);
+        }
+
+        Individual father = null, mother = null;
+
+        father = new Individual().setId(sampleNames.get(0))
+                .setPhenotypes(Arrays.asList(phenotype1))
+                .setSex(SexOntologyTermAnnotation.initMale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE);
+        if (numDisorders > 0) {
+            father.setDisorders(Collections.singletonList(disorders.get(0)));
+        }
+
+        if (numMembers > 1) {
+            mother = new Individual().setId(sampleNames.get(1))
+                    .setPhenotypes(Arrays.asList(phenotype2))
+                    .setSex(SexOntologyTermAnnotation.initFemale())
+                    .setLifeStatus(IndividualProperty.LifeStatus.ALIVE);
+        }
+
+//        // We create a new father and mother with the same information to mimic the behaviour of the webservices. Otherwise, we would be
+//        // ingesting references to exactly the same object and this test would not work exactly the same way.
+        List<Individual> members = new ArrayList<>();
+        List<String> memberIds = new ArrayList<>();
+        Individual relFather, relMother = null, relChild1 = null, relChild2 = null, relChild3 = null;
+        relFather = new Individual().setId(sampleNames.get(0)).setPhenotypes(Arrays.asList(phenotype1));
+        members.add(father);
+        memberIds.add(relFather.getId());
+        if (numMembers > 1) {
+            relMother = new Individual().setId(sampleNames.get(1)).setPhenotypes(Arrays.asList(phenotype2));
+            members.add(mother);
+            memberIds.add(relMother.getId());
+        }
+
+        if (numMembers > 2) {
+            relChild1 = new Individual().setId(sampleNames.get(2))
+                    .setPhenotypes(Arrays.asList(phenotype1, phenotype2))
+                    .setFather(father)
+                    .setMother(mother)
+                    .setSex(SexOntologyTermAnnotation.initMale())
+                    .setLifeStatus(IndividualProperty.LifeStatus.ALIVE)
+                    .setParentalConsanguinity(true);
+            members.add(relChild1);
+            memberIds.add(relChild1.getId());
+        }
+
+        if (numMembers > 3) {
+            relChild2 = new Individual().setId(sampleNames.get(3))
+                    .setPhenotypes(Arrays.asList(phenotype1))
+                    .setFather(father)
+                    .setMother(mother)
+                    .setSex(SexOntologyTermAnnotation.initFemale())
+                    .setLifeStatus(IndividualProperty.LifeStatus.ALIVE)
+                    .setParentalConsanguinity(true);
+            if (numDisorders > 0) {
+                relChild2.setDisorders(Collections.singletonList(disorders.get(0)));
+            }
+            members.add(relChild2);
+            memberIds.add(relChild2.getId());
+        }
+
+        if (numMembers > 4) {
+            relChild3 = new Individual().setId(sampleNames.get(4))
+                    .setPhenotypes(Arrays.asList(phenotype1))
+                    .setFather(father)
+                    .setMother(mother)
+                    .setSex(SexOntologyTermAnnotation.initFemale())
+                    .setLifeStatus(IndividualProperty.LifeStatus.DECEASED)
+                    .setParentalConsanguinity(true);
+            if (numDisorders > 1) {
+                relChild3.setDisorders(Collections.singletonList(disorders.get(1)));
+            }
+            members.add(relChild3);
+            memberIds.add(relChild3.getId());
+        }
+
+        Family family = new Family(familyName, familyName, null, null, members, "", numMembers, Collections.emptyList(),
+                Collections.emptyMap());
+
+        OpenCGAResult<Family> familyOpenCGAResult = familyManager.create(STUDY, family, null, QueryOptions.empty(), sessionIdUser);
+
+        catalogManager.getIndividualManager().update(STUDY, relFather.getId(),
+                new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(sampleNames.get(0)))),
+                QueryOptions.empty(), sessionIdUser);
+
+        if (numMembers > 1) {
+            catalogManager.getIndividualManager().update(STUDY, relMother.getId(),
+                    new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(sampleNames
+                            .get(1)))), QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 2) {
+            catalogManager.getIndividualManager().update(STUDY, relChild1.getId(),
+                    new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(sampleNames
+                            .get(2)))), QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 3) {
+            catalogManager.getIndividualManager().update(STUDY, relChild1.getId(),
+                    new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(sampleNames
+                            .get(3)))), QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (numMembers > 4) {
+            catalogManager.getIndividualManager().update(STUDY, relChild1.getId(),
+                    new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(sampleNames
+                            .get(4)))), QueryOptions.empty(), sessionIdUser);
+        }
+
+        if (firstExecution) {
+            try {
+                System.out.println("Sleeping for 2 minutes to allow downloading the Docker image that will calculate the pedigree graph");
+                Thread.sleep(5000); // Sleep for 2 minutes to allow downloading the Docker image that will calculate the pedigree graph
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            firstExecution = false;
+        } else {
+            try {
+                Thread.sleep(5000); // Sleep for 5 seconds to allow the async pedigree graph generation
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        // Fetch again as the pedigree graph is generated asynchronously
+        familyOpenCGAResult = familyManager.get(STUDY, family.getId(), QueryOptions.empty(), sessionIdUser);
+
+        return familyOpenCGAResult;
+    }
+
+    private DataResult<Family> createThreeGenerationFamily(String familyName, boolean withDisorder) throws CatalogException {
+        List<String> sampleNames = Arrays.asList("granma-" + familyName, "pa-" + familyName, "ma-" + familyName, "child-" + familyName);
+        int numMembers = sampleNames.size();
+        for (String sampleName : sampleNames) {
+            catalogManager.getSampleManager().create(STUDY, new Sample().setId(sampleName), QueryOptions.empty(), sessionIdUser);
+        }
+
+        Phenotype phenotype1 = new Phenotype("dis1", "Phenotype 1", "HPO");
+        Phenotype phenotype2 = new Phenotype("dis2", "Phenotype 2", "HPO");
+
+        Disorder disorder1 = new Disorder("disorder-1", null, null, null, null, null, null);
+        Disorder disorder2 = new Disorder("disorder-2", null, null, null, null, null, null);
+
+        Individual granma  = new Individual().setId(sampleNames.get(0))
+                .setPhenotypes(Arrays.asList(phenotype1))
+                .setSex(SexOntologyTermAnnotation.initFemale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE);
+        if (withDisorder) {
+            granma.setDisorders(Collections.singletonList(disorder2));
+        }
+
+        Individual father = new Individual().setId(sampleNames.get(1))
+                .setPhenotypes(Arrays.asList(phenotype1))
+                .setMother(granma)
+                .setSex(SexOntologyTermAnnotation.initMale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE);
+        if (withDisorder) {
+            father.setDisorders(Collections.singletonList(disorder1));
+        }
+
+        Individual mother = new Individual().setId(sampleNames.get(2))
+                .setPhenotypes(Arrays.asList(phenotype2))
+                .setSex(SexOntologyTermAnnotation.initFemale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE);
+
+        Individual child = new Individual().setId(sampleNames.get(3))
+                .setPhenotypes(Arrays.asList(phenotype2))
+                .setFather(father)
+                .setMother(mother)
+                .setSex(SexOntologyTermAnnotation.initMale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE)
+                .setParentalConsanguinity(true);
+        if (withDisorder) {
+            child.setDisorders(Collections.singletonList(disorder2));
+        }
+
+        List<Individual> members = Arrays.asList(granma, father, mother, child);
+        Family family = new Family(familyName, familyName, null, null, members, "", numMembers, Collections.emptyList(), Collections.emptyMap());
+        familyManager.create(STUDY, family, null, INCLUDE_RESULT, sessionIdUser);
+
+        try {
+            Thread.sleep(10000); // Sleep for 10 seconds to allow the async pedigree graph generation
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        // Fetch again as the pedigree graph is generated asynchronously
+        return familyManager.get(STUDY, family.getId(), QueryOptions.empty(), sessionIdUser);
+    }
+
+    private static DataResult<Family> create2Member2GenerationDummyFamily(String familyName, String fatherSample, String childSample)
+            throws CatalogException {
+        int numMembers = 2;
+        Sample sample = new Sample().setId(fatherSample);
+        catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+
+        sample = new Sample().setId(childSample);
+        catalogManager.getSampleManager().create(STUDY, sample, QueryOptions.empty(), sessionIdUser);
+
+        Phenotype phenotype1 = new Phenotype("dis1", "Phenotype 1", "HPO");
+        Phenotype phenotype2 = new Phenotype("dis2", "Phenotype 2", "HPO");
+
+        List<Disorder> disorders = new ArrayList<>();
+        Disorder disorder1 = new Disorder("disorder-1", null, null, null, null, null, null);
+        disorders.add(disorder1);
+
+
+        Individual father = new Individual().setId(fatherSample)
+                .setPhenotypes(Arrays.asList(phenotype1))
+                .setSex(SexOntologyTermAnnotation.initMale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE)
+                .setDisorders(Collections.singletonList(disorders.get(0)));
+
+        Individual mother = null;
+
+        // We create a new father and mother with the same information to mimic the behaviour of the webservices. Otherwise, we would be
+        // ingesting references to exactly the same object and this test would not work exactly the same way.
+        List<Individual> members = new ArrayList<>();
+        List<String> memberIds = new ArrayList<>();
+        Individual relFather = new Individual().setId(fatherSample).setPhenotypes(Arrays.asList(phenotype1));
+        members.add(father);
+        memberIds.add(relFather.getId());
+        Individual relChild1 = new Individual().setId(childSample)
+                .setPhenotypes(Arrays.asList(phenotype1, phenotype2))
+                .setFather(father)
+                .setMother(mother)
+                .setSex(SexOntologyTermAnnotation.initMale())
+                .setLifeStatus(IndividualProperty.LifeStatus.ALIVE)
+                .setParentalConsanguinity(true);
+        members.add(relChild1);
+        memberIds.add(relChild1.getId());
+
+        Family family = new Family(familyName, familyName, null, null, members, "", numMembers, Collections.emptyList(), Collections.emptyMap());
+
+        familyManager.create(STUDY, family, null, INCLUDE_RESULT, sessionIdUser);
+
+        catalogManager.getIndividualManager().update(STUDY, relFather.getId(),
+                new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(fatherSample))),
+                QueryOptions.empty(), sessionIdUser);
+
+        catalogManager.getIndividualManager().update(STUDY, relChild1.getId(),
+                new IndividualUpdateParams().setSamples(Collections.singletonList(new SampleReferenceParam().setId(childSample))),
+                QueryOptions.empty(), sessionIdUser);
+
+        try {
+            Thread.sleep(5000); // Sleep for 5 seconds to allow the async pedigree graph generation
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        // Fetch again as the pedigree graph is generated asynchronously
+        return familyManager.get(STUDY, family.getId(), QueryOptions.empty(), sessionIdUser);
+    }
+
+    public static void testBase64Image(PedigreeGraph pedigreeGraph, String resourceImage) throws IOException {
+        String base64Image = pedigreeGraph.getBase64();
+
+        // Ensure the Base64 string is not null or empty
+        assertTrue(StringUtils.isNotEmpty(base64Image));
+
+        // 1. Remove the data URI prefix if it exists (e.g., "data:image/png;base64,")
+        String base64Data = base64Image;
+        if (base64Image.contains(",")) {
+            base64Data = base64Image.substring(base64Image.indexOf(',') + 1);
+        }
+
+        // 2. Decode the Base64 string to byte array
+        byte[] decodedBytes = Base64.getDecoder().decode(base64Data);
+
+        // 3. Convert byte array to BufferedImage
+        BufferedImage actualImage = ImageIO.read(new ByteArrayInputStream(decodedBytes));
+        assertTrue(actualImage != null);
+
+        // 3.1 Save actual image to disk for debugging (optional)
+//        try {
+//            ImageIO.write(actualImage, "png", Paths.get("/tmp/actualImage." + TimeUtils.getTimeMillis() + ".png").toFile());
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
+        // 4. Load the expected "golden master" image from resources
+        InputStream expectedImageStream = FamilyAnalysisTest.class.getClassLoader().getResourceAsStream(resourceImage);
+        assertTrue(expectedImageStream != null);
+        BufferedImage expectedImage = ImageIO.read(expectedImageStream);
+
+        // 5. Compare the actual image with the expected image
+        // First, check dimensions
+        assertEquals(expectedImage.getWidth(), actualImage.getWidth());
+        assertEquals(expectedImage.getHeight(), actualImage.getHeight());
+
+        // This code is commented because it can differ due to changes in docker opencga-ext-tools (OS, R version,...), and this
+        // docker is used by the R script that generates the image
+//        // Then, compare pixel by pixel (can be slow for large images, but robust)
+//        for (int y = 0; y < expectedImage.getHeight(); y++) {
+//            for (int x = 0; x < expectedImage.getWidth(); x++) {
+//                assertEquals(expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
+//            }
+//        }
+    }
+}

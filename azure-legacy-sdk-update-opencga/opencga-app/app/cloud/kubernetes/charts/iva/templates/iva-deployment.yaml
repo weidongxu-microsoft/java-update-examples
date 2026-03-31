@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.iva.name }}
+  labels:
+    {{- include "iva.labels" . | nindent 4 }}
+    app: {{  .Values.iva.name  }}
+spec:
+  replicas: {{ .Values.iva.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{  .Values.iva.name  }}
+  template:
+    metadata:
+      labels:
+        app: {{  .Values.iva.name  }}
+    spec:
+    {{- with .Values.iva.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ .Values.iva.name }}
+      securityContext:
+        {{- toYaml .Values.iva.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: init
+        securityContext:
+          {{- toYaml .Values.iva.securityContext | nindent 12 }}
+        image: {{ tpl .Values.iva.image.repository . | quote }}
+        imagePullPolicy: {{ .Values.iva.image.pullPolicy }}
+        command:
+          - /bin/sh
+        args:
+          - -c
+          - '( [ -f /opt/ivaconf/config.js ] && [ "{{ .Values.iva.configuration.overwrite }}" != "true" ] )
+                && echo Configuration already exists
+                || echo "Copy configuration. Overwrite = {{ .Values.iva.configuration.overwrite }}"
+                     && cp -r /usr/local/apache2/htdocs/iva/conf/* /opt/ivaconf
+                     && echo "// Section added by Kubernetes deployment" >> /opt/ivaconf/config.js
+                     && echo "//  {{ now }}" >> /opt/ivaconf/config.js
+                     && echo "opencga.host = \"{{ .Values.opencga.host }}\";" >> /opt/ivaconf/config.js
+                     {{- if .Values.iva.configuration.cookie -}}
+                     && echo "opencga.cookie.prefix = \"{{ .Values.iva.configuration.cookie }}\";" >> /opt/ivaconf/config.js
+                     {{- end -}}
+                     && echo "cellbase.host = \"{{ .Values.cellbase.host }}\";" >> /opt/ivaconf/config.js
+                     && echo "cellbase.version = \"{{ .Values.cellbase.version }}\";" >> /opt/ivaconf/config.js
+                     {{- if .Values.iva.configuration.snippet -}}
+                     && echo "// Custom iva.configuration.snippet" >> /opt/ivaconf/config.js
+                     {{- range splitList "\n" .Values.iva.configuration.snippet -}}
+                     && echo "{{ . }}" >> /opt/ivaconf/config.js
+                     {{- end -}}
+                     {{- end -}}'
+        volumeMounts:
+          - mountPath: /opt/ivaconf
+            name: ivaconf
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.iva.securityContext | nindent 12 }}
+        image: {{ tpl .Values.iva.image.repository . | quote }}
+        imagePullPolicy: {{ .Values.iva.image.pullPolicy }}
+        command:
+          - /bin/sh
+        args:
+          - -c
+          - 'cp -r /opt/ivaconf/* /usr/local/apache2/htdocs/iva/conf && httpd-foreground'
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.iva.resources | nindent 12 }}
+        volumeMounts:
+        - mountPath: /opt/ivaconf/
+          name: ivaconf
+      volumes:
+      - name: ivaconf
+        persistentVolumeClaim:
+          claimName: {{ include "pvcIvaconf" . | quote }}
+      {{- with .Values.iva.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.iva.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.iva.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

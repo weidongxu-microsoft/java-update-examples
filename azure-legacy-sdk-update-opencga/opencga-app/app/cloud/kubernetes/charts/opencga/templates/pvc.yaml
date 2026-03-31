@@ -1,0 +1,60 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "pvcConf" . | quote }}
+  labels:
+    {{- include "opencga.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: {{ include "pvConf" . | quote }}
+  storageClassName: {{ include "pvcStorageClassName" . }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "pvcAnalysisconf" . | quote }}
+  labels:
+    {{- include "opencga.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: {{ include "pvAnalysisconf" . | quote }}
+  storageClassName: {{ include "pvcStorageClassName" . }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "pvcSessions" . | quote }}
+  labels:
+    {{- include "opencga.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  volumeName: {{ include "pvSessions" . | quote }}
+  storageClassName: {{ include "pvcStorageClassName" . }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "pvcVariants" . | quote }}
+  labels:
+    {{- include "opencga.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  volumeName: {{ include "pvVariants" . | quote }}
+  storageClassName: {{ include "pvcStorageClassName" . }}
+---

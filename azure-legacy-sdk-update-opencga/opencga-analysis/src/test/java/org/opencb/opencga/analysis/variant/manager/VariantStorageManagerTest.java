@@ -1,0 +1,152 @@
+/*
+ * Copyright 2015-2020 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.analysis.variant.manager;
+
+import org.apache.commons.lang3.RandomStringUtils;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.opencb.biodata.models.variant.metadata.Aggregation;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.opencga.analysis.variant.manager.operations.AbstractVariantOperationManagerTest;
+import org.opencb.opencga.analysis.variant.stats.VariantStatsAnalysis;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.config.storage.SampleIndexConfiguration;
+import org.opencb.opencga.core.models.file.File;
+import org.opencb.opencga.core.models.job.Job;
+import org.opencb.opencga.core.models.study.Study;
+import org.opencb.opencga.core.response.OpenCGAResult;
+import org.opencb.opencga.core.testclassification.duration.MediumTests;
+import org.opencb.opencga.storage.core.exceptions.StorageEngineException;
+import org.opencb.opencga.storage.core.variant.VariantStorageEngine;
+import org.opencb.opencga.storage.core.variant.VariantStorageOptions;
+
+import java.util.Collections;
+import java.util.HashSet;
+
+import static org.junit.Assert.*;
+
+@Category(MediumTests.class)
+public class VariantStorageManagerTest extends AbstractVariantOperationManagerTest {
+
+    @Override
+    protected Aggregation getAggregation() {
+        return Aggregation.NONE;
+    }
+
+
+    @Test
+    public void testConfigure() throws CatalogException, StorageEngineException {
+        ObjectMap expectedConfiguration = new ObjectMap("Key", "value").append("otherKey", "generalValue");
+        String existingKey = variantManager.getVariantStorageEngine(studyId, sessionId).getOptions().keySet().iterator().next();
+        expectedConfiguration.put(existingKey, "NEW_VALUE");
+
+        ObjectMap expectedStudyConfiguration1 = new ObjectMap(expectedConfiguration)
+                .append("KeyFromThisStudy", "12342134")
+                .append(existingKey, "NEW_VALUE_STUDY_1");
+        ObjectMap expectedStudyConfiguration2 = new ObjectMap(expectedConfiguration)
+                .append("KeyFromTheSecondStudy", "afdfwef")
+                .append(existingKey, "NEW_VALUE_STUDY_2");
+
+        variantManager.configureProject(projectId, expectedConfiguration, sessionId);
+        variantManager.configureStudy(studyFqn, expectedStudyConfiguration1, sessionId);
+        variantManager.configureStudy(studyId2, expectedStudyConfiguration2, sessionId);
+
+
+        try {
+            Study study = catalogManager.getStudyManager().create(projectId, "s_no_setup", "s_no_setup", "s_no_setup",
+                            "Study 1", null, null, null, Collections.singletonMap(VariantStatsAnalysis.STATS_AGGREGATION_CATALOG, getAggregation()), new QueryOptions(ParamConstants.INCLUDE_RESULT_PARAM, true), sessionId)
+                    .first();
+            // Variant setup mandatory for configuring study
+            variantManager.configureStudy(study.getFqn(), expectedStudyConfiguration1, sessionId);
+            fail("Expect exception. Study not setup");
+        } catch (Exception e) {
+            MatcherAssert.assertThat(e.getMessage(), CoreMatchers.containsString("The variant storage has not been setup for study"));
+        }
+
+        ObjectMap configuration = variantManager.getDataStoreByProjectId(projectId, sessionId).getOptions();
+        assertEquals(expectedConfiguration, configuration);
+
+        VariantStorageEngine vse = variantManager.getVariantStorageEngine(studyId, sessionId);
+        VariantStorageEngine vse1 = variantManager.getVariantStorageEngineForStudyOperation(studyFqn, null, sessionId);
+        VariantStorageEngine vse2 = variantManager.getVariantStorageEngineForStudyOperation(studyId2, null, sessionId);
+
+        expectedConfiguration.forEach((k, v) -> assertEquals(v, vse.getOptions().get(k)));
+        expectedStudyConfiguration1.forEach((k, v) -> assertEquals(v, vse1.getOptions().get(k)));
+        expectedStudyConfiguration2.forEach((k, v) -> assertEquals(v, vse2.getOptions().get(k)));
+        assertEquals("NEW_VALUE", vse.getOptions().get(existingKey));
+        assertEquals("NEW_VALUE_STUDY_1", vse1.getOptions().get(existingKey));
+
+        assertNull(vse.getOptions().get("KeyFromThisStudy"));
+        assertNotNull(vse1.getOptions().get("KeyFromThisStudy"));
+        assertNull(vse2.getOptions().get("KeyFromThisStudy"));
+
+        assertNull(vse.getOptions().get("KeyFromTheSecondStudy"));
+        assertNull(vse1.getOptions().get("KeyFromTheSecondStudy"));
+        assertNotNull(vse2.getOptions().get("KeyFromTheSecondStudy"));
+    }
+
+    @Test
+    public void testConfigureProtectedValues() throws Exception {
+        VariantStorageOptions key = VariantStorageOptions.WALKER_DOCKER_MEMORY;
+        assertTrue(key.isProtected());
+        ObjectMap conf = new ObjectMap(key.key(), "30g");
+
+        String fqn = catalogManager.getProjectManager().get(projectId, null, sessionId).first().getFqn();
+
+        variantManager.configureProject(fqn, new ObjectMap(conf), opencga.getAdminToken());
+
+        thrown.expect(StorageEngineException.class);
+        thrown.expectMessage("Unable to update protected option '" + key.key() + "'");
+        variantManager.configureProject(projectId, new ObjectMap(conf), sessionId);
+    }
+
+    @Test
+    public void testConfigureSampleIndex() throws Exception {
+        SampleIndexConfiguration conf = getRandomConf();
+        OpenCGAResult<Job> result = variantManager.configureSampleIndex(studyId, conf, true, sessionId);
+        assertEquals(0, result.getResults().size());
+        SampleIndexConfiguration actual = catalogManager.getStudyManager().get(studyId, null, sessionId).first().getInternal().getConfiguration().getVariantEngine().getSampleIndex();
+        assertEquals(conf, actual);
+
+        conf = getRandomConf();
+        result = variantManager.configureSampleIndex(studyId, conf, false, sessionId);
+        assertEquals(1, result.getResults().size());
+        actual = catalogManager.getStudyManager().get(studyId, null, sessionId).first().getInternal().getConfiguration().getVariantEngine().getSampleIndex();
+        assertEquals(conf, actual);
+    }
+
+    private SampleIndexConfiguration getRandomConf() {
+        return SampleIndexConfiguration.defaultConfiguration().addPopulation(new SampleIndexConfiguration.Population("MyStudy", RandomStringUtils.randomAlphabetic(10)));
+    }
+
+    @Test
+    public void testGetIndexedSamples() throws Exception {
+        assertEquals(Collections.emptySet(), variantManager.getIndexedSamples(studyId, sessionId));
+        File file = getSmallFile();
+        indexFile(file, new QueryOptions(), outputId);
+        assertEquals(new HashSet<>(file.getSampleIds()), variantManager.getIndexedSamples(studyId, sessionId));
+
+        Study studyNew = catalogManager.getStudyManager().create(projectId, "sNew", "sNew", "sNew",
+                "Study New", null, null, null, null, new QueryOptions(ParamConstants.INCLUDE_RESULT_PARAM, true), sessionId)
+                .first();
+        assertEquals(Collections.emptySet(), variantManager.getIndexedSamples(studyNew.getId(), sessionId));
+    }
+}

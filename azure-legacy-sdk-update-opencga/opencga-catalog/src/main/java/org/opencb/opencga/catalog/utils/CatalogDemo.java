@@ -1,0 +1,129 @@
+/*
+ * Copyright 2015-2020 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.catalog.utils;
+
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.opencga.catalog.auth.authentication.JwtManager;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.catalog.managers.CatalogManager;
+import org.opencb.opencga.core.common.PasswordUtils;
+import org.opencb.opencga.core.models.organizations.OrganizationCreateParams;
+import org.opencb.opencga.core.models.organizations.OrganizationUpdateParams;
+import org.opencb.opencga.core.models.study.Group;
+import org.opencb.opencga.core.models.study.GroupUpdateParams;
+import org.opencb.opencga.core.models.study.StudyAclParams;
+
+import java.io.IOException;
+import java.util.*;
+
+/**
+ * Created by pfurio on 08/06/16.
+ */
+public final class CatalogDemo {
+
+    private CatalogDemo() {
+
+    }
+
+    /**
+     * Populates the database with dummy data.
+     *
+     * @param catalogManager Catalog manager instance.
+     * @param organizationId Organization id for the demo.
+     * @param adminPassword  Administrator password.
+     * @param force          Used in the case where a database already exists with the same name. When force = true, it will override it.
+     * @throws CatalogException when there is already a database with the same name and force is false.
+     */
+    public static void createDemoDatabase(CatalogManager catalogManager, String organizationId, String adminPassword, boolean force)
+            throws CatalogException {
+        catalogManager.installCatalogDB("HS256", PasswordUtils.getStrongRandomPassword(JwtManager.SECRET_KEY_MIN_LENGTH), adminPassword,
+                "opencga@admin.com", force);
+        String token = catalogManager.getUserManager().loginAsAdmin(adminPassword).first().getToken();
+        try {
+            populateDatabase(catalogManager, organizationId, token);
+        } catch (IOException e) {
+            throw new CatalogException(e.getMessage());
+        }
+    }
+
+    private static void populateDatabase(CatalogManager catalogManager, String organizationId, String opencgaToken)
+            throws CatalogException, IOException {
+        catalogManager.getOrganizationManager().create(new OrganizationCreateParams().setId(organizationId), QueryOptions.empty(),
+                opencgaToken);
+        catalogManager.getUserManager().create("owner", "owner", "owner@mail.com", "owner_pass", organizationId, 2000L,
+                null);
+        catalogManager.getOrganizationManager().update(organizationId, new OrganizationUpdateParams().setOwner("owner"),
+                QueryOptions.empty(), opencgaToken);
+        String ownerToken = catalogManager.getUserManager().login(organizationId, "owner", "owner_pass").first().getToken();
+
+        // Create users
+        Map<String, String> userSessions = new HashMap<>(5);
+        for (int i = 1; i <= 5; i++) {
+            String id = "user" + i;
+            String name = "User" + i;
+            String password = id + "_pass";
+            String email = id + "@gmail.com";
+            catalogManager.getUserManager().create(id, name, email, password, organizationId, 2000L,
+                    ownerToken);
+            userSessions.put(id, catalogManager.getUserManager().login(organizationId, id, password).first().getToken());
+        }
+
+        // Create one project per user
+        Map<String, String> projects = new HashMap<>(5);
+        for (Map.Entry<String, String> userSession : userSessions.entrySet()) {
+            projects.put(userSession.getKey(), catalogManager.getProjectManager()
+                    .create("default", "DefaultProject", "Description", "Homo sapiens", null, "GrCh38", new QueryOptions(),
+                            userSession.getValue()).first().getFqn());
+        }
+
+        // Create two studies per user
+        Map<String, List<String>> studies = new HashMap<>(5);
+        for (Map.Entry<String, String> userSession : userSessions.entrySet()) {
+            String projectId = projects.get(userSession.getKey());
+            List<String> studiesTmp = new ArrayList<>(2);
+            for (int i = 1; i <= 2; i++) {
+                String name = "Name of study" + i;
+                String id = "study" + i;
+                studiesTmp.add(catalogManager.getStudyManager().create(projectId, id, id, name, "Description of " + id,
+                        null, null, null, null, null, userSession.getValue()).first().getFqn());
+            }
+            studies.put(userSession.getKey(), studiesTmp);
+        }
+
+        /*
+        SHARE STUDY1 OF USER1
+         */
+        String studyId = studies.get("user1").get(0);
+        String sessionId = userSessions.get("user5");
+
+        // user5 will be in the @admins group
+        catalogManager.getStudyManager().updateGroup(studyId, "@admins", ParamUtils.BasicUpdateAction.ADD,
+                new GroupUpdateParams(Collections.singletonList("user5")), userSessions.get("user1"));
+        // user5 will add the rest of users. user2, user3 and user4 go to group "members"
+        catalogManager.getStudyManager().createGroup(studyId, new Group("analyst",
+                        Arrays.asList("user2", "user3", "user4")), sessionId);
+        //        // @members will have the role "analyst"
+        StudyAclParams aclParams1 = new StudyAclParams("", "analyst");
+        catalogManager.getStudyManager().updateAcl(studyId, "@analyst", aclParams1, ParamUtils.AclAction.ADD,
+                sessionId);
+        //        // Add anonymous user to the role "denyAll". Later we will give it permissions to see some concrete samples.
+        StudyAclParams aclParams = new StudyAclParams("", "locked");
+        catalogManager.getStudyManager().updateAcl(studyId, "*", aclParams, ParamUtils.AclAction.ADD,
+                sessionId);
+    }
+
+}

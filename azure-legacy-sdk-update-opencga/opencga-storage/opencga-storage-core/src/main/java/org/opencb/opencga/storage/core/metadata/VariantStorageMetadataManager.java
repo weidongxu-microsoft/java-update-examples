@@ -1,0 +1,2735 @@
+/*
+ * Copyright 2015-2017 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.storage.core.metadata;
+
+import com.google.common.base.Throwables;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.opencb.biodata.models.variant.StudyEntry;
+import org.opencb.biodata.models.variant.VariantFileMetadata;
+import org.opencb.commons.ProgressLogger;
+import org.opencb.commons.datastore.core.DataResult;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.commons.datastore.core.Query;
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.commons.run.ParallelTaskRunner;
+import org.opencb.commons.run.Task;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.common.BatchUtils;
+import org.opencb.opencga.core.common.TimeUtils;
+import org.opencb.opencga.core.config.storage.SampleIndexConfiguration;
+import org.opencb.opencga.storage.core.exceptions.StorageEngineException;
+import org.opencb.opencga.storage.core.metadata.adaptors.*;
+import org.opencb.opencga.storage.core.metadata.models.*;
+import org.opencb.opencga.storage.core.metadata.models.project.SearchIndexMetadata;
+import org.opencb.opencga.storage.core.variant.VariantStorageEngine;
+import org.opencb.opencga.storage.core.variant.adaptors.VariantQueryException;
+import org.opencb.opencga.storage.core.variant.query.VariantQueryUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+import static org.opencb.opencga.storage.core.utils.CellBaseUtils.toCellBaseSpeciesName;
+import static org.opencb.opencga.storage.core.variant.VariantStorageOptions.*;
+import static org.opencb.opencga.storage.core.variant.query.VariantQueryUtils.isNegated;
+import static org.opencb.opencga.storage.core.variant.query.VariantQueryUtils.removeNegation;
+
+/**
+ * @author Jacobo Coll <jacobo167@gmail.com>
+ */
+public class VariantStorageMetadataManager implements AutoCloseable {
+    public static final int DUPLICATED_NAME_ID = -999;
+
+    protected static Logger logger = LoggerFactory.getLogger(VariantStorageMetadataManager.class);
+
+    private final ProjectMetadataAdaptor projectDBAdaptor;
+    private final StudyMetadataDBAdaptor studyDBAdaptor;
+    private final FileMetadataDBAdaptor fileDBAdaptor;
+    private final SampleMetadataDBAdaptor sampleDBAdaptor;
+    private final CohortMetadataDBAdaptor cohortDBAdaptor;
+    private final TaskMetadataDBAdaptor taskDBAdaptor;
+
+    private final MetadataCache<String, Integer> sampleIdCache;
+    private final MetadataCache<Integer, String> sampleNameCache;
+    private final MetadataCache<Integer, Boolean> sampleIdIndexedCache;
+    private final MetadataCache<Integer, LinkedHashSet<Integer>> sampleIdsFromFileIdCache;
+    // Store ordinal from VariantStorageEngine.SplitData. -1 for null values.
+    private final MetadataCache<Integer, Integer> splitDataCache;
+
+    private final MetadataCache<String, Integer> fileIdCache;
+    private final MetadataCache<Integer, String> fileNameCache;
+    private final MetadataCache<Integer, Boolean> fileIdIndexedCache;
+    private final MetadataCache<Integer, List<Integer>> fileIdsFromSampleIdCache;
+
+    private final MetadataCache<String, Integer> cohortIdCache;
+    private final MetadataCache<Integer, String> cohortNameCache;
+
+    private final int lockDuration;
+    private final int lockTimeout;
+    private final VariantStorageMetadataDBAdaptorFactory dbAdaptorFactory;
+    private final ObjectMap configuration;
+
+    public VariantStorageMetadataManager(VariantStorageMetadataDBAdaptorFactory dbAdaptorFactory) {
+        this.projectDBAdaptor = dbAdaptorFactory.buildProjectMetadataDBAdaptor();
+        this.studyDBAdaptor = dbAdaptorFactory.buildStudyMetadataDBAdaptor();
+        this.fileDBAdaptor = dbAdaptorFactory.buildFileMetadataDBAdaptor();
+        this.sampleDBAdaptor = dbAdaptorFactory.buildSampleMetadataDBAdaptor();
+        this.cohortDBAdaptor = dbAdaptorFactory.buildCohortMetadataDBAdaptor();
+        this.taskDBAdaptor = dbAdaptorFactory.buildTaskDBAdaptor();
+        this.configuration = dbAdaptorFactory.getConfiguration();
+        lockDuration = dbAdaptorFactory.getConfiguration()
+                .getInt(METADATA_LOCK_DURATION.key(), METADATA_LOCK_DURATION.defaultValue());
+        lockTimeout = dbAdaptorFactory.getConfiguration()
+                .getInt(METADATA_LOCK_TIMEOUT.key(), METADATA_LOCK_TIMEOUT.defaultValue());
+        this.dbAdaptorFactory = dbAdaptorFactory;
+        sampleIdCache = new MetadataCache<>(sampleDBAdaptor::getSampleId);
+        sampleNameCache = new MetadataCache<>((studyId, sampleId) -> {
+            SampleMetadata sampleMetadata = sampleDBAdaptor.getSampleMetadata(studyId, sampleId, null);
+            if (sampleMetadata == null) {
+                throw VariantQueryException.sampleNotFound(sampleId, getStudyName(studyId));
+            }
+            return sampleMetadata.getName();
+        });
+        sampleIdIndexedCache = new MetadataCache<>((studyId, sampleId) -> {
+            SampleMetadata sampleMetadata = sampleDBAdaptor.getSampleMetadata(studyId, sampleId, null);
+            if (sampleMetadata == null) {
+                throw VariantQueryException.sampleNotFound(sampleId, getStudyName(studyId));
+            }
+            return sampleMetadata.isIndexed();
+        });
+        sampleIdsFromFileIdCache = new MetadataCache<>((studyId, fileId) -> {
+            FileMetadata fileMetadata = fileDBAdaptor.getFileMetadata(studyId, fileId, null);
+            if (fileMetadata == null) {
+                throw VariantQueryException.fileNotFound(fileId, getStudyName(studyId));
+            }
+            return fileMetadata.getSamples();
+        }, samples -> samples.size() > 100);
+        splitDataCache = new MetadataCache<>((studyId, sampleId) -> {
+            SampleMetadata sampleMetadata = sampleDBAdaptor.getSampleMetadata(studyId, sampleId, null);
+            if (sampleMetadata == null) {
+                throw VariantQueryException.sampleNotFound(sampleId, getStudyName(studyId));
+            }
+            VariantStorageEngine.SplitData splitData = sampleMetadata.getSplitData();
+            if (splitData == null) {
+                return -1;
+            } else {
+                return splitData.ordinal();
+            }
+        });
+
+        fileIdCache = new MetadataCache<>((studyId, file) -> {
+            Integer fileId = fileDBAdaptor.getFileId(studyId, file);
+            if (fileId == null && file.contains("/")) {
+                // Input is a file path. Try reading by fileName. Then ensure that the filePath matches.
+                String fileName = Paths.get(file).getFileName().toString();
+                fileId = fileDBAdaptor.getFileId(studyId, fileName);
+                if (fileId == null) {
+                    return null;
+                } else if (fileId == DUPLICATED_NAME_ID) {
+                    // The fileName exists, but it's duplicated. Input filePath doesn't exist
+                    return null;
+                } else {
+                    FileMetadata fileMetadata = fileDBAdaptor.getFileMetadata(studyId, fileId, null);
+                    if (fileMetadata.getPath().equals(file)) {
+                        return fileId;
+                    } else {
+                        // FileName exists, but in a different path!
+                        return null;
+                    }
+                }
+            }
+            return fileId;
+        });
+        fileNameCache = new MetadataCache<>((studyId, fileId) -> {
+            FileMetadata fileMetadata = fileDBAdaptor.getFileMetadata(studyId, fileId, null);
+            if (fileMetadata == null) {
+                throw VariantQueryException.fileNotFound(fileId, getStudyName(studyId));
+            }
+            return fileMetadata.getName();
+        });
+        fileIdIndexedCache = new MetadataCache<>((studyId, fileId) -> {
+            FileMetadata fileMetadata = fileDBAdaptor.getFileMetadata(studyId, fileId, null);
+            if (fileMetadata == null) {
+                throw VariantQueryException.fileNotFound(fileId, getStudyName(studyId));
+            }
+            return fileMetadata.isIndexed();
+        });
+        fileIdsFromSampleIdCache = new MetadataCache<>((studyId, sampleId) -> {
+            SampleMetadata sampleMetadata = getSampleMetadata(studyId, sampleId);
+            if (sampleMetadata == null) {
+                throw VariantQueryException.sampleNotFound(sampleId, getStudyName(studyId));
+            }
+            return sampleMetadata.getFiles();
+        }, files -> files.size() > 20);
+
+        cohortIdCache = new MetadataCache<>(cohortDBAdaptor::getCohortId);
+        cohortNameCache = new MetadataCache<>((studyId, cohortId) -> {
+            CohortMetadata cohortMetadata = cohortDBAdaptor.getCohortMetadata(studyId, cohortId, null);
+            if (cohortMetadata == null) {
+                throw VariantQueryException.cohortNotFound(cohortId, studyId, getAvailableCohorts(studyId));
+            }
+            return cohortMetadata.getName();
+        });
+    }
+
+    public ObjectMap getConfiguration() {
+        return dbAdaptorFactory.getConfiguration();
+    }
+
+    public Lock lockGlobal(long lockDuration, long timeout, String lockName)
+            throws StorageEngineException {
+        return projectDBAdaptor.lockProject(lockDuration, timeout, lockName);
+    }
+
+    public Lock lockStudy(int studyId) throws StorageEngineException {
+        return lockStudy(studyId, lockDuration, lockTimeout);
+    }
+
+    public Lock lockStudy(int studyId, long lockDuration, long timeout) throws StorageEngineException {
+        return studyDBAdaptor.lock(studyId, lockDuration, timeout, null);
+    }
+
+    public Lock lockStudy(int studyId, long lockDuration, long timeout, String lockName) throws StorageEngineException {
+        return studyDBAdaptor.lock(studyId, lockDuration, timeout, lockName);
+    }
+
+    // Test purposes only
+    @Deprecated
+    public StudyMetadata createStudy(String studyName) throws StorageEngineException {
+        return createStudy(studyName, ParamConstants.CELLBASE_VERSION);
+    }
+
+    public StudyMetadata createStudy(String studyName, String cellbaseVersion) throws StorageEngineException {
+        updateProjectMetadata(projectMetadata -> {
+            if (!getStudies().containsKey(studyName)) {
+                StudyMetadata studyMetadata = new StudyMetadata(newStudyId(), studyName);
+                initSampleIndexConfigurationIfNeeded(studyMetadata, cellbaseVersion);
+                unsecureUpdateStudyMetadata(studyMetadata);
+            }
+        });
+        return getStudyMetadata(studyName);
+    }
+
+    public StudyMetadata.SampleIndexConfigurationVersioned addSampleIndexConfiguration(
+            int studyId, SampleIndexConfiguration configuration, boolean staging) throws StorageEngineException {
+        StudyMetadata.SampleIndexConfigurationVersioned.Status status = staging
+                ? StudyMetadata.SampleIndexConfigurationVersioned.Status.STAGING
+                : StudyMetadata.SampleIndexConfigurationVersioned.Status.ACTIVE;
+        return updateStudyMetadata(studyId, studyMetadata -> {
+            int version;
+            if (CollectionUtils.isEmpty(studyMetadata.getSampleIndexConfigurations())) {
+                studyMetadata.setSampleIndexConfigurations(new ArrayList<>(1));
+                version = StudyMetadata.DEFAULT_SAMPLE_INDEX_VERSION + 1;
+            } else {
+                version = studyMetadata.getSampleIndexConfigurationLatest().getVersion() + 1;
+            }
+            studyMetadata.getSampleIndexConfigurations().add(new StudyMetadata.SampleIndexConfigurationVersioned(
+                    configuration,
+                    version,
+                    Date.from(Instant.now()),
+                    status));
+        }).getSampleIndexConfigurationLatest();
+    }
+
+    private static void initSampleIndexConfigurationIfNeeded(StudyMetadata studyMetadata, String cellbaseVersion) {
+        List<StudyMetadata.SampleIndexConfigurationVersioned> configurations = studyMetadata.getSampleIndexConfigurations();
+        if (cellbaseVersion == null) {
+            logger.info("CellBase version not provided. Skipping SampleIndexConfiguration initialization");
+            return;
+        }
+        if (configurations == null || configurations.isEmpty()) {
+            configurations = new ArrayList<>(2);
+            configurations.add(new StudyMetadata.SampleIndexConfigurationVersioned(
+                    SampleIndexConfiguration.defaultConfiguration(cellbaseVersion),
+                    StudyMetadata.DEFAULT_SAMPLE_INDEX_VERSION,
+                    Date.from(Instant.now()), StudyMetadata.SampleIndexConfigurationVersioned.Status.ACTIVE));
+            studyMetadata.setSampleIndexConfigurations(configurations);
+        }
+    }
+
+    public boolean studyExists(String studyName) {
+        return exists() && getStudyIdOrNull(studyName) != null;
+    }
+
+    public ProjectMetadata setActiveSearchIndexMetadata(SearchIndexMetadata indexMetadata, long updateStartTimestamp)
+            throws StorageEngineException {
+        return updateProjectMetadata(projectMetadata -> {
+            for (SearchIndexMetadata value : projectMetadata.getSecondaryAnnotationIndex().getValues()) {
+                if (value.getVersion() == indexMetadata.getVersion()) {
+                    value.setStatus(SearchIndexMetadata.Status.ACTIVE);
+                    value.setLastUpdateDate(Date.from(Instant.ofEpochMilli(updateStartTimestamp)));
+                } else {
+                    if (value.getStatus() == SearchIndexMetadata.Status.ACTIVE || value.getStatus() == SearchIndexMetadata.Status.STAGING) {
+                        // If there is an older active or staging index, update its status to DEPRECATED
+                        value.setStatus(SearchIndexMetadata.Status.DEPRECATED);
+                    }
+                }
+            }
+            updateProjectStatus(projectMetadata);
+            return projectMetadata;
+        });
+    }
+
+    public interface UpdateFunction<T, E extends Exception> {
+        T update(T t) throws E;
+    }
+
+    public interface UpdateConsumer<T, E extends Exception> {
+        void update(T t) throws E;
+        default UpdateFunction<T, E> toFunction() {
+            return t -> {
+                update(t);
+                return t;
+            };
+        }
+    }
+
+    public void renameStudy(int studyId, String newStudyName) throws StorageEngineException {
+        updateStudyMetadata(studyId, studyMetadata -> {
+            String currentStudyName = studyMetadata.getName();
+            studyMetadata.setName(newStudyName);
+            studyMetadata.getAttributes().put("rename_" + TimeUtils.getTime(), new ObjectMap()
+                    .append("newName", newStudyName)
+                    .append("oldName", currentStudyName)
+            );
+        });
+    }
+
+    public <E extends Exception> StudyMetadata updateStudyMetadata(Object study, UpdateConsumer<StudyMetadata, E> updater)
+            throws StorageEngineException, E {
+        return updateStudyMetadata(study, updater.toFunction());
+    }
+
+    public <E extends Exception> StudyMetadata updateStudyMetadata(Object study, UpdateFunction<StudyMetadata, E> updater)
+            throws StorageEngineException, E {
+        int studyId = getStudyId(study);
+
+        try (Lock lock = lockStudy(studyId)) {
+            StudyMetadata sm = getStudyMetadata(studyId);
+
+            sm = updater.update(sm);
+
+            lock.checkLocked();
+            unsecureUpdateStudyMetadata(sm);
+            return sm;
+        }
+    }
+
+    public StudyMetadata getStudyMetadata(String name) {
+        Integer studyId = getStudyIdOrNull(name);
+        if (studyId == null) {
+            return null;
+        } else {
+            return studyDBAdaptor.getStudyMetadata(studyId, null);
+        }
+    }
+
+    public StudyMetadata getStudyMetadata(int id) {
+        return studyDBAdaptor.getStudyMetadata(id, null);
+    }
+
+    public void unsecureUpdateStudyMetadata(StudyMetadata sm) {
+        studyDBAdaptor.updateStudyMetadata(sm);
+    }
+
+    @Deprecated
+    public final DataResult<StudyConfiguration> getStudyConfiguration(Object study, QueryOptions options) {
+        if (study instanceof Number) {
+            return studyDBAdaptor.getStudyConfiguration(((Number) study).intValue(), null, options);
+        } else {
+            String studyName = study.toString();
+            if (StringUtils.isNumeric(studyName)) {
+                return studyDBAdaptor.getStudyConfiguration(Integer.valueOf(studyName), null, options);
+            } else {
+                return studyDBAdaptor.getStudyConfiguration(studyName, null, options);
+            }
+        }
+    }
+
+    public Thread buildShutdownHook(String jobOperationName, int studyId, int taskId) {
+        return new Thread(() -> {
+            try {
+                logger.error("Shutdown hook while '" + jobOperationName + "' !");
+                setStatus(studyId, taskId, TaskMetadata.Status.ERROR);
+            } catch (Exception e) {
+                logger.error("Error terminating!", e);
+                throw Throwables.propagate(e);
+            }
+        });
+    }
+
+    public List<String> getStudyNames() {
+        return studyDBAdaptor.getStudyNames(null);
+    }
+
+    public String getStudyName(int studyId) {
+        return getStudies(null).inverse().get(studyId);
+    }
+
+    public List<Integer> getStudyIds() {
+        return studyDBAdaptor.getStudyIds(null);
+    }
+
+    public BiMap<String, Integer> getStudies() {
+        return getStudies(null);
+    }
+
+    public BiMap<String, Integer> getStudies(QueryOptions options) {
+        return HashBiMap.create(studyDBAdaptor.getStudies(options));
+    }
+
+    @Deprecated
+    public final DataResult updateStudyConfiguration(StudyConfiguration studyConfiguration, QueryOptions options) {
+        long timeStamp = System.currentTimeMillis();
+        logger.debug("Timestamp : {} -> {}", studyConfiguration.getTimeStamp(), timeStamp);
+        studyConfiguration.setTimeStamp(timeStamp);
+
+        return studyDBAdaptor.updateStudyConfiguration(studyConfiguration, options);
+    }
+
+    public Integer getStudyIdOrNull(Object studyObj) {
+        return getStudyIdOrNull(studyObj, getStudies(null));
+    }
+
+    public Integer getStudyIdOrNull(Object studyObj, Map<String, Integer> studies) {
+        Integer studyId;
+        if (studyObj instanceof Integer) {
+            studyId = ((Integer) studyObj);
+        } else {
+            String studyName = studyObj.toString();
+            if (isNegated(studyName)) {
+                studyName = removeNegation(studyName);
+            }
+            if (StringUtils.isNumeric(studyName)) {
+                studyId = Integer.parseInt(studyName);
+            } else {
+                studyId = studies.get(studyName);
+            }
+        }
+
+        if (!studies.containsValue(studyId)) {
+            return null;
+        } else {
+            return studyId;
+        }
+    }
+
+    /**
+     * Get studyIds from a list of studies.
+     * Replaces studyNames for studyIds.
+     * Excludes those studies that starts with '!'
+     *
+     * @param studiesNames  List of study names or study ids
+     * @return              List of study Ids
+     */
+    public List<Integer> getStudyIds(List<?> studiesNames) {
+        return getStudyIds(studiesNames, getStudies(null));
+    }
+
+    /**
+     * Get studyIds from a list of studies.
+     * Replaces studyNames for studyIds.
+     * Excludes those studies that starts with '!'
+     *
+     * @param studiesNames  List of study names or study ids
+     * @param studies       Map of available studies. See {@link VariantStorageMetadataManager#getStudies}
+     * @return              List of study Ids
+     */
+    public List<Integer> getStudyIds(List<?> studiesNames, Map<String, Integer> studies) {
+        List<Integer> studiesIds;
+        if (studiesNames == null) {
+            return Collections.emptyList();
+        }
+        studiesIds = new ArrayList<>(studiesNames.size());
+        for (Object studyObj : studiesNames) {
+            Integer studyId = getStudyId(studyObj, true, studies);
+            if (studyId != null) {
+                studiesIds.add(studyId);
+            }
+        }
+        return studiesIds;
+    }
+
+    public int getStudyId(Object studyObj) {
+        return getStudyId(studyObj, false, getStudies(null));
+    }
+
+    public Integer getStudyId(Object studyObj, boolean skipNegated, Map<String, Integer> studies) {
+        Integer studyId;
+        if (studyObj instanceof StudyMetadata) {
+            studyId = ((StudyMetadata) studyObj).getId();
+        } else if (studyObj instanceof StudyResourceMetadata) {
+            studyId = ((StudyResourceMetadata<?>) studyObj).getStudyId();
+        } else if (studyObj instanceof Number) {
+            studyId = ((Number) studyObj).intValue();
+        } else {
+            String studyName = studyObj.toString();
+            if (isNegated(studyName)) { //Skip negated studies
+                if (skipNegated) {
+                    return null;
+                } else {
+                    studyName = removeNegation(studyName);
+                }
+            }
+            if (StringUtils.isNumeric(studyName)) {
+                studyId = Integer.parseInt(studyName);
+            } else {
+                Integer value = studies.get(studyName);
+                if (value == null) {
+                    throw VariantQueryException.studyNotFound(studyName, studies.keySet());
+                }
+                studyId = value;
+            }
+        }
+        if (!studies.containsValue(studyId)) {
+            throw VariantQueryException.studyNotFound(studyId, studies.keySet());
+        }
+        return studyId;
+    }
+
+    public VariantScoreMetadata getVariantScoreMetadata(int studyId, int scoreId) {
+        return getStudyMetadata(studyId).getVariantScores().stream().filter(s -> s.getId() == scoreId).findFirst().orElse(null);
+    }
+
+    public VariantScoreMetadata getVariantScoreMetadata(int studyId, String scoreMetadataName) {
+        return getVariantScoreMetadata(getStudyMetadata(studyId), scoreMetadataName);
+    }
+
+    public VariantScoreMetadata getVariantScoreMetadata(StudyMetadata studyMetadata, String scoreName) {
+        for (VariantScoreMetadata s : studyMetadata.getVariantScores()) {
+            if (s.getName().equalsIgnoreCase(scoreName)) {
+                return s;
+//                if (s.getCohortId1() == cohort1 && Objects.equals(s.getCohortId2(), cohort2)) {
+//                    return s;
+//                }
+            }
+        }
+        return null;
+    }
+
+    public VariantScoreMetadata getOrCreateVariantScoreMetadata(int studyId, String scoreMetadataName, int cohort1, Integer cohort2)
+            throws StorageEngineException {
+        StudyMetadata sm = updateStudyMetadata(studyId, studyMetadata -> {
+            VariantScoreMetadata scoreMetadata = getVariantScoreMetadata(studyMetadata, scoreMetadataName);
+            if (scoreMetadata != null) {
+                if (cohort1 == scoreMetadata.getCohortId1() && Objects.equals(scoreMetadata.getCohortId2(), cohort2)) {
+                    return studyMetadata;
+                } else {
+                    String cohort1Name = getCohortName(studyId, scoreMetadata.getCohortId1());
+                    String cohort2Name = scoreMetadata.getCohortId2() == null ? null : getCohortName(studyId, scoreMetadata.getCohortId2());
+
+                    throw new StorageEngineException(
+                            "Variant score '" + scoreMetadataName + "' already exists in study '" + studyMetadata.getName() + "' "
+                                    + "for cohorts '" + cohort1Name + "' and '" + cohort2Name + "'. "
+                                    + "Attempting to overwrite the VariantScore with cohorts '" + getCohortName(studyId, cohort1) + "' "
+                                    + "and '" + (cohort2 == null ? null : getCohortName(studyId, cohort2)) + "'");
+                }
+            }
+
+            if (scoreMetadataName.isEmpty()) {
+                throw new IllegalArgumentException("Variant score name can not be empty");
+            } else if (StringUtils.containsAny(scoreMetadataName, ':', ' ')) {
+                throw new IllegalArgumentException("Variant score name can not contain ':' or ' '");
+            }
+            int scoreId = newVariantScoreId(studyMetadata.getId());
+            scoreMetadata = new VariantScoreMetadata(studyMetadata.getId(), scoreId, scoreMetadataName, "", cohort1, cohort2);
+            studyMetadata.getVariantScores().add(scoreMetadata);
+            return studyMetadata;
+        });
+        return getVariantScoreMetadata(sm, scoreMetadataName);
+    }
+
+    public <E extends Exception> VariantScoreMetadata updateVariantScoreMetadata(int studyId, int scoreId,
+                                                                                 UpdateConsumer<VariantScoreMetadata, E> updater)
+            throws StorageEngineException, E {
+        updateStudyMetadata(studyId, studyMetadata -> {
+            VariantScoreMetadata scoreMetadata = studyMetadata.getVariantScores()
+                    .stream()
+                    .filter(s -> s.getId() == scoreId)
+                    .findFirst()
+                    .orElse(null);
+
+            if (scoreMetadata == null) {
+                throw VariantQueryException.scoreNotFound(scoreId, getStudyName(studyId));
+            }
+
+            updater.update(scoreMetadata);
+
+            return studyMetadata;
+        });
+
+        return getVariantScoreMetadata(studyId, scoreId);
+    }
+
+    public void removeVariantScoreMetadata(VariantScoreMetadata scoreMetadata) throws StorageEngineException {
+        updateStudyMetadata(scoreMetadata.getStudyId(), studyMetadata -> {
+            studyMetadata.getVariantScores().removeIf(s -> s.getId() == scoreMetadata.getId());
+            return studyMetadata;
+        });
+    }
+
+    public <E extends Exception> ProjectMetadata updateProjectMetadata(UpdateConsumer<ProjectMetadata, E> consumer)
+            throws StorageEngineException, E {
+        return updateProjectMetadata(consumer.toFunction());
+    }
+
+    public <E extends Exception> ProjectMetadata updateProjectMetadata(UpdateFunction<ProjectMetadata, E> function)
+            throws StorageEngineException, E {
+        Objects.requireNonNull(function);
+
+        try (Lock lock = projectDBAdaptor.lockProject(lockDuration, lockTimeout)) {
+            ProjectMetadata projectMetadata = getProjectMetadata();
+            int countersHash = (projectMetadata == null ? Collections.emptyMap() : projectMetadata.getCounters()).hashCode();
+
+            projectMetadata = function.update(projectMetadata);
+            int newCountersHash = (projectMetadata == null ? Collections.emptyMap() : projectMetadata.getCounters()).hashCode();
+
+            // If the function modifies the internal counters, update them
+            boolean updateCounters = countersHash != newCountersHash;
+
+            lock.checkLocked();
+            projectDBAdaptor.updateProjectMetadata(projectMetadata, updateCounters);
+            return projectMetadata;
+        }
+    }
+
+    /**
+     * Update the timestamp of the last variant index operation.
+     * @throws StorageEngineException if there is a problem updating the metadata
+     */
+    public void updateVariantIndexTimestamp() throws StorageEngineException {
+        updateProjectMetadata(pm -> {
+            if (pm == null) {
+                pm = new ProjectMetadata();
+            }
+            pm.setVariantIndexLastTimestamp();
+            // As new variants have been added, the annotation and secondary-annotation are outdated.
+            updateProjectStatus(pm);
+            return pm;
+        });
+    }
+
+    /**
+     * Update the timestamp of the last variant index operation.
+     * @throws StorageEngineException if there is a problem updating the metadata
+     */
+    public void invalidateCurrentVariantAnnotationIndex() throws StorageEngineException {
+        updateProjectMetadata(pm -> {
+            logger.info("Invalidating current variant annotation index on project '{}'", pm.getName());
+            pm.setAnnotationIndexLastUpdateStartTimestamp(0);
+            pm.setAnnotationIndexLastFullUpdateStartTimestamp(0);
+
+            for (SearchIndexMetadata indexMetadata : pm.getSecondaryAnnotationIndex().getValues()) {
+                indexMetadata.setLastUpdateDate(Date.from(Instant.EPOCH));
+            }
+            updateProjectStatus(pm);
+            return pm;
+        });
+    }
+
+    /**
+     * Update the timestamp with the last time that a variant annotation index was executed successfully.
+     * This must register the starting time of the operation, not the end time.
+     * This includes partial annotations.
+     * @param annotateAll If true, the annotation is being executed over all (pending) variants in the database.
+     * @param annotationStartTimestamp Starting time of the annotation index (not the end time)
+     * @throws StorageEngineException if there is a problem updating the metadata
+     */
+    public void updateAnnotationIndexTimestamp(boolean annotateAll, long annotationStartTimestamp) throws StorageEngineException {
+        updateProjectMetadata(projectMetadata -> {
+            // Update annotation timestamp.
+            // This includes full and partial annotations
+            projectMetadata.setAnnotationIndexLastUpdateStartTimestamp(annotationStartTimestamp);
+            if (annotateAll) {
+                // If all variants are being annotated, update the full annotation timestamp
+                projectMetadata.setAnnotationIndexLastFullUpdateStartTimestamp(annotationStartTimestamp);
+            }
+
+            // Any time a new annotation is loaded, the secondary annotation index status would be reset.
+            updateProjectStatus(projectMetadata);
+        });
+    }
+
+    private static void updateProjectStatus(ProjectMetadata projectMetadata) {
+
+        // Update annotation status
+        TaskMetadata.Status annotationIndexStatus = projectMetadata.getAnnotationIndexStatus();
+        if (projectMetadata.getAnnotationIndexLastFullUpdateStartTimestamp() > projectMetadata.getVariantIndexLastTimestamp()) {
+            // The annotation would be marked as "READY" if all the variants from the database are annotated.
+            // This requires that no other variants where loaded while annotating,
+            // and for this process to be annotating all variants.
+            projectMetadata.setAnnotationIndexStatus(TaskMetadata.Status.READY);
+        } else {
+            projectMetadata.setAnnotationIndexStatus(TaskMetadata.Status.NONE);
+        }
+        if (annotationIndexStatus != projectMetadata.getAnnotationIndexStatus()) {
+            logger.info("Annotation index status changed from '{}' to '{}'", annotationIndexStatus,
+                    projectMetadata.getAnnotationIndexStatus());
+        }
+
+        // Update secondary annotation status
+        // Secondary annotation index is considered READY if it is up to date with
+        // - the last annotation index (which includes partial annotations)
+        // - the last stats index
+        // - the last variant index
+        for (SearchIndexMetadata indexMetadata : projectMetadata.getSecondaryAnnotationIndex().getValues()) {
+            Date lastUpdateDate = indexMetadata.getLastUpdateDate();
+            SearchIndexMetadata.DataStatus dataStatus = indexMetadata.getDataStatus();
+            if (lastUpdateDate != null) {
+                if (lastUpdateDate.getTime() > projectMetadata.getAnnotationIndexLastUpdateStartTimestamp()
+                        && lastUpdateDate.getTime() > projectMetadata.getStatsLastEndTimestamp()
+                        && lastUpdateDate.getTime() > projectMetadata.getVariantIndexLastTimestamp()) {
+                    indexMetadata.setDataStatus(SearchIndexMetadata.DataStatus.READY);
+                } else {
+                    indexMetadata.setDataStatus(SearchIndexMetadata.DataStatus.OUT_OF_DATE);
+                }
+            } else {
+                indexMetadata.setDataStatus(SearchIndexMetadata.DataStatus.EMPTY);
+            }
+            if (dataStatus != indexMetadata.getDataStatus()) {
+                logger.info("Secondary annotation index '{}' status changed from '{}' to '{}'",
+                        indexMetadata.getVersion(), dataStatus, indexMetadata.getDataStatus());
+            }
+        }
+    }
+
+    /**
+     * Update the timestamp with the last time that a variant stats index was executed successfully.
+     * @throws StorageEngineException if there is a problem updating the metadata
+     */
+    public void updateStatsIndexTimestamp() throws StorageEngineException {
+        updateProjectMetadata(project -> {
+            project.setStatsIndexLastEndTimestamp(System.currentTimeMillis());
+            // As new variant stats have been added, the secondary-annotation-index is outdated.
+            updateProjectStatus(project);
+        });
+    }
+
+    public boolean exists() {
+        return projectDBAdaptor.exists();
+    }
+
+    public ProjectMetadata getProjectMetadata() {
+        return projectDBAdaptor.getProjectMetadata().first();
+    }
+
+    public ProjectMetadata getAndUpdateProjectMetadata(ObjectMap options) throws StorageEngineException {
+        ProjectMetadata projectMetadata = getProjectMetadata();
+
+        checkSameSpeciesAndAssembly(options, projectMetadata);
+        if (options != null && (projectMetadata == null
+                || StringUtils.isEmpty(projectMetadata.getSpecies()) && options.containsKey(SPECIES.key())
+                || StringUtils.isEmpty(projectMetadata.getAssembly()) && options.containsKey(ASSEMBLY.key()))) {
+
+            projectMetadata = updateProjectMetadata(pm -> {
+                // Check again, in case it was updated by another thread
+                checkSameSpeciesAndAssembly(options, pm);
+                if (pm == null) {
+                    pm = new ProjectMetadata();
+                }
+                if (pm.getRelease() <= 0) {
+                    pm.setRelease(options.getInt(RELEASE.key(),
+                            RELEASE.defaultValue()));
+                }
+                if (StringUtils.isEmpty(pm.getSpecies())) {
+                    pm.setSpecies(toCellBaseSpeciesName(options.getString(SPECIES.key())));
+                }
+                if (StringUtils.isEmpty(pm.getAssembly())) {
+                    pm.setAssembly(options.getString(ASSEMBLY.key()));
+                }
+
+                return pm;
+            });
+        }
+        return projectMetadata;
+    }
+
+    private static void checkSameSpeciesAndAssembly(ObjectMap options, ProjectMetadata projectMetadata) throws StorageEngineException {
+        if (options != null && projectMetadata != null) {
+            if (options.containsKey(ASSEMBLY.key())) {
+                if (StringUtils.isNotEmpty(projectMetadata.getAssembly()) && !projectMetadata.getAssembly()
+                        .equalsIgnoreCase(options.getString(ASSEMBLY.key()))) {
+                    throw new StorageEngineException("Incompatible assembly change from '" + projectMetadata.getAssembly() + "' to '"
+                            + options.getString(ASSEMBLY.key()) + "'");
+                }
+            }
+            if (options.containsKey(SPECIES.key())) {
+                if (StringUtils.isNotEmpty(projectMetadata.getSpecies()) && !projectMetadata.getSpecies()
+                        .equalsIgnoreCase(toCellBaseSpeciesName(options.getString(SPECIES.key())))) {
+                    throw new StorageEngineException("Incompatible species change from '" + projectMetadata.getSpecies() + "' to '"
+                            + options.getString(SPECIES.key()) + "'");
+                }
+            }
+        }
+    }
+
+    public VariantFileMetadata getVariantFileMetadataOrNull(int studyId, int fileId)
+            throws StorageEngineException {
+        return fileDBAdaptor.getVariantFileMetadata(studyId, fileId, null).first();
+    }
+
+    public VariantFileMetadata getVariantFileMetadata(int studyId, int fileId)
+            throws StorageEngineException {
+        VariantFileMetadata fileMetadata = getVariantFileMetadataOrNull(studyId, fileId);
+        if (fileMetadata == null) {
+            String studyName = getStudyName(studyId);
+            String fileName = getFileName(studyId, fileId);
+            throw VariantQueryException.variantFileMetadataNotFound(fileName, studyName);
+        }
+        return fileMetadata;
+    }
+
+    public Iterator<VariantFileMetadata> variantFileMetadataIterator(int studyId, QueryOptions options)
+            throws StorageEngineException {
+        Query query = new Query(FileMetadataDBAdaptor.VariantFileMetadataQueryParam.STUDY_ID.key(), studyId);
+        return variantFileMetadataIterator(query, options);
+    }
+
+    public Iterator<VariantFileMetadata> variantFileMetadataIterator(Query query, QueryOptions options)
+            throws StorageEngineException {
+        try {
+            return fileDBAdaptor.iterator(query, options);
+        } catch (IOException e) {
+            throw new StorageEngineException("Error reading VariantFileMetadata", e);
+        }
+    }
+
+    public void updateVariantFileMetadata(int studyId, VariantFileMetadata metadata) throws StorageEngineException {
+        fileDBAdaptor.updateVariantFileMetadata(studyId, metadata);
+    }
+
+    public void updateVariantFileMetadata(String study, VariantFileMetadata metadata) throws StorageEngineException {
+        int studyId = getStudyId(study);
+        fileDBAdaptor.updateVariantFileMetadata(studyId, metadata);
+    }
+
+    public void removeVariantFileMetadata(int studyId, int fileId) throws StorageEngineException {
+        try {
+            fileDBAdaptor.removeVariantFileMetadata(studyId, fileId);
+        } catch (IOException e) {
+            throw new StorageEngineException("Error deleting VariantFileMetadata for file " + fileId, e);
+        }
+    }
+
+    public FileMetadata getFileMetadata(int studyId, Object fileObj) {
+        Integer fileId = getFileId(studyId, fileObj, false, false);
+        if (fileId == null) {
+            return null;
+        } else {
+            return fileDBAdaptor.getFileMetadata(studyId, fileId, null);
+        }
+    }
+
+    public void renameFile(int studyId, int fileId, String newFileName) throws StorageEngineException {
+        moveFile(studyId, fileId, newFileName, null);
+    }
+
+    public void moveFile(int studyId, int fileId, Path newFilePath) throws StorageEngineException {
+        moveFile(studyId, fileId, newFilePath.getFileName().toString(), newFilePath.toString());
+    }
+
+    private void moveFile(int studyId, int fileId, String newFileName, String newFilePath) throws StorageEngineException {
+        if (StringUtils.isEmpty(newFileName)) {
+            throw new IllegalArgumentException("File name can not be empty");
+        }
+        Integer existingFileId = getFileIdOrDuplicated(studyId, newFileName);
+        boolean newFileNameExists = existingFileId != null;
+        if (newFileNameExists) {
+            if (existingFileId != DUPLICATED_NAME_ID) {
+                markFileAsDuplicated(studyId, existingFileId);
+            } // else {} // Already marked as duplicated
+        }
+        updateFileMetadata(studyId, fileId, fileMetadata -> {
+            String currentName = fileMetadata.getName();
+            String currentPath = fileMetadata.getPath();
+            String newPath = newFilePath;
+            if (newPath == null) {
+                newPath = Paths.get(currentPath).getParent().resolve(newFileName).toString();
+            }
+            if (fileMetadata.isDuplicatedName() || newFileNameExists) {
+                // FileName is duplicated
+                fileMetadata.setDuplicatedName(newFileName);
+                fileMetadata.setName(newPath);
+                fileMetadata.setPath(newPath);
+            } else {
+                fileMetadata.setName(newFileName);
+                fileMetadata.setPath(newPath);
+            }
+            fileMetadata.getAttributes().put("rename_" + TimeUtils.getTime(), new ObjectMap()
+                    .append("newName", newFileName)
+                    .append("oldName", currentName)
+                    .append("oldPath", currentPath)
+                    .append("newPath", newPath)
+            );
+        });
+    }
+
+    public void unsecureUpdateFileMetadata(int studyId, FileMetadata file) {
+        file.setStudyId(studyId);
+        fileDBAdaptor.updateFileMetadata(studyId, file, null);
+    }
+
+    public <E extends Exception> FileMetadata updateFileMetadata(int studyId, int fileId, UpdateConsumer<FileMetadata, E> update)
+            throws E, StorageEngineException {
+        getFileName(studyId, fileId); // Check file exists
+
+        try (Lock lock = fileDBAdaptor.lock(studyId, fileId, lockDuration, lockTimeout)) {
+            FileMetadata fileMetadata = getFileMetadata(studyId, fileId);
+            update.update(fileMetadata);
+            lock.checkLocked();
+            unsecureUpdateFileMetadata(studyId, fileMetadata);
+            fileIdIndexedCache.put(studyId, fileId, fileMetadata.isIndexed());
+            return fileMetadata;
+        }
+    }
+
+    private Integer getFileId(int studyId, String fileName) {
+        Integer fileId = getFileIdOrDuplicated(studyId, fileName);
+        if (fileId != null) {
+            if (fileId == DUPLICATED_NAME_ID) {
+                throw VariantQueryException.fileNotFoundDuplicatedName(fileName, getStudyName(studyId));
+            }
+        }
+        return fileId;
+    }
+
+    private boolean isFileNameDuplicated(int studyId, String fileName) {
+        Integer fileId = getFileIdOrDuplicated(studyId, fileName);
+        return fileId != null && fileId == DUPLICATED_NAME_ID;
+    }
+
+    private boolean fileExists(int studyId, String fileName) {
+        return getFileIdOrDuplicated(studyId, fileName) != null;
+    }
+
+    private Integer getFileIdOrDuplicated(int studyId, String fileName) {
+        checkName("File name", fileName);
+        // Allow fileIds as fileName
+        if (StringUtils.isNumeric(fileName)) {
+            return Integer.valueOf(fileName);
+        } else {
+            return fileIdCache.get(studyId, fileName);
+        }
+    }
+
+    public String getFileName(int studyId, int fileId) {
+        return fileNameCache.get(studyId, fileId);
+    }
+
+    public Integer getFileId(int studyId, Object fileObj) {
+        return getFileId(studyId, fileObj, false);
+    }
+
+    public int getFileIdOrFail(int studyId, Object fileObj) {
+        Integer fileId = getFileId(studyId, fileObj, false);
+        if (fileId == null) {
+            throw VariantQueryException.fileNotFound(fileId, getStudyName(studyId));
+        }
+        return fileId;
+    }
+
+    public Integer getFileId(int studyId, Object fileObj, boolean onlyIndexed) {
+        return getFileId(studyId, fileObj, onlyIndexed, true);
+    }
+
+    private Integer getFileId(int studyId, Object fileObj, boolean onlyIndexed, boolean validate) {
+        if (fileObj instanceof URI) {
+            fileObj = ((URI) fileObj).getPath();
+        } else if (fileObj instanceof Path) {
+            fileObj = ((Path) fileObj).toAbsolutePath().toString();
+        }
+        Integer fileId = parseResourceId(studyId, fileObj,
+                o -> getFileId(studyId, o),
+                validate ? o -> fileIdExists(studyId, o, onlyIndexed) : o -> true);
+
+        if (fileId != null && onlyIndexed) {
+            if (isFileIndexed(studyId, fileId)) {
+                return fileId;
+            } else {
+                return null;
+            }
+        }
+
+        return fileId;
+    }
+
+    /**
+     * Get list of fileIds from a study.
+     *
+     * @param studyId Study id
+     * @param files   List of files
+     * @return List of file ids within this study
+     * @throws VariantQueryException if the list of files contains files from other studies
+     */
+    public List<Integer> getFileIds(int studyId, List<?> files) throws VariantQueryException {
+        Objects.requireNonNull(files);
+        List<Integer> fileIds = new ArrayList<>(files.size());
+        for (Object fileObj : files) {
+            Integer fileId = getFileId(studyId, fileObj);
+            if (fileId == null) {
+                String studyName = getStudyMetadata(studyId).getName();
+                throw VariantQueryException.fileNotFound(fileObj, studyName);
+            }
+            fileIds.add(fileId);
+        }
+        return fileIds;
+    }
+
+    public Pair<Integer, Integer> getFileIdPair(Object fileObj, boolean skipNegated, StudyMetadata defaultStudy) {
+        return getResourcePair(fileObj, skipNegated, defaultStudy, this::fileIdExists, this::getFileId, "file");
+    }
+
+    private boolean fileIdExists(int studyId, int fileId, boolean indexed) {
+        if (indexed) {
+            return isFileIndexed(studyId, fileId);
+        } else {
+            return fileIdExists(studyId, fileId);
+        }
+    }
+
+    private boolean fileIdExists(int studyId, int fileId) {
+        return getFileName(studyId, fileId) != null;
+    }
+
+    public boolean isFileIndexed(int studyId, Integer fileId) {
+        return fileIdIndexedCache.get(studyId, fileId, false);
+    }
+
+    public LinkedHashSet<Integer> getIndexedFiles(int studyId) {
+        return getIndexedFiles(studyId, false);
+    }
+
+    public LinkedHashSet<Integer> getIndexedFiles(int studyId, boolean includePartial) {
+        return fileDBAdaptor.getIndexedFiles(studyId, includePartial);
+    }
+
+    /**
+     * Register a set of files as indexed. This will update the index status of files associated samples.
+     * The ProjectMetadata "variantIndexTimestamp" will be updated to the current time.
+     * @param studyId  Study id
+     * @param fileIds  List of file ids to register as indexed
+     * @throws StorageEngineException if there is any error
+     */
+    public void addIndexedFiles(int studyId, List<Integer> fileIds) throws StorageEngineException {
+        // First update the samples
+        Set<Integer> samples = new HashSet<>();
+        for (Integer fileId : fileIds) {
+            FileMetadata fileMetadata = getFileMetadata(studyId, fileId);
+            samples.addAll(fileMetadata.getSamples());
+        }
+        int updatedSamples = 0;
+        for (Integer sample : samples) {
+            if (setNewIndexedSample(getSampleMetadata(studyId, sample))) {
+                updateSampleMetadata(studyId, sample, VariantStorageMetadataManager::setNewIndexedSample);
+                updatedSamples++;
+            }
+        }
+
+        // Finally, update the files and update the list of indexed files
+        for (Integer fileId : fileIds) {
+            String name = updateFileMetadata(studyId, fileId, fileMetadata -> fileMetadata.setIndexStatus(TaskMetadata.Status.READY))
+                    .getName();
+            logger.info("Register file " + name + " as INDEXED");
+        }
+        updateVariantIndexTimestamp();
+        fileIdsFromSampleIdCache.clear();
+        fileIdIndexedCache.clear();
+        sampleIdIndexedCache.clear();
+    }
+
+    public static boolean setNewIndexedSample(SampleMetadata sampleMetadata) {
+        boolean updated = false;
+        if (sampleMetadata.getIndexStatus() != TaskMetadata.Status.READY) {
+            sampleMetadata.setIndexStatus(TaskMetadata.Status.READY);
+            updated = true;
+        }
+        if (sampleMetadata.getAnnotationStatus() != TaskMetadata.Status.NONE) {
+            sampleMetadata.setAnnotationStatus(TaskMetadata.Status.NONE);
+            updated = true;
+        }
+        if (sampleMetadata.getSecondaryAnnotationIndexStatus() != TaskMetadata.Status.NONE) {
+            sampleMetadata.setSecondaryAnnotationIndexStatus(TaskMetadata.Status.NONE);
+            updated = true;
+        }
+        if (sampleMetadata.getMendelianErrorStatus() != TaskMetadata.Status.NONE) {
+            sampleMetadata.setMendelianErrorStatus(TaskMetadata.Status.NONE);
+            updated = true;
+        }
+        if (sampleMetadata.getSampleIndexVersion() != null) {
+            for (Integer v : sampleMetadata.getSampleIndexVersions()) {
+                // Do not reset sampleIndexStatus. It's handled independently
+//                if (sampleMetadata.getSampleIndexStatus(v) != TaskMetadata.Status.NONE) {
+//                    sampleMetadata.setSampleIndexStatus(TaskMetadata.Status.NONE, v);
+//                    updated = true;
+//                }
+                if (sampleMetadata.getSampleIndexAnnotationStatus(v) != TaskMetadata.Status.NONE) {
+                    sampleMetadata.setSampleIndexAnnotationStatus(TaskMetadata.Status.NONE, v);
+                    updated = true;
+                }
+                if (sampleMetadata.getFamilyIndexStatus(v) != TaskMetadata.Status.NONE) {
+                    sampleMetadata.setFamilyIndexStatus(TaskMetadata.Status.NONE, v);
+                    updated = true;
+                }
+            }
+        }
+        return updated;
+    }
+
+    public void removeIndexedFiles(int studyId, Collection<Integer> fileIds) throws StorageEngineException {
+        Set<Integer> samples = new HashSet<>();
+        Set<Integer> partialFiles = new HashSet<>();
+        for (Integer fileId : fileIds) {
+            updateFileMetadata(studyId, fileId, fileMetadata -> {
+                samples.addAll(fileMetadata.getSamples());
+                fileMetadata.setIndexStatus(TaskMetadata.Status.NONE);
+                fileMetadata.setSecondaryAnnotationIndexStatus(TaskMetadata.Status.NONE);
+                fileMetadata.setAnnotationStatus(TaskMetadata.Status.NONE);
+                fileMetadata.getAttributes().remove(LOAD_ARCHIVE.key());
+                if (fileMetadata.getType() == FileMetadata.Type.VIRTUAL) {
+                    partialFiles.addAll(fileMetadata.getAttributes().getAsIntegerList(FileMetadata.VIRTUAL_FILES));
+                }
+            });
+//            deleteVariantFileMetadata(studyId, fileId);
+        }
+        for (Integer fileId : partialFiles) {
+            updateFileMetadata(studyId, fileId, fileMetadata -> {
+                samples.addAll(fileMetadata.getSamples());
+                fileMetadata.setIndexStatus(TaskMetadata.Status.NONE);
+                fileMetadata.setSecondaryAnnotationIndexStatus(TaskMetadata.Status.NONE);
+                fileMetadata.setAnnotationStatus(TaskMetadata.Status.NONE);
+                fileMetadata.getAttributes().remove(LOAD_ARCHIVE.key());
+            });
+//            deleteVariantFileMetadata(studyId, fileId);
+        }
+        removeSamples(studyId, samples, fileIds, false);
+    }
+
+    public void removeSamples(int studyId, Collection<Integer> sampleIds) throws StorageEngineException {
+        removeSamples(studyId, sampleIds, Collections.emptyList(), true);
+    }
+
+    public void removeSamples(int studyId, Collection<Integer> sampleIds, Collection<Integer> otherRemovedFileIds)
+            throws StorageEngineException {
+        removeSamples(studyId, sampleIds, otherRemovedFileIds, true);
+    }
+
+
+    /**
+     * Remove samples from the study metadata and clean up related references.
+     *
+     * This method performs the following steps:
+     * For each sample:
+     * - If {@code removeFromAllFiles} is true, removes the sample from all its files.
+     * - If false, only removes from files that are not indexed; if any file is still indexed, the sample is only partially removed.
+     * - Updates the sample status if fully removed.
+     * - Collects cohort IDs associated with the sample for further cleanup.
+     * <p>
+     * After processing samples:
+     * - Removes the sample references from each affected file metadata (those in {@code fileIdsToCleanSamples}).
+     * - Removes samples from cohorts via {@link #removeSamplesFromCohorts(int, Collection, Collection, Collection)}.
+     * <p>
+     * Notes:
+     * - {@code otherRemovedFileIds} are file ids that are being removed by other operations and should be ignored
+     *   when deciding whether a sample is totally removed.
+     * - If {@code removeFromAllFiles} is true, the sample will be removed from all files (regardless of indexing).
+     * - Order of file lists in sample metadata must be preserved; do not mutate sample.getFiles() directly here.
+     *
+     * @param studyId                 Study identifier.
+     * @param sampleIds               Collection of sample IDs to remove.
+     * @param otherRemovedFileIds     Files that are concurrently being removed and should be ignored when computing removal.
+     * @param removeFromAllFiles      If true, remove samples from all files; otherwise, only from non-indexed files.
+     * @throws StorageEngineException if there is any metadata update error.
+     */
+    private void removeSamples(int studyId, Collection<Integer> sampleIds, Collection<Integer> otherRemovedFileIds,
+                              boolean removeFromAllFiles)
+            throws StorageEngineException {
+        Set<Integer> fileIdsToCleanSamples = new HashSet<>();
+        Set<Integer> cohortIds = new HashSet<>();
+        List<Integer> removedSampleIds = new ArrayList<>(sampleIds.size());
+        for (Integer sampleId : sampleIds) {
+            updateSampleMetadata(studyId, sampleId, sample -> {
+                boolean totalRemove = true;
+
+                for (Integer fileId : sample.getFiles()) {
+                    if (!otherRemovedFileIds.contains(fileId)) {
+                        if (removeFromAllFiles) {
+                            fileIdsToCleanSamples.add(fileId);
+                        } else {
+                            if (isFileIndexed(studyId, fileId)) {
+                                // There is a file from the sample that is still indexed. Sample is partially removed.
+                                totalRemove = false;
+                            } else {
+                                fileIdsToCleanSamples.add(fileId);
+                            }
+                        }
+                    }
+                }
+
+                cohortIds.addAll(sample.getCohorts());
+                cohortIds.addAll(sample.getInternalCohorts());
+                cohortIds.addAll(sample.getSecondaryIndexCohorts());
+                if (removeFromAllFiles || totalRemove) {
+                    removedSampleIds.add(sampleId);
+                    setRemovedSample(sample);
+                }
+                // else {
+                //      WARN: Do not remove files from sample.files list!
+                //            ORDER MUST BE KEPT!!
+                //     >>>  sample.getFiles().removeAll(removedFileIds); <<< NOT ALLOWED
+                //  }
+            });
+        }
+
+        // Remove from files
+        for (Integer fileId : fileIdsToCleanSamples) {
+            updateFileMetadata(studyId, fileId, file -> {
+                file.getSamples().removeAll(sampleIds);
+            });
+        }
+
+        removeSamplesFromCohorts(studyId, cohortIds, otherRemovedFileIds, removedSampleIds);
+    }
+
+    public void removeIndexedSamples(int studyId, Collection<Integer> sampleIds) throws StorageEngineException {
+        for (Integer fileId : getFileIdsFromSampleIds(studyId, sampleIds)) {
+            updateFileMetadata(studyId, fileId, f -> {
+                f.getSamples().removeAll(sampleIds);
+            });
+        }
+
+        for (Integer sampleId : sampleIds) {
+            updateSampleMetadata(studyId, sampleId, VariantStorageMetadataManager::setRemovedSample);
+        }
+    }
+
+    private static void setRemovedSample(SampleMetadata sampleMetadata) {
+        sampleMetadata.setIndexStatus(TaskMetadata.Status.NONE);
+        for (Integer v : sampleMetadata.getSampleIndexVersions()) {
+            sampleMetadata.setSampleIndexStatus(TaskMetadata.Status.NONE, v);
+        }
+        for (Integer v : sampleMetadata.getSampleIndexAnnotationVersions()) {
+            sampleMetadata.setSampleIndexAnnotationStatus(TaskMetadata.Status.NONE, v);
+        }
+        for (Integer v : sampleMetadata.getFamilyIndexVersions()) {
+            sampleMetadata.setFamilyIndexStatus(TaskMetadata.Status.NONE, v);
+        }
+        sampleMetadata.setAnnotationStatus(TaskMetadata.Status.NONE);
+        sampleMetadata.setMendelianErrorStatus(TaskMetadata.Status.NONE);
+        sampleMetadata.setFiles(new ArrayList<>());
+        sampleMetadata.setCohorts(new HashSet<>());
+        sampleMetadata.setInternalCohorts(new HashSet<>());
+        sampleMetadata.setSecondaryIndexCohorts(new HashSet<>());
+        sampleMetadata.setAttributes(new ObjectMap());
+    }
+
+    public Iterable<FileMetadata> fileMetadataIterable(int studyId) {
+        return () -> fileDBAdaptor.fileIterator(studyId);
+    }
+
+    public Iterator<FileMetadata> fileMetadataIterator(int studyId) {
+        return fileDBAdaptor.fileIterator(studyId);
+    }
+
+    public SampleMetadata getSampleMetadata(Integer studyId, Integer sampleId) {
+        return getSampleMetadata(studyId.intValue(), sampleId.intValue());
+    }
+
+    public SampleMetadata getSampleMetadata(int studyId, Integer sampleId) {
+        return getSampleMetadata(studyId, sampleId.intValue());
+    }
+
+    public SampleMetadata getSampleMetadata(int studyId, Object sample) {
+        int sampleId = getSampleIdOrFail(studyId, sample);
+        return getSampleMetadata(studyId, sampleId);
+    }
+
+    public SampleMetadata getSampleMetadata(int studyId, int sampleId) {
+        return sampleDBAdaptor.getSampleMetadata(studyId, sampleId, null);
+    }
+
+    public void unsecureUpdateSampleMetadata(int studyId, SampleMetadata sample) {
+        sample.setStudyId(studyId);
+        sampleDBAdaptor.updateSampleMetadata(studyId, sample, null);
+    }
+
+    public <E extends Exception> SampleMetadata updateSampleMetadata(int studyId, int sampleId, UpdateConsumer<SampleMetadata, E> consumer)
+            throws E, StorageEngineException {
+        getSampleName(studyId, sampleId); // Check sample exists
+
+        try (Lock lock = sampleDBAdaptor.lock(studyId, sampleId, lockDuration, lockTimeout)) {
+            SampleMetadata sample = getSampleMetadata(studyId, sampleId);
+            sample = consumer.toFunction().update(sample);
+            lock.checkLocked();
+            unsecureUpdateSampleMetadata(studyId, sample);
+            return sample;
+        }
+    }
+
+    public Iterable<SampleMetadata> sampleMetadataIterable(int studyId) {
+        return () -> sampleMetadataIterator(studyId);
+    }
+
+    public Iterator<SampleMetadata> sampleMetadataIterator(int studyId) {
+        return sampleDBAdaptor.sampleMetadataIterator(studyId);
+    }
+
+    private Integer getSampleId(int studyId, String sampleName) {
+        checkName("Sample name", sampleName);
+        return sampleIdCache.get(studyId, sampleName);
+    }
+
+    public Pair<Integer, Integer> getSampleIdPair(Object sampleObj, boolean skipNegated, StudyMetadata defaultStudy) {
+        return getResourcePair(sampleObj, skipNegated, defaultStudy, this::sampleExists, this::getSampleId, "sample");
+    }
+
+    public List<Integer> getSampleIds(int studyId, String samplesStr) {
+        List<String> samples = Arrays.asList(samplesStr.split(","));
+        return getSampleIds(studyId, samples);
+    }
+
+    public List<Integer> getSampleIds(int studyId, Collection<String> samples) {
+        List<Integer> sampleIds = new ArrayList<>(samples.size());
+        for (String sample : samples) {
+            Integer sampleId = getSampleId(studyId, sample);
+            if (sampleId == null) {
+                throw VariantQueryException.sampleNotFound(sample, getStudyName(studyId));
+            }
+            sampleIds.add(sampleId);
+        }
+        return sampleIds;
+    }
+
+    public int getSampleIdOrFail(int studyId, Object sampleObj) {
+        Integer sampleId = getSampleId(studyId, sampleObj, false);
+        if (sampleId == null) {
+            throw VariantQueryException.sampleNotFound(sampleObj, getStudyName(studyId));
+        }
+        return sampleId;
+    }
+
+    public Integer getSampleId(int studyId, Object sampleObj) {
+        return getSampleId(studyId, sampleObj, false);
+    }
+
+    public Integer getSampleId(int studyId, Object sampleObj, boolean indexed) {
+        Integer sampleId = parseResourceId(studyId, sampleObj,
+                o -> getSampleId(studyId, o),
+                o -> {
+                    try {
+                        return getSampleName(studyId, o) != null;
+                    } catch (VariantQueryException e) {
+                        return false;
+                    }
+                });
+        if (indexed && sampleId != null) {
+            if (isSampleIndexed(studyId, sampleId)) {
+                return sampleId;
+            } else {
+                return null;
+            }
+        } else {
+            return sampleId;
+        }
+    }
+
+    public boolean isSampleIndexed(int studyId, Integer sampleId) {
+        return sampleIdIndexedCache.get(studyId, sampleId, false);
+    }
+
+    public String getSampleName(int studyId, int sampleId) {
+        return sampleNameCache.get(studyId, sampleId);
+    }
+
+    public boolean sampleExists(int studyId, int sampleId) {
+        return getSampleName(studyId, sampleId) != null;
+    }
+
+    public BiMap<String, Integer> getIndexedSamplesMap(int studyId) {
+        return sampleDBAdaptor.getIndexedSamplesMap(studyId);
+    }
+
+    public List<Integer> getIndexedSamples(int studyId) {
+        return sampleDBAdaptor.getIndexedSamples(studyId);
+    }
+
+//    public BiMap<String, Integer> getIndexedSamples(int studyId, int... fileIds) {
+//        return studyDBAdaptor.getIndexedSamples(studyId);
+//    }
+
+    /**
+     * Get a list of the samples to be returned, given a study and a list of samples to be returned.
+     * The result can be used as SamplesPosition in {@link StudyEntry#setSamplesPosition(Map)}
+     *
+     * @param sm                    Study metadata
+     * @return The samples IDs
+     */
+    public LinkedHashMap<String, Integer> getSamplesPosition(StudyMetadata sm) {
+        return getSamplesPosition(sm, null);
+    }
+
+    /**
+     * Get a list of the samples to be returned, given a study and a list of samples to be returned.
+     * The result can be used as SamplesPosition in {@link StudyEntry#setSamplesPosition(Map)}
+     *
+     * @param sm                    Study metadata
+     * @param includeSamples        List of samples to be included in the result
+     * @return The samples IDs
+     */
+    public LinkedHashMap<String, Integer> getSamplesPosition(StudyMetadata sm, LinkedHashSet<?> includeSamples) {
+        return getSamplesPosition(sm, includeSamples, true);
+    }
+
+    /**
+     * Get a list of the samples to be returned, given a study and a list of samples to be returned.
+     * The result can be used as SamplesPosition in {@link org.opencb.biodata.models.variant.StudyEntry#setSamplesPosition(Map)}
+     *
+     * @param sm                    Study metadata
+     * @param includeSamples        List of samples to be included in the result
+     * @param indexedOnly           Include indexed samples only
+     * @return The samples IDs
+     */
+    public LinkedHashMap<String, Integer> getSamplesPosition(StudyMetadata sm, LinkedHashSet<?> includeSamples, boolean indexedOnly) {
+        LinkedHashMap<String, Integer> samplesPosition;
+        // If null, return ALL samples
+        if (includeSamples == null) {
+            List<Integer> orderedSamplesPosition = getIndexedSamples(sm.getId());
+            samplesPosition = new LinkedHashMap<>(orderedSamplesPosition.size());
+            for (Integer sampleId : orderedSamplesPosition) {
+                samplesPosition.put(getSampleName(sm.getId(), sampleId), samplesPosition.size());
+            }
+        } else {
+            samplesPosition = new LinkedHashMap<>(includeSamples.size());
+            int index = 0;
+            for (Object includeSampleObj : includeSamples) {
+                Integer sampleId = getSampleId(sm.getId(), includeSampleObj, indexedOnly);
+                if (sampleId == null) {
+                    continue;
+//                    throw VariantQueryException.sampleNotFound(includeSampleObj, sm.getName());
+                }
+                String includeSample = getSampleName(sm.getId(), sampleId);
+
+                if (!samplesPosition.containsKey(includeSample)) {
+                    samplesPosition.put(includeSample, index++);
+                }
+            }
+        }
+        return samplesPosition;
+    }
+
+    public CohortMetadata getCohortMetadata(int studyId, Object cohort) {
+        Integer cohortId = getCohortId(studyId, cohort, false);
+        if (cohortId == null) {
+            return null;
+        } else {
+            return cohortDBAdaptor.getCohortMetadata(studyId, cohortId, null);
+        }
+    }
+
+    public void unsecureUpdateCohortMetadata(int studyId, CohortMetadata cohort) {
+        cohort.setStudyId(studyId);
+        cohortDBAdaptor.updateCohortMetadata(studyId, cohort, null);
+    }
+
+    public <E extends Exception> CohortMetadata updateCohortMetadata(int studyId, int cohortId, UpdateConsumer<CohortMetadata, E> update)
+            throws E, StorageEngineException {
+        getCohortName(studyId, cohortId); // Check cohort exists
+        try (Lock lock = cohortDBAdaptor.lock(studyId, cohortId, lockDuration, lockTimeout)) {
+            CohortMetadata cohortMetadata = getCohortMetadata(studyId, cohortId);
+            update.update(cohortMetadata);
+            lock.checkLocked();
+            unsecureUpdateCohortMetadata(studyId, cohortMetadata);
+            return cohortMetadata;
+        }
+    }
+
+    public void removeCohort(int studyId, Object cohort) throws StorageEngineException {
+        Integer cohortId = getCohortId(studyId, cohort);
+        if (cohortId == null) {
+            throw VariantQueryException.cohortNotFound(cohort.toString(), studyId, this);
+        }
+        CohortMetadata cohortMetadata = getCohortMetadata(studyId, cohortId);
+        for (Integer sample : cohortMetadata.getSamples()) {
+            updateSampleMetadata(studyId, sample, sampleMetadata -> {
+                sampleMetadata.getCohorts().remove(cohortId);
+                sampleMetadata.getInternalCohorts().remove(cohortId);
+            });
+        }
+        cohortDBAdaptor.removeCohort(studyId, cohortId);
+    }
+
+    public void removeSamplesFromCohorts(int studyId, Collection<Integer> cohortIds,
+                                         Collection<Integer> fileIds, Collection<Integer> samples)
+            throws StorageEngineException {
+        for (Integer cohortId : cohortIds) {
+            updateCohortMetadata(studyId, cohortId, cohort -> {
+                boolean modified = cohort.getSamples().removeAll(samples);
+                modified |= cohort.getFiles().removeAll(fileIds);
+                if (modified && cohort.isStatsReady()) {
+                    logger.info("Invalidating statistics of cohort "
+                            + cohort.getName()
+                            + " (" + cohort.getId() + ')');
+                    cohort.setStatsStatus(TaskMetadata.Status.ERROR);
+                }
+            });
+        }
+    }
+
+    public Integer getCohortId(int studyId, String cohortName) {
+        checkName("Cohort name", cohortName);
+        return cohortIdCache.get(studyId, cohortName);
+    }
+
+    public Integer getCohortId(int studyId, Object cohortObj) {
+        return getCohortId(studyId, cohortObj, true);
+    }
+
+    public int getCohortIdOrFail(int studyId, Object cohortObj) {
+        Integer cohortId = getCohortId(studyId, cohortObj, true);
+        if (cohortId == null) {
+            throw VariantQueryException.cohortNotFound(String.valueOf(cohortObj), studyId, this);
+        }
+        return cohortId;
+    }
+
+    private Integer getCohortId(int studyId, Object cohortObj, boolean validate) {
+        return parseResourceId(studyId, cohortObj,
+                o -> getCohortId(studyId, o),
+                validate ? o -> getCohortName(studyId, o) != null : o -> true);
+    }
+
+    public List<Integer> getCohortIds(int studyId, Collection<?> cohorts) {
+        Objects.requireNonNull(cohorts);
+        List<Integer> cohortIds = new ArrayList<>(cohorts.size());
+        for (Object cohortObj : cohorts) {
+            Integer cohortId = getCohortId(studyId, cohortObj);
+            if (cohortId == null) {
+                throw VariantQueryException.cohortNotFound(cohortObj.toString(), studyId, getAvailableCohorts(studyId));
+            }
+            cohortIds.add(cohortId);
+        }
+        return cohortIds;
+    }
+
+    protected List<String> getAvailableCohorts(int studyId) {
+        List<String> availableCohorts = new LinkedList<>();
+        cohortIterator(studyId).forEachRemaining(c -> availableCohorts.add(c.getName()));
+        return availableCohorts;
+    }
+
+    public String getCohortName(int studyId, int cohortId) {
+        return cohortNameCache.get(studyId, cohortId);
+    }
+
+    public Iterator<CohortMetadata> cohortIterator(int studyId) {
+        return cohortDBAdaptor.cohortIterator(studyId);
+    }
+
+    public Iterator<CohortMetadata> secondaryIndexCohortIterator(int studyId) {
+        return Iterators.filter(cohortDBAdaptor.cohortIterator(studyId),
+                cohort -> cohort.getName().startsWith(CohortMetadata.SECONDARY_INDEX_PREFIX));
+    }
+
+    public Iterable<CohortMetadata> getCalculatedCohorts(int studyId) {
+        return () -> Iterators.filter(cohortIterator(studyId), CohortMetadata::isStatsReady);
+    }
+
+    public Iterable<CohortMetadata> getInvalidCohorts(int studyId) {
+        return () -> Iterators.filter(cohortIterator(studyId), CohortMetadata::isInvalid);
+    }
+
+    public Iterable<CohortMetadata> getCalculatedOrPartialCohorts(int studyId) {
+        return () -> Iterators.filter(cohortIterator(studyId),
+                cohortMetadata -> {
+                    if (cohortMetadata.getType() == CohortMetadata.Type.USER_DEFINED) {
+                        TaskMetadata.Status status = cohortMetadata.getStatsStatus();
+                        return status == TaskMetadata.Status.READY
+                                || status == TaskMetadata.Status.RUNNING
+                                || status == TaskMetadata.Status.ERROR;
+                    } else {
+                        return false;
+                    }
+                });
+    }
+
+    public CohortMetadata setSamplesToCohort(int studyId, String cohortName, Collection<Integer> samples) throws StorageEngineException {
+        return updateCohortSamples(studyId, cohortName, samples, false);
+    }
+
+    public CohortMetadata addSamplesToCohort(int studyId, String cohortName, Collection<Integer> samples) throws StorageEngineException {
+        return updateCohortSamples(studyId, cohortName, samples, true);
+    }
+
+    private CohortMetadata updateCohortSamples(int studyId, String cohortName, Collection<Integer> sampleIds,
+                                               boolean addSamples)
+            throws StorageEngineException {
+        CohortMetadata.Type cohortType = CohortMetadata.getType(cohortName);
+
+        boolean newCohort;
+        Integer cohortId = getCohortId(studyId, cohortName);
+        if (cohortId == null) {
+            newCohort = true;
+            cohortId = newCohortId(studyId);
+            unsecureUpdateCohortMetadata(studyId, new CohortMetadata(studyId, cohortId, cohortName,
+                    Collections.emptyList(),
+                    Collections.emptyList()));
+        } else {
+            newCohort = false;
+        }
+
+        // Discard already added samples
+        if (!newCohort && addSamples) {
+            // Remove already added samples
+            CohortMetadata cohortMetadata = getCohortMetadata(studyId, cohortId);
+
+            Set<Integer> samplesToAdd = new HashSet<>(sampleIds);
+            samplesToAdd.removeAll(cohortMetadata.getSamples());
+            if (samplesToAdd.isEmpty()) {
+                // All samples already in cohort! Nothing to do
+                return cohortMetadata;
+            } else {
+                sampleIds = samplesToAdd;
+            }
+        }
+
+        // Register cohort in samples
+        for (Integer sampleId : sampleIds) {
+            if (!getSampleMetadata(studyId, sampleId).containsCohort(cohortType, cohortId)) {
+                int finalCohortId = cohortId;
+                // Avoid unnecessary updates
+                updateSampleMetadata(studyId, sampleId, sampleMetadata -> {
+                    sampleMetadata.addCohort(cohortType, finalCohortId);
+                });
+            }
+        }
+
+        // Check removed samples from the cohort
+        // If replacing samples, and the cohort is not new, this operation may remove some samples from the cohort.
+        if (!addSamples && !newCohort) {
+            CohortMetadata cohortMetadata = getCohortMetadata(studyId, cohortId);
+
+            for (Integer sampleFromCohort : cohortMetadata.getSamples()) {
+                if (!sampleIds.contains(sampleFromCohort)) {
+                    if (getSampleMetadata(studyId, sampleFromCohort).containsCohort(cohortType, cohortId)) {
+                        Integer finalCohortId = cohortId;
+                        // Avoid unnecessary updates
+                        updateSampleMetadata(studyId, sampleFromCohort, sampleMetadata -> {
+                            sampleMetadata.removeCohort(cohortType, finalCohortId);
+                        });
+                    }
+                }
+            }
+        }
+        List<Integer> fileIds = new ArrayList<>(getFileIdsFromSampleIds(studyId, sampleIds));
+
+        // Then, add samples to the cohort
+        Collection<Integer> finalSampleIds = sampleIds;
+        return updateCohortMetadata(studyId, cohortId,
+                cohort -> {
+                    List<Integer> sampleIdsList = new ArrayList<>(finalSampleIds);
+                    sampleIdsList.sort(Integer::compareTo);
+
+                    List<Integer> oldSamples = cohort.getSamples();
+                    List<Integer> oldFiles = cohort.getFiles() == null ? Collections.emptyList() : cohort.getFiles();
+                    oldSamples.sort(Integer::compareTo);
+                    final List<Integer> newSamples;
+                    final List<Integer> newFiles;
+                    if (addSamples) {
+                        Set<Integer> allSamples = new HashSet<>(oldSamples.size() + finalSampleIds.size());
+                        allSamples.addAll(oldSamples);
+                        allSamples.addAll(finalSampleIds);
+                        newSamples = new ArrayList<>(allSamples);
+
+                        Set<Integer> allFiles = new HashSet<>(oldFiles.size() + fileIds.size());
+                        allFiles.addAll(oldFiles);
+                        allFiles.addAll(fileIds);
+                        newFiles = new ArrayList<>(allFiles);
+                    } else {
+                        newSamples = sampleIdsList;
+                        newFiles = fileIds;
+                    }
+                    cohort.setSamples(newSamples);
+                    cohort.setFiles(newFiles);
+
+                    if (cohort.isStatsReady()) {
+                        if (!oldSamples.equals(sampleIdsList) || !oldFiles.equals(fileIds)) {
+                            // Cohort has been modified! Invalidate stats
+                            cohort.setStatsStatus(TaskMetadata.Status.ERROR);
+                            cohort.getAttributes().put(CohortMetadata.INVALID_STATS_NUM_SAMPLES, oldSamples.size());
+                        }
+                    }
+                }
+        );
+    }
+
+    public TaskMetadata getTask(int studyId, int taskId) {
+        return taskDBAdaptor.getTask(studyId, taskId, null);
+    }
+
+    // Use taskId to filter task!
+    @Deprecated
+    public TaskMetadata getTask(int studyId, String taskName, List<Integer> fileIds) {
+        TaskMetadata task = null;
+        Iterator<TaskMetadata> it = taskIterator(studyId, null, true);
+        while (it.hasNext()) {
+            TaskMetadata t = it.next();
+            if (t != null && t.getName().equals(taskName) && t.getFileIds().equals(fileIds)) {
+                task = t;
+                break;
+            }
+        }
+        if (task == null) {
+            throw new IllegalStateException("Batch task " + taskName + " for files " + fileIds + " not found!");
+        }
+        return task;
+    }
+
+    public Iterable<TaskMetadata> taskIterable(int studyId) {
+        return () -> taskIterator(studyId, null, false);
+    }
+
+    public Iterator<TaskMetadata> taskIterator(int studyId) {
+        return taskIterator(studyId, null, false);
+    }
+
+    public Iterator<TaskMetadata> taskIterator(int studyId, List<TaskMetadata.Status> statusFilter) {
+        return taskIterator(studyId, statusFilter, false);
+    }
+
+    public Iterator<TaskMetadata> taskIterator(int studyId, TaskMetadata.Status... statusFilter) {
+        return taskIterator(studyId, Arrays.asList(statusFilter), false);
+    }
+
+    public Iterator<TaskMetadata> taskIterator(int studyId, List<TaskMetadata.Status> statusFilter, boolean reversed) {
+        return taskDBAdaptor.taskIterator(studyId, statusFilter, reversed);
+    }
+
+    public Iterable<TaskMetadata> getRunningTasks(int studyId) {
+        return taskDBAdaptor.getRunningTasks(studyId);
+    }
+
+    public Iterable<TaskMetadata> getActiveTasks(int studyId) {
+        return () -> taskIterator(studyId,
+                TaskMetadata.Status.RUNNING,
+                TaskMetadata.Status.DONE,
+                TaskMetadata.Status.ERROR);
+    }
+
+    public void unsecureUpdateTask(int studyId, TaskMetadata task) throws StorageEngineException {
+        task.setStudyId(studyId);
+        if (task.getId() == 0) {
+            task.setId(newTaskId(studyId));
+        }
+        taskDBAdaptor.updateTask(studyId, task, null);
+    }
+
+    public <E extends Exception> TaskMetadata updateTask(int studyId, int taskId, UpdateConsumer<TaskMetadata, E> consumer)
+            throws E, StorageEngineException {
+        getTask(studyId, taskId); // Check task exists
+        try (Lock lock = taskDBAdaptor.lock(studyId, taskId, lockDuration, lockTimeout)) {
+            TaskMetadata task = getTask(studyId, taskId);
+            consumer.update(task);
+            lock.checkLocked();
+            unsecureUpdateTask(studyId, task);
+            return task;
+        }
+    }
+
+    private Pair<Integer, Integer> getResourcePair(Object obj, boolean skipNegated, StudyMetadata defaultStudy,
+                                                   BiPredicate<Integer, Integer> validId,
+                                                   BiFunction<Integer, String, Integer> toId, String resourceName) {
+        Objects.requireNonNull(obj, resourceName);
+        final Integer studyId;
+        final Integer id;
+
+        if (obj instanceof Number) {
+            id = ((Number) obj).intValue();
+            if (defaultStudy != null) {
+                if (validId.test(defaultStudy.getId(), id)) {
+                    studyId = defaultStudy.getId();
+                } else {
+                    studyId = null;
+                }
+            } else {
+                studyId = null;
+            }
+        } else {
+            String resourceStr = obj.toString();
+            if (isNegated(resourceStr)) { //Skip negated studies
+                if (skipNegated) {
+                    return null;
+                } else {
+                    resourceStr = removeNegation(resourceStr);
+                }
+            }
+            String[] studyResource = VariantQueryUtils.splitStudyResource(resourceStr);
+            if (studyResource.length == 2) {
+                String study = studyResource[0];
+                resourceStr = studyResource[1];
+                StudyMetadata sm;
+                if (defaultStudy != null
+                        && (study.equals(defaultStudy.getName())
+                        || NumberUtils.isParsable(study) && Integer.valueOf(study).equals(defaultStudy.getId()))) {
+                    sm = defaultStudy;
+                } else {
+                    sm = getStudyMetadata(study);
+                    if (sm == null) {
+                        throw VariantQueryException.studyNotFound(study);
+                    }
+                }
+                studyId = sm.getId();
+                id = toId.apply(studyId, resourceStr);
+            } else if (defaultStudy != null) {
+                id = toId.apply(defaultStudy.getId(), resourceStr);
+                if (id != null) {
+                    studyId = defaultStudy.getId();
+                } else {
+                    studyId = null;
+                }
+            } else {
+                studyId = null;
+                id = null;
+            }
+        }
+
+        if (studyId == null) {
+            return getResourcePair(obj, toId, resourceName, skipNegated);
+        }
+
+        return Pair.of(studyId, id);
+    }
+
+    private Pair<Integer, Integer> getResourcePair(
+            Object obj, BiFunction<Integer, String, Integer> toId, String resourceName, boolean skipNegated) {
+        Map<String, Integer> studies = getStudies(null);
+        Collection<Integer> studyIds = studies.values();
+        Integer resourceIdFromStudy;
+        String resourceStr = obj.toString();
+        if (isNegated(resourceStr)) { //Skip negated studies
+            if (skipNegated) {
+                return null;
+            } else {
+                resourceStr = removeNegation(resourceStr);
+            }
+        }
+        for (Integer studyId : studyIds) {
+            StudyMetadata sm = getStudyMetadata(studyId);
+            resourceIdFromStudy = toId.apply(sm.getId(), resourceStr);
+            if (resourceIdFromStudy != null) {
+                return Pair.of(sm.getId(), resourceIdFromStudy);
+            }
+        }
+        throw VariantQueryException.missingStudyFor(resourceName, resourceStr, studies.keySet());
+    }
+
+    private Integer parseResourceId(int studyId, Object obj, Function<String, Integer> toId, Predicate<Integer> validId) {
+        final Integer id;
+        if (obj instanceof Number) {
+            int aux = ((Number) obj).intValue();
+            if (validId.test(aux)) {
+                id = aux;
+            } else {
+                id = null;
+            }
+        } else {
+            if (!(obj instanceof String)) {
+                throw new IllegalArgumentException("Unable to parse obj type " + obj.getClass());
+            }
+            String str = obj.toString();
+            if (isNegated(str)) {
+                str = removeNegation(str);
+            }
+            String[] split = VariantQueryUtils.splitStudyResource(str);
+            if (split.length == 2) {
+                String study = split[0];
+                str = split[1];
+                String studyName = getStudyName(studyId);
+                if (study.equals(studyName)
+                        || StringUtils.isNumeric(study) && Integer.valueOf(study).equals(studyId)) {
+                    if (StringUtils.isNumeric(str)) {
+                        int aux = Integer.parseInt(str);
+                        if (validId.test(aux)) {
+                            id = aux;
+                        } else {
+                            id = null;
+                        }
+                    } else {
+                        id = toId.apply(str);
+                    }
+                } else {
+                    id = null;
+                }
+            } else {
+                id = toId.apply(str);
+            }
+        }
+        return id;
+    }
+    public LinkedHashSet<Integer> getSampleIdsFromFileId(int studyId, int fileId) {
+        return sampleIdsFromFileIdCache.get(studyId, fileId);
+    }
+
+    public Set<Integer> getFileIdsFromSampleIds(int studyId, Collection<Integer> sampleIds) {
+        return getFileIdsFromSampleIds(studyId, sampleIds, false);
+    }
+
+    public Set<Integer> getFileIdsFromSampleIds(int studyId, Collection<Integer> sampleIds, boolean requireIndexed) {
+        Set<Integer> fileIds = new LinkedHashSet<>();
+        for (Integer sampleId : sampleIds) {
+            fileIds.addAll(fileIdsFromSampleIdCache.get(studyId, sampleId, Collections.emptyList()));
+        }
+        if (requireIndexed) {
+            fileIds.removeIf(fileId -> !isFileIndexed(studyId, fileId));
+        }
+        return fileIds;
+    }
+
+    public List<Integer> getFileIdsFromSampleId(int studyId, int sampleId, boolean requireIndexed) {
+        List<Integer> fileIds = getFileIdsFromSampleId(studyId, sampleId);
+
+        if (requireIndexed) {
+            fileIds = new LinkedList<>(fileIds);
+            fileIds.removeIf(fileId -> !isFileIndexed(studyId, fileId));
+        }
+        return fileIds;
+    }
+
+    public List<Integer> getFileIdsFromSampleId(int studyId, int sampleId) {
+        return fileIdsFromSampleIdCache.get(studyId, sampleId, Collections.emptyList());
+    }
+
+    public VariantStorageEngine.SplitData getLoadSplitData(int studyId, int sampleId) {
+        Integer ordinal = splitDataCache.get(studyId, sampleId);
+        if (ordinal < 0) {
+            return null;
+        } else {
+            return VariantStorageEngine.SplitData.values()[ordinal];
+        }
+    }
+
+    /*
+     * Before load file, register the new sample names.
+     * If SAMPLE_IDS is missing, will auto-generate sampleIds
+     */
+    public void registerFileSamples(int studyId, int fileId, VariantFileMetadata variantFileMetadata)
+            throws StorageEngineException {
+        registerFileSamples(studyId, fileId, variantFileMetadata.getSampleIds());
+    }
+
+    /*
+     * Before load file, register the new sample names.
+     * If SAMPLE_IDS is missing, will auto-generate sampleIds
+     */
+    public void registerFileSamples(int studyId, int fileId, List<String> sampleNames)
+            throws StorageEngineException {
+
+        final FileMetadata.Type fileType = getFileMetadata(studyId, fileId).getType();
+
+        // Register samples and add file
+        LinkedHashSet<Integer> sampleIds = new LinkedHashSet<>(sampleNames.size());
+        if (sampleNames.size() > 500) {
+            String fileName = getFileName(studyId, fileId);
+            ProgressLogger progressLogger;
+            if (fileType == FileMetadata.Type.PARTIAL) {
+                progressLogger = new ProgressLogger("Register samples from file '" + fileName + "'", sampleNames.size(), 20);
+            } else {
+                progressLogger = new ProgressLogger("Associate samples to file '" + fileName + "'", sampleNames.size(), 20);
+            }
+            Map<String, Integer> samples = new ConcurrentHashMap<>(sampleNames.size());
+
+            // Shuffle to avoid collisions with concurrent executions
+            List<String> shuffledSampleIds = new ArrayList<>(sampleNames);
+            Collections.shuffle(shuffledSampleIds);
+
+            // Parallel insertion
+            ParallelTaskRunner<String, Void> ptr = new ParallelTaskRunner<>(
+                    BatchUtils.toDataReader(shuffledSampleIds),
+                    batch -> {
+                        for (String sample : batch) {
+                            if (fileType == FileMetadata.Type.PARTIAL) {
+                                // Do not associate sample to file
+                                samples.put(sample, registerSample(studyId, null, sample));
+                            } else {
+                                samples.put(sample, registerSample(studyId, fileId, sample));
+                            }
+                        }
+                        progressLogger.increment(batch.size());
+                        return null;
+                    },
+                    null,
+                    ParallelTaskRunner.Config.builder()
+                            .setNumTasks(configuration.getInt(METADATA_LOAD_THREADS.key(), METADATA_LOAD_THREADS.defaultValue()))
+                            .setBatchSize(configuration.getInt(METADATA_LOAD_BATCH_SIZE.key(), METADATA_LOAD_BATCH_SIZE.defaultValue()))
+                            .build());
+            try {
+                ptr.run();
+            } catch (ExecutionException e) {
+                throw new StorageEngineException("Error associating samples from file '" + fileName + "'", e);
+            }
+
+            //Ensure ordered sampleIds
+            sampleNames.stream().map(samples::get).forEach(sampleIds::add);
+        } else {
+            // Sequential insert
+            for (String sample : sampleNames) {
+                if (fileType == FileMetadata.Type.PARTIAL) {
+                    // Do not associate sample to file
+                    sampleIds.add(registerSample(studyId, null, sample));
+                } else {
+                    sampleIds.add(registerSample(studyId, fileId, sample));
+                }
+            }
+        }
+
+
+        updateFileMetadata(studyId, fileId, fileMetadata -> {
+            //Assign new sampleIds
+            fileMetadata.setSamples(sampleIds);
+        });
+
+    }
+
+    public List<Integer> registerSamples(int studyId, Collection<String> samples) throws StorageEngineException {
+        List<Integer> sampleIds = new ArrayList<>(samples.size());
+        for (String sample : samples) {
+            sampleIds.add(registerSample(studyId, null, sample));
+        }
+        return sampleIds;
+    }
+
+    protected Integer registerSample(int studyId, Integer fileId, String sample) throws StorageEngineException {
+        Integer sampleId = getSampleId(studyId, sample);
+        SampleMetadata sampleMetadata;
+        if (sampleId == null) {
+            sampleMetadata = null;
+        } else {
+            sampleMetadata = getSampleMetadata(studyId, sampleId);
+        }
+        // SampleId might be not null, but still be null the sample metadata
+
+        if (sampleMetadata == null) {
+            // Create sample with lock
+            try (Lock lock = lockStudy(studyId)) {
+                sampleId = getSampleId(studyId, sample);
+                if (sampleId == null) {
+                    //If the sample was not in the original studyId, a new SampleId is assigned.
+                    sampleId = newSampleId(studyId);
+                } else {
+                    sampleMetadata = getSampleMetadata(studyId, sampleId);
+                }
+                if (sampleMetadata == null) {
+                    // Create the sample metadata
+                    sampleMetadata = new SampleMetadata(studyId, sampleId, sample);
+                    if (fileId != null) {
+                        sampleMetadata.getFiles().add(fileId);
+                    }
+                    unsecureUpdateSampleMetadata(studyId, sampleMetadata);
+                    return sampleId;
+                }
+            }
+        }
+
+
+        if (fileId != null) {
+            if (!sampleMetadata.getFiles().contains(fileId)) {
+                updateSampleMetadata(studyId, sampleId, s -> {
+                    s.getFiles().add(fileId);
+                });
+            }
+        }
+        return sampleId;
+    }
+
+    public int registerAggregateFamilySamplesCohort(int studyId, List<String> samples, boolean resume, boolean force)
+            throws StorageEngineException {
+        return registerInternalCohort(studyId, samples, resume, force,
+                CohortMetadata.Type.AGGREGATE_FAMILY, CohortMetadata.AGGREGATE_FAMILY_PREFIX);
+    }
+
+    @Deprecated
+    public int registerSecondaryIndexSamples(int studyId, List<String> samples, boolean resume)
+            throws StorageEngineException {
+        return registerInternalCohort(studyId, samples, resume, false,
+                CohortMetadata.Type.SECONDARY_INDEX, CohortMetadata.SECONDARY_INDEX_PREFIX);
+    }
+
+    public int registerInternalCohort(int studyId, List<String> samples, boolean resume, boolean force,
+                                      CohortMetadata.Type type, String cohortNamePrefix)
+            throws StorageEngineException {
+        if (samples == null || samples.isEmpty()) {
+            throw new StorageEngineException("Missing samples!");
+        }
+        if (type == null || type == CohortMetadata.Type.USER_DEFINED) {
+            throw new StorageEngineException("Invalid cohort type '" + type + "'");
+        }
+
+        List<Integer> sampleIds = getSampleIds(studyId, samples);
+        Set<Integer> existingCohorts = new HashSet<>();
+
+        for (int sampleId : sampleIds) {
+            SampleMetadata sampleMetadata = getSampleMetadata(studyId, sampleId);
+            Set<Integer> sampleCohorts;
+            if (type == CohortMetadata.Type.SECONDARY_INDEX) {
+                sampleCohorts = sampleMetadata.getSecondaryIndexCohorts();
+            } else {
+                sampleCohorts = sampleMetadata.getInternalCohorts();
+            }
+            if (!sampleCohorts.isEmpty()) {
+                existingCohorts.addAll(sampleCohorts);
+            }
+        }
+
+        // Check if we can reuse any cohort
+        Integer cohortId = null;
+        boolean reuseCohort = false;
+        for (Integer thisCohortId : existingCohorts) {
+            CohortMetadata internalCohort = getCohortMetadata(studyId, thisCohortId);
+            if (internalCohort.getType() == type) {
+                if (internalCohort.getSamples().size() == sampleIds.size()
+                        && new HashSet<>(internalCohort.getSamples()).containsAll(sampleIds)) {
+                    reuseCohort = true;
+                    cohortId = thisCohortId;
+                }
+            }
+        }
+
+        if (reuseCohort) {
+            CohortMetadata internalCohort = getCohortMetadata(studyId, cohortId);
+            TaskMetadata.Status status = internalCohort.getStatusByType();
+            switch (status) {
+                case DONE:
+                case READY:
+                    if (force) {
+                        logger.info("Force load of " + type + " cohort " + internalCohort.getName() + " with status " + status);
+                    } else {
+                        throw new StorageEngineException("Operation " + type + " already executed for cohort "
+                                + internalCohort.getName() + " with status " + status);
+                    }
+                case RUNNING:
+                    // Resume if resume=true
+                    if (!resume) {
+                        throw new StorageEngineException("Samples already being processed. Resume operation to continue.");
+                    }
+                case ERROR:
+                    // Resume
+                    logger.info("Resume operation " + type + " index in status " + status);
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown status " + status);
+            }
+        } else {
+            // New cohort
+            cohortId = setSamplesToCohort(studyId, cohortNamePrefix + newSecondaryIndexSampleSetId(studyId), sampleIds).getId();
+            updateCohortMetadata(studyId, cohortId, cohortMetadata -> cohortMetadata.setStatusByType(TaskMetadata.Status.RUNNING));
+        }
+
+        return cohortId;
+    }
+
+    public void removeExtraInternalCohorts(int studyId, int cohortId) throws StorageEngineException {
+        // Remove all internal cohorts by the same type that contain a subset of samples of the input cohort
+        CohortMetadata cohortMetadata = getCohortMetadata(studyId, cohortId);
+        CohortMetadata.Type type = cohortMetadata.getType();
+        List<Integer> samples = cohortMetadata.getSamples();
+        Iterator<CohortMetadata> iterator = cohortIterator(studyId);
+        while (iterator.hasNext()) {
+            CohortMetadata internalCohort = iterator.next();
+            if (internalCohort.getType() == type && internalCohort.getSamples().size() < samples.size()
+                    && new HashSet<>(samples).containsAll(internalCohort.getSamples())) {
+                logger.info("Removing cohort " + internalCohort.getName() + " with id " + internalCohort.getId());
+                removeCohort(studyId, internalCohort.getId());
+            }
+        }
+
+
+    }
+
+    public int registerFile(int studyId, VariantFileMetadata variantFileMetadata) throws StorageEngineException {
+        return registerFile(studyId, variantFileMetadata.getPath(), variantFileMetadata.getSampleIds());
+    }
+
+    public int registerFile(int studyId, String path, List<String> sampleNames)
+            throws StorageEngineException {
+        int fileId = registerFile(studyId, path);
+        registerFileSamples(studyId, fileId, sampleNames);
+        return fileId;
+    }
+
+    /**
+     * Check if the file(name,id) can be added to the Study metadata.
+     *
+     * Will fail if:
+     * fileName was already in the study fileIds with a different fileId
+     * fileId was already in the study fileIds with a different fileName
+     * fileId was already in the study indexedFiles
+     *
+     * @param studyId   studyId
+     * @param filePath  File path
+     * @return fileId related to that file.
+     * @throws StorageEngineException if the file is not valid for being loaded
+     */
+    public int registerFile(int studyId, String filePath) throws StorageEngineException {
+        return registerFile(studyId, filePath, FileMetadata.Type.NORMAL);
+    }
+
+    /**
+     * Check if the file(name,id) can be added to the Study metadata.
+     *
+     * Will fail if:
+     * fileName was already in the study fileIds with a different fileId
+     * fileId was already in the study fileIds with a different fileName
+     * fileId was already in the study indexedFiles
+     *
+     * @param studyId   studyId
+     * @param filePath  File path
+     * @param type      File type
+     * @return fileId related to that file.
+     * @throws StorageEngineException if the file is not valid for being loaded
+     */
+    private int registerFile(int studyId, String filePath, FileMetadata.Type type) throws StorageEngineException {
+        Integer fileId = getFileId(studyId, filePath);
+        if (fileId != null) {
+            return fileId;
+        }
+        String fileName = Paths.get(filePath).getFileName().toString();
+        fileId = getFileIdOrDuplicated(studyId, fileName);
+
+        if (fileId != null) {
+            if (fileId != DUPLICATED_NAME_ID) {
+                FileMetadata fileMetadata = getFileMetadata(studyId, fileId);
+                if (fileMetadata.getPath().equals(filePath)) {
+                    if (fileMetadata.getIndexStatus() == TaskMetadata.Status.INVALID) {
+                        throw StorageEngineException.invalidFileStatus(fileMetadata.getId(), fileName);
+                    }
+                    if (fileMetadata.isIndexed()) {
+                        throw StorageEngineException.alreadyLoaded(fileMetadata.getId(), fileName);
+                    }
+                    // File is already registered with same path. Just return the fileId
+                } else {
+                    // The file is not loaded. Check if it's being loaded.
+//                    // Only register if the file is being loaded. Otherwise, replace the filePath
+//                    Iterator<TaskMetadata> iterator = taskIterator(studyId, null, true);
+//                    while (iterator.hasNext()) {
+//                        TaskMetadata task = iterator.next();
+//                        if (task.getFileIds().contains(fileMetadata.getId())) {
+//                            if (task.getType().equals(TaskMetadata.Type.REMOVE)) {
+//                                // If the file was removed. Can be replaced.
+//                                break;
+//                            } else {
+//                                throw StorageEngineException.unableToExecute("Already registered with a different path",
+//                                        fileMetadata.getId(), fileName);
+//                            }
+//                        }
+//                    }
+                    boolean isDeleted = false;
+                    // TODO: Check if file was deleted to avoid replacing while transforming
+                    if (isDeleted) {
+                        // TODO: What if the file is being transformed?!?
+                        // Replace filePath
+                        logger.info("File '{}' already registered with a different path. Update file path to '{}'",
+                                fileName, filePath);
+                        updateFileMetadata(studyId, fileId, fm -> {
+                            fm.setPath(filePath);
+                        });
+                    } else {
+                        if (!fileMetadata.isDuplicatedName()) {
+                            logger.info("File '{}' already registered with a different path.", fileName);
+                            markFileAsDuplicated(studyId, fileId);
+                        }
+                        fileIdCache.clear();
+                        fileNameCache.clear();
+                        fileId = DUPLICATED_NAME_ID;
+                    }
+                }
+            }
+            // Don't use an "else" statement here, as fileId might have been modified
+            if (fileId == DUPLICATED_NAME_ID) {
+                logger.info("A file with name '{}' is already indexed. Register new file with file path as file name", fileName);
+                // Found file metadata with same name but different path. Need to create the new file.
+                fileId = newFileId(studyId);
+                try (Lock lock = lockStudy(studyId)) {
+                    FileMetadata fm = new FileMetadata()
+                            .setId(fileId)
+                            .setName(filePath)
+                            .setPath(filePath)
+                            .setDuplicatedName(fileName)
+                            .setType(type);
+                    unsecureUpdateFileMetadata(studyId, fm);
+                }
+            }
+        } else {
+            fileId = newFileId(studyId);
+            try (Lock lock = lockStudy(studyId)) {
+                logger.info("Register new file '{}' with id {}", fileName, fileId);
+                FileMetadata fileMetadata = new FileMetadata()
+                        .setId(fileId)
+                        .setName(fileName)
+                        .setPath(filePath)
+                        .setType(type);
+                unsecureUpdateFileMetadata(studyId, fileMetadata);
+            }
+        }
+
+        return fileId;
+    }
+
+    private void markFileAsDuplicated(int studyId, int fileId) throws StorageEngineException {
+        updateFileMetadata(studyId, fileId, fm -> {
+            logger.info("Mark file '{}' as duplicated file name", fm.getPath());
+            fm.setDuplicatedName(fm.getName());
+            fm.setName(fm.getPath());
+        });
+    }
+
+    public FileMetadata registerVirtualFile(int studyId, String virtualFileName) throws StorageEngineException {
+        Objects.requireNonNull(virtualFileName);
+
+        // Create virtual file
+        FileMetadata virtualFile = getFileMetadata(studyId, virtualFileName);
+
+        if (virtualFile == null) {
+            logger.info("Create virtual file '{}'", virtualFileName);
+            int virtualFileId = registerFile(studyId, virtualFileName, FileMetadata.Type.VIRTUAL);
+            return getFileMetadata(studyId, virtualFileId);
+        } else {
+            logger.info("Virtual file already exists '{}'", virtualFileName);
+            if (virtualFile.getType() != FileMetadata.Type.VIRTUAL) {
+                throw new IllegalStateException("File '" + virtualFileName + "' already exists and is not VIRTUAL");
+            }
+            return virtualFile;
+        }
+    }
+
+    public int registerPartialFile(int studyId, String filePath) throws StorageEngineException {
+        return registerFile(studyId, filePath, FileMetadata.Type.PARTIAL);
+    }
+
+    public int registerPartialFile(int studyId, String virtualFile, VariantFileMetadata variantFileMetadata) throws StorageEngineException {
+        int fileId = registerFile(studyId, variantFileMetadata.getPath(), FileMetadata.Type.PARTIAL);
+        registerFileSamples(studyId, fileId, variantFileMetadata.getSampleIds());
+        associatePartialFiles(studyId, virtualFile, Collections.singletonList(getFileName(studyId, fileId)));
+        return fileId;
+    }
+
+    public void associatePartialFiles(int studyId, String virtualFileName, List<String> files) throws StorageEngineException {
+        Objects.requireNonNull(virtualFileName);
+        if (files == null || files.isEmpty()) {
+            throw new IllegalStateException("Empty files");
+        }
+
+        // Create virtual file
+        FileMetadata virtualFile = registerVirtualFile(studyId, virtualFileName);
+        int virtualFileId = virtualFile.getId();
+        LinkedHashSet<Integer> samples = virtualFile.getSamples();
+
+
+        // Iterate over files to virtualize and check
+        List<Integer> nonPartialFiles = new ArrayList<>(files.size());
+        List<Integer> partialFiles = new ArrayList<>(files.size());
+
+        Collection<?> inputFiles;
+        if (files.size() == 1 && files.get(0).equals(ParamConstants.ALL)) {
+            inputFiles = getIndexedFiles(studyId);
+        } else {
+            inputFiles = files;
+        }
+        ProgressLogger progressLogger;
+        if (inputFiles.size() > 100) {
+            progressLogger = new ProgressLogger("Check partial files", inputFiles.size(), 50);
+        } else {
+            progressLogger = null;
+        }
+        for (Object fileStr : inputFiles) {
+            FileMetadata file = getFileMetadata(studyId, fileStr);
+            if (progressLogger != null) {
+                progressLogger.increment(1);
+            }
+            if (file.getType() == FileMetadata.Type.VIRTUAL) {
+                logger.info("Skip virtual file '{}'", file.getName());
+                continue;
+            }
+            if (file.getType() == FileMetadata.Type.PARTIAL
+                    && file.getAttributes().get(FileMetadata.VIRTUAL_PARENT) != null) {
+                logger.info("Skip already virtualized file '{}'", file.getName());
+                continue;
+            }
+            if (file.getType() == FileMetadata.Type.PARTIAL) {
+                partialFiles.add(file.getId());
+            } else {
+                nonPartialFiles.add(file.getId());
+            }
+            if (samples == null) {
+                samples = file.getSamples();
+            } else if (!samples.equals(file.getSamples())) {
+                throw new IllegalStateException("Unable to virtualize files with different sets of samples");
+            }
+        }
+
+        if (partialFiles.isEmpty() && nonPartialFiles.isEmpty()) {
+            logger.info("Nothing to do!");
+            return;
+        }
+
+        // Add files to virtual file
+        LinkedHashSet<Integer> finalSamples = samples;
+        updateFileMetadata(studyId, virtualFileId, fm -> {
+            HashSet<Integer> virtualFiles = new HashSet<>();
+            virtualFiles.addAll(fm.getAttributes().getAsIntegerList(FileMetadata.VIRTUAL_FILES));
+            virtualFiles.addAll(partialFiles);
+            virtualFiles.addAll(nonPartialFiles);
+
+            fm.setIndexStatus(TaskMetadata.Status.READY);
+            fm.getAttributes().put(FileMetadata.VIRTUAL_FILES, new ArrayList<>(virtualFiles));
+            fm.setSamples(finalSamples);
+        });
+
+        // Mark virtual files and samples
+        if (virtualFile.getSamples() != null && nonPartialFiles.isEmpty()) {
+            logger.info("Skip updating samples from partial files. Nothing to do.");
+        } else {
+            progressLogger = new ProgressLogger("Associate samples to virtual file '" + virtualFileName + "'", samples.size(), 50);
+//            for (Integer virtualizedSample : samples) {
+//                updateSampleMetadata(studyId, virtualizedSample, sm -> {
+//                    sm.getFiles().removeAll(partialFiles);
+//                    sm.getFiles().removeAll(nonPartialFiles);
+//                    if (!sm.getFiles().contains(virtualFileId)) {
+//                        sm.getFiles().add(virtualFileId);
+//                    }
+//                });
+//                progressLogger.increment(1);
+//            }
+            // Shuffle to avoid collisions with concurrent executions
+            List<Integer> shuffledSampleIds = new ArrayList<>(samples);
+            Collections.shuffle(shuffledSampleIds);
+            // Parallel insertion
+            ParallelTaskRunner<Integer, Void> ptr = new ParallelTaskRunner<>(
+                    BatchUtils.toDataReader(shuffledSampleIds),
+                    ((Task<Integer, Void>) batch -> {
+                        for (Integer sampleId : batch) {
+                            SampleMetadata sampleMetadata = getSampleMetadata(studyId, sampleId);
+                            boolean needsUpdate = !sampleMetadata.getFiles().contains(virtualFileId)
+                                    || CollectionUtils.containsAny(sampleMetadata.getFiles(), partialFiles)
+                                    || CollectionUtils.containsAny(sampleMetadata.getFiles(), nonPartialFiles);
+                            if (needsUpdate) {
+                                updateSampleMetadata(studyId, sampleId, sm -> {
+                                    sm.getFiles().removeAll(partialFiles);
+                                    sm.getFiles().removeAll(nonPartialFiles);
+                                    if (!sm.getFiles().contains(virtualFileId)) {
+                                        sm.getFiles().add(virtualFileId);
+                                    }
+                                });
+                            }
+                        }
+                        return null;
+                    }).then(progressLogger.asTask()),
+                    null,
+                    ParallelTaskRunner.Config.builder()
+                            .setNumTasks(configuration.getInt(METADATA_LOAD_THREADS.key(), METADATA_LOAD_THREADS.defaultValue()))
+                            .setBatchSize(configuration.getInt(METADATA_LOAD_BATCH_SIZE.key(), METADATA_LOAD_BATCH_SIZE.defaultValue()))
+                            .build());
+            try {
+                ptr.run();
+            } catch (ExecutionException e) {
+                throw new StorageEngineException("Error associating samples from virtual file '" + virtualFileName + "'", e);
+            }
+
+        }
+
+        if (partialFiles.size() + nonPartialFiles.size() > 100) {
+            progressLogger = new ProgressLogger("Update files", partialFiles.size() + nonPartialFiles.size(), 50);
+        }  else {
+            progressLogger = null;
+        }
+        for (Integer virtualizedFile : Iterables.concat(partialFiles, nonPartialFiles)) {
+            updateFileMetadata(studyId, virtualizedFile, fm -> {
+                fm.getAttributes().put(FileMetadata.VIRTUAL_PARENT, virtualFileId);
+                fm.setType(FileMetadata.Type.PARTIAL);
+            });
+            if (progressLogger != null) {
+                progressLogger.increment(1);
+            }
+        }
+    }
+
+    public int registerCohort(String study, String cohortName, Collection<String> samples) throws StorageEngineException {
+        return registerCohorts(study, Collections.singletonMap(cohortName, samples)).get(cohortName).intValue();
+    }
+
+    public CohortMetadata registerTemporaryCohort(String study, String alias, List<String> samples) throws StorageEngineException {
+        int studyId = getStudyId(study);
+        String temporaryCohortName = "TEMP_" + alias + "_" + TimeUtils.getTimeMillis();
+
+        List<Integer> sampleIds = registerSamples(studyId, samples);
+        int cohortId = newCohortId(studyId);
+        CohortMetadata cohortMetadata = new CohortMetadata(studyId, cohortId, temporaryCohortName,
+                sampleIds,
+                Collections.emptyList());
+        cohortMetadata.getAttributes().put("alias", alias);
+        cohortMetadata.setStatus("TEMPORARY", TaskMetadata.Status.RUNNING);
+
+        unsecureUpdateCohortMetadata(studyId, cohortMetadata);
+        return cohortMetadata;
+    }
+
+    public Map<String, Integer> registerCohorts(String study, Map<String, ? extends Collection<String>> cohorts)
+            throws StorageEngineException {
+        int studyId = getStudyId(study);
+        Map<String, Integer> cohortIds = new HashMap<>();
+
+        for (Map.Entry<String, ? extends Collection<String>> entry : cohorts.entrySet()) {
+            String cohortName = entry.getKey();
+            Collection<String> samples = entry.getValue();
+            List<Integer> sampleIds = registerSamples(studyId, samples);
+            CohortMetadata cohortMetadata = setSamplesToCohort(studyId, cohortName, sampleIds);
+            cohortIds.put(cohortName, cohortMetadata.getId());
+        }
+        return cohortIds;
+    }
+
+    protected int newFileId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "file");
+    }
+
+    protected int newSampleId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "sample");
+    }
+
+    protected int newCohortId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "cohort");
+    }
+
+    protected int newVariantScoreId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "score");
+    }
+
+    protected int newTaskId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "task");
+    }
+
+    protected int newStudyId() throws StorageEngineException {
+        return projectDBAdaptor.generateId((Integer) null, "study");
+    }
+
+    protected int newSecondaryIndexSampleSetId(int studyId) throws StorageEngineException {
+        return projectDBAdaptor.generateId(studyId, "secondaryIndexSampleSet");
+    }
+
+
+    public static void checkStudyId(int studyId) throws StorageEngineException {
+        if (studyId < 0) {
+            throw new StorageEngineException("Invalid studyId : " + studyId);
+        }
+    }
+
+    public TaskMetadata.Status setStatus(int studyId, int taskId, TaskMetadata.Status status) throws StorageEngineException {
+        AtomicReference<TaskMetadata.Status> previousStatus = new AtomicReference<>();
+        updateTask(studyId, taskId, task -> {
+            previousStatus.set(task.currentStatus());
+            task.addStatus(Calendar.getInstance().getTime(), status);
+        });
+        return previousStatus.get();
+    }
+
+    @Deprecated
+    public TaskMetadata.Status setStatus(int studyId, String taskName, List<Integer> fileIds, TaskMetadata.Status status)
+            throws StorageEngineException {
+        TaskMetadata task = getTask(studyId, taskName, fileIds);
+        TaskMetadata.Status previousStatus = task.currentStatus();
+        task.addStatus(Calendar.getInstance().getTime(), status);
+        unsecureUpdateTask(studyId, task);
+
+        return previousStatus;
+    }
+
+    @Deprecated
+    public TaskMetadata.Status atomicSetStatus(int studyId, TaskMetadata.Status status, String operationName,
+                                               List<Integer> files) throws StorageEngineException {
+        return setStatus(studyId, operationName, files, status);
+    }
+
+    public TaskMetadata addRunningTask(int studyId, String jobOperationName, List<Integer> fileIds) throws StorageEngineException {
+        return addRunningTask(studyId, jobOperationName, fileIds, false, TaskMetadata.Type.OTHER);
+    }
+
+    public TaskMetadata addRunningTask(int studyId, String jobOperationName, List<Integer> fileIds, boolean resume,
+                                       TaskMetadata.Type type)
+            throws StorageEngineException {
+
+        return addRunningTask(studyId, jobOperationName, fileIds, resume, type, b -> false);
+    }
+    /**
+     * Find out if the task attempt can be executed, and if it should be a new variant, of continue executing a previous task.
+     *
+     * @param studyId            Study id
+     * @param jobOperationName   Job operation name used to create the jobName and as {@link TaskMetadata#getOperationName()}
+     * @param fileIds            Files to be processed in this batch.
+     * @param resume             Resume operation. Assume that previous operation went wrong.
+     * @param type               Operation type as {@link TaskMetadata.Type}
+     * @param allowConcurrent    Predicate to test if the new operation can be executed at the same time as a non ready operation.
+     *                           If not, throws {@link StorageEngineException#otherOperationInProgressException}
+     * @return                   The current batchOperation
+     * @throws StorageEngineException if the operation can't be executed
+     */
+    private TaskMetadata getRunningTaskCompatibleOrFail(int studyId, String jobOperationName, List<Integer> fileIds, boolean resume,
+                                                        TaskMetadata.Type type, Predicate<TaskMetadata> allowConcurrent)
+            throws StorageEngineException {
+        TaskMetadata resumeTask = null;
+        for (TaskMetadata task : getActiveTasks(studyId)) {
+            TaskMetadata.Status currentStatus = task.currentStatus();
+
+            if (currentStatus != TaskMetadata.Status.DONE
+                    && currentStatus != TaskMetadata.Status.RUNNING
+                    && currentStatus != TaskMetadata.Status.ERROR) {
+                logger.warn("Unexpected {} task. IGNORE", currentStatus);
+                // Ignore ready operations
+                continue;
+            }
+
+            if (task.sameOperation(fileIds, type, jobOperationName)) {
+                if (currentStatus == TaskMetadata.Status.ERROR) {
+                    // Automatically resume ERROR status tasks
+                    logger.info("Resuming last batch operation \"" + task.getName() + "\" due to error.");
+                    resumeTask = task;
+                } else if (resume) {
+                    // Force resume
+                    logger.info("Manually resuming last batch operation \"" + task.getName() + "\" in status " + currentStatus + ".");
+                    resumeTask = task;
+                } else {
+                    // Already being executed
+                    throw StorageEngineException.currentOperationInProgressException(task, this);
+                }
+            } else {
+                // Check if it can be executed concurrently
+                if (!allowConcurrent.test(task)) {
+                    throw StorageEngineException.otherOperationInProgressException(task, jobOperationName, fileIds, this);
+                }
+            }
+        }
+        return resumeTask;
+    }
+
+    /**
+     * Adds a new {@link TaskMetadata} to the Study Metadata.
+     *
+     * Allow execute concurrent operations depending on the "allowConcurrent" predicate.
+     *  If any operation is in ERROR, is not the same operation, and concurrency is not allowed,
+     *      throw {@link StorageEngineException#otherOperationInProgressException}
+     *  If any operation is DONE, RUNNING, is same operation and resume=true, continue
+     *  If all operations are ready, continue
+     *
+     * @param studyId            Study id
+     * @param jobOperationName   Job operation name used to create the jobName and as {@link TaskMetadata#getOperationName()}
+     * @param fileIds            Files to be processed in this batch.
+     * @param resume             Resume operation. Assume that previous operation went wrong.
+     * @param type               Operation type as {@link TaskMetadata.Type}
+     * @param allowConcurrent    Predicate to test if the new operation can be executed at the same time as a non ready operation.
+     *                           If not, throws {@link StorageEngineException#otherOperationInProgressException}
+     * @return                   The current batchOperation
+     * @throws StorageEngineException if the operation can't be executed
+     */
+    public TaskMetadata addRunningTask(int studyId, String jobOperationName,
+                                       List<Integer> fileIds, boolean resume, TaskMetadata.Type type,
+                                       Predicate<TaskMetadata> allowConcurrent)
+            throws StorageEngineException {
+        TaskMetadata resumeTask = getRunningTaskCompatibleOrFail(studyId, jobOperationName, fileIds, resume, type, allowConcurrent);
+
+        TaskMetadata task;
+        if (resumeTask == null) {
+            task = new TaskMetadata(newTaskId(studyId), jobOperationName, fileIds, System.currentTimeMillis(), type);
+            task.addStatus(Calendar.getInstance().getTime(), TaskMetadata.Status.RUNNING);
+            unsecureUpdateTask(studyId, task);
+        } else {
+            task = resumeTask;
+
+            if (!Objects.equals(task.currentStatus(), TaskMetadata.Status.DONE)) {
+                TreeMap<Date, TaskMetadata.Status> status = task.getStatus();
+                task = updateTask(studyId, task.getId(), thisTask -> {
+                    if (!thisTask.getStatus().equals(status)) {
+                        throw new StorageEngineException("Attempt to execute a concurrent modification of task " + thisTask.getName()
+                                + " (" + thisTask.getId() + ") ");
+                    } else {
+                        thisTask.addStatus(Calendar.getInstance().getTime(), TaskMetadata.Status.RUNNING);
+                    }
+                });
+            }
+        }
+        return task;
+    }
+
+
+    /**
+     * Check if a task can be executed.
+     *
+     * @param studyId            Study id
+     * @param jobOperationName   Job operation name used to create the jobName and as {@link TaskMetadata#getOperationName()}
+     * @param fileIds            Files to be processed in this batch.
+     * @param resume             Resume operation. Assume that previous operation went wrong.
+     * @param type               Operation type as {@link TaskMetadata.Type}
+     * @param allowConcurrent    Predicate to test if the new operation can be executed at the same time as a non ready operation.
+     *                           If not, throws {@link StorageEngineException#otherOperationInProgressException}
+     * @throws StorageEngineException if the operation can't be executed
+     */
+    public void checkTaskCanRun(int studyId, String jobOperationName, List<Integer> fileIds, boolean resume,
+                                                        TaskMetadata.Type type, Predicate<TaskMetadata> allowConcurrent)
+            throws StorageEngineException {
+        getRunningTaskCompatibleOrFail(studyId, jobOperationName, fileIds, resume, type, allowConcurrent);
+    }
+
+
+    protected void checkName(final String type, String name) {
+        if (StringUtils.isEmpty(name)) {
+            throw new IllegalArgumentException(type + " can not be empty!");
+        }
+    }
+
+    public void clearCaches() {
+        sampleIdCache.clear();
+        sampleNameCache.clear();
+        sampleIdIndexedCache.clear();
+        sampleIdsFromFileIdCache.clear();
+        splitDataCache.clear();
+        fileIdCache.clear();
+        fileNameCache.clear();
+        fileIdIndexedCache.clear();
+        fileIdsFromSampleIdCache.clear();
+        cohortIdCache.clear();
+        cohortNameCache.clear();
+    }
+
+    @Override
+    public void close() throws IOException {
+        dbAdaptorFactory.close();
+    }
+}

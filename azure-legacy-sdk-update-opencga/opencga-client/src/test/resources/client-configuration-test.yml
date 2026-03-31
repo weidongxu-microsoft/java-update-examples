@@ -1,0 +1,12 @@
+---
+rest:
+  host: "http://localhost:9090/opencga"
+  query:
+    batchSize: 200
+    limit: 2000
+grpc:
+  host: "http://localhost:9091"
+
+## Configure the default behaviour when query variants
+variant:
+  unknownGenotype: "0/0"

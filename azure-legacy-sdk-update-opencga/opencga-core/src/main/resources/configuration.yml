@@ -1,0 +1,396 @@
+---
+logLevel: "INFO"
+logDir: ${OPENCGA.INSTALLATION.DIR}/logs
+
+databasePrefix: ${OPENCGA.DB.PREFIX}
+workspace: ${OPENCGA.USER.WORKSPACE}
+jobDir: ${OPENCGA.USER.WORKSPACE}/jobs
+
+# Maximum number of login attempts before banning a user account
+account:
+  maxLoginAttempts: ${OPENCGA.ACCOUNT.MAX_LOGIN_ATTEMPTS}
+  passwordExpirationDays: 90
+
+panel:
+  host: "http://resources.opencb.org/opencb/opencga/disease-panels"
+
+## Configuration for Catalog databases
+catalog:
+  database: # MongoDB database credentials
+    hosts:
+      - ${OPENCGA.CATALOG.DB.HOSTS}
+    user: ${OPENCGA.CATALOG.DB.USER}
+    password: ${OPENCGA.CATALOG.DB.PASSWORD}
+    options:
+      authenticationDatabase: ${OPENCGA.CATALOG.DB.AUTHENTICATION_DATABASE}
+      connectionsPerHost: ${OPENCGA.CATALOG.DB.CONNECTIONS_PER_HOST}
+
+server:
+  rest:
+    port: ${OPENCGA.SERVER.REST.PORT}
+    httpConfiguration:
+      # The size in bytes of the output buffer used to aggregate HTTP output
+      outputBufferSize: 32768
+      # The maximum size in bytes for HTTP output to be aggregated
+      outputAggregationSize: 8192
+      # The maximum allowed size in bytes for a HTTP request header
+      requestHeaderSize: 8192
+      # The maximum allowed size in bytes for a HTTP response header
+      responseHeaderSize: 8192
+      # The maximum allowed size in bytes for a HTTP header field cache
+      headerCacheSize: 4096
+
+  grpc:
+    port: ${OPENCGA.SERVER.GRPC.PORT}
+
+quota:                             # Quotas per organisation
+  maxNumUsers: -1                  # Maximum number of users that an organisation can have. -1 to disable.
+  maxNumProjects: -1               # Maximum number of projects that an organisation can have. -1 to disable.
+  maxNumVariantIndexSamples: -1    # Maximum number of variant index samples that an organisation can have. -1 to disable.
+  maxNumJobHours: -1               # Maximum number of hours that the organisation can use in jobs on a monthly basis. -1 to disable.
+
+audit:
+  manager: ""             # Java manager of the audit implementation to be used to audit. If empty, catalog database will be used.
+  maxDocuments: 20000000  # Maximum number of documents that will be created in the audit collection.
+  maxSize: 100            # Maximum size that the audit collection will have in Gigabytes (GB).
+
+monitor:
+  daysToRemove: 30
+  executionDaemonInterval: 4000 # number of milliseconds between checks
+  fileDaemonInterval: 8000      # number of milliseconds between checks
+  port: ${OPENCGA.MONITOR.PORT}
+
+healthCheck:
+  interval: 30 # seconds to get actual healthCheck than cache
+
+#execution:
+#  mode: ${OPENCGA.EXECUTION.MODE}
+#  maxConcurrentIndexJobs : 1 # only applies to local executor
+#  defaultQueue: ""
+#  availableQueues: ""
+#  toolsPerQueue: {}
+#  options:
+
+
+analysis:
+  # List of packages where to find analysis tools
+  packages:
+    - "org.opencb.opencga"
+  workflow:
+    # Minimum requirements to run a workflow
+    minRequirements:
+      cpu: 2
+      memory: 8GB
+      disk: 100GB
+    # List of supported workflow managers and the version to be launched by default
+    managers:
+      - id: "NEXTFLOW"
+        version: "24.04.4"
+  # Scratch folder for the analysis.
+  scratchDir: "${OPENCGA.ANALYSIS.SCRATCH.DIR}"
+  resource:
+    # Base URL from fetching/downloading analysis resources.
+    baseUrl: "http://resources.opencb.org/opencb/opencga/analysis/resources/"
+    # Base path where to download the analysis resources.
+    basePath: "${OPENCGA.INSTALLATION.DIR}/analysis/resources"
+    # List of resources to fetch during initialization; the wildcard '*' can be used, e.g.: to fetch all resources, use '*';
+    # to fetch only Exomiser resources, use 'EXOMISER_*'
+    fetchOnInit: []
+    # List of resources
+    files:
+      # Exomiser resources
+      - id: "EXOMISER_13_1_0_HG38"
+        url: "exomiser/13.1.0/2109_hg38.zip"
+        md5: "6d4011146705ca7a28eba9df0bfdacd2"
+        path: "exomiser/13.1.0/2109_hg38"
+      - id: "EXOMISER_13_1_0_PHENOTYPE"
+        url: "exomiser/13.1.0/2109_phenotype.zip"
+        md5: "197d126e1b441674f5d5979ac2027591"
+        path: "exomiser/13.1.0/2109_phenotype"
+      - id: "EXOMISER_14_0_0_HG38"
+        url: "exomiser/14.0.0/2402_hg38.zip"
+        md5: "7f89dcf9221c7aa5d5471a2ffdb58303"
+        path: "exomiser/14.0.0/2402_hg38"
+      - id: "EXOMISER_14_0_0_PHENOTYPE"
+        url: "exomiser/14.0.0/2402_phenotype.zip"
+        md5: "3e7092c852c5f23373ccd465bf2fcd85"
+        path: "exomiser/14.0.0/2402_phenotype"
+
+      # Reference genomes
+      - id: "REFERENCE_GENOME_GRCH38_FA"
+        url: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+        md5: "9732aa3c64469b25b73930db9c96a89f"
+        path: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+      - id: "REFERENCE_GENOME_GRCH38_FAI"
+        url: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz.fai"
+        md5: "d527f3eb6b664020cf4d882b5820056f"
+        path: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz.fai"
+      - id: "REFERENCE_GENOME_GRCH38_GZI"
+        url: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz.gzi"
+        md5: "e904772fc5dfa2d69690aafda36332a4"
+        path: "reference-genomes/grch38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz.gzi"
+      - id: "REFERENCE_GENOME_GRCH38_CHAIN"
+        url: "reference-genomes/grch38/GRCh37_to_GRCh38.chain.gz"
+        md5: "2a862e70fa1afc08f1f3e7a8cc5cda14"
+        path: "reference-genomes/grch38/GRCh37_to_GRCh38.chain.gz"
+      - id: "REFERENCE_GENOME_GRCH37_FA"
+        url: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz"
+        md5: "39a3fff4234a1268c937ec012b3cabb4"
+        path: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz"
+      - id: "REFERENCE_GENOME_GRCH37_FAI"
+        url: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz.fai"
+        md5: "15d081d2bdfe37d0fff6b753a4dcfef0"
+        path: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz.fai"
+      - id: "REFERENCE_GENOME_GRCH37_GZI"
+        url: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz.gzi"
+        md5: "bed234b55a30d624159e8577def7005c"
+        path: "reference-genomes/grch37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz.gzi"
+      - id: "REFERENCE_GENOME_HG38_FA"
+        url: "reference-genomes/hg38/hg38.fa.gz"
+        md5: "56d2da608721db4d805279301ddc902d"
+        path: "reference-genomes/hg38/hg38.fa.gz"
+      - id: "REFERENCE_GENOME_HG38_CHAIN"
+        url: "reference-genomes/hg38/hg19ToHg38.over.chain.gz"
+        md5: "35887f73fe5e2231656504d1f6430900"
+        path: "reference-genomes/hg38/hg19ToHg38.over.chain.gz"
+      - id: "REFERENCE_GENOME_HG19_FA"
+        url: "reference-genomes/hg19/hg19.fa.gz"
+        md5: "b6631a1b3c6e1a5db6ee94c21a460ae7"
+        path: "reference-genomes/hg19/hg19.fa.gz"
+
+      # Relatedness resources
+      - id: "RELATEDNESS_VARIANTS_PRUNE_IN"
+        url: "relatedness/20221026_152242/variants.prune.in"
+        md5: "9d04ef8199108cfa1223f5217f96d144"
+        path: "relatedness/variants.prune.in"
+      - id: "RELATEDNESS_VARIANTS_FRQ"
+        url: "relatedness/20221026_152242/variants.frq"
+        md5: "30c42b1a87b5c028f1d8201fd47935e6"
+        path: "relatedness/variants.frq"
+
+  # Docker used by OpenCGA analysis and containing external tools such as samtools, bcftools, tabix, fastqc, plink1.9, bwa and r-base
+  # You can indicate the version, e.g: opencb/opencga-ext-tools:2.12.0, otherwise the current OpenCGA version will be used
+  opencgaExtTools: "opencb/opencga-ext-tools"
+  tools:
+    - id: "exomiser"
+      version: "13.1.0"
+      dockerId: "exomiser/exomiser-cli:13.1.0"
+      resourceIds: ["EXOMISER_13_1_0_HG38", "EXOMISER_13_1_0_PHENOTYPE"]
+
+    - id: "exomiser"
+      version: "14.0.0"
+      defaultVersion: true
+      dockerId: "exomiser/exomiser-cli:14.0.0"
+      resourceIds: ["EXOMISER_14_0_0_HG38", "EXOMISER_14_0_0_PHENOTYPE"]
+
+    - id: "mutational-signature"
+      resourceIds:
+        - "REFERENCE_GENOME_GRCH38_FA"
+        - "REFERENCE_GENOME_GRCH38_FAI"
+        - "REFERENCE_GENOME_GRCH38_GZI"
+        - "REFERENCE_GENOME_GRCH37_FA"
+        - "REFERENCE_GENOME_GRCH37_FAI"
+        - "REFERENCE_GENOME_GRCH37_GZI"
+
+    - id: "relatedness"
+      resourceIds: ["RELATEDNESS_VARIANTS_PRUNE_IN", "RELATEDNESS_VARIANTS_FRQ"]
+
+    - id: "liftover"
+      resourceIds:
+        - "REFERENCE_GENOME_GRCH38_FA"
+        - "REFERENCE_GENOME_GRCH38_CHAIN"
+        - "REFERENCE_GENOME_GRCH37_FA"
+        - "REFERENCE_GENOME_HG38_FA"
+        - "REFERENCE_GENOME_HG38_CHAIN"
+        - "REFERENCE_GENOME_HG19_FA"
+
+  operations:
+    variantAnnotationIndex:
+      policy: "NIGHTLY"
+      maxAttempts: 3
+      jobParams:
+    variantSecondaryAnnotationIndex:
+      policy: "NIGHTLY"
+      maxAttempts: 3
+      jobParams:
+    variantSecondarySampleIndex:
+      policy: "NIGHTLY"
+      maxAttempts: 3
+      jobParams:
+  execution:
+    # Accepted values are "local", "SGE", "k8s"
+    # see org.opencb.opencga.master.monitor.executors.ExecutorFactory
+    id: "${OPENCGA.EXECUTION.MODE}"    # DEPRECATED Use queues.executor instead
+    defaultQueue: ""                   # DEPRECATED
+    availableQueues:                   # DEPRECATED Use queues
+    toolsPerQueue:                     # DEPRECATED Never used
+    defaultRequirements:
+      cpu: 2
+      memory: "8G"
+    requirementsFactor:
+      cpu: 0.95
+      memory: 0.9
+    queues:
+#      - id: "default"
+#        executor: "local"
+#        description: "Default queue for execution"
+#        type: "CPU"
+#        cpu: 8
+#        memory: "32G"
+      - id: "scpu"
+        executor: "k8s"
+        description: "Small queue for execution"
+        processorType: "CPU"
+        cpu: 8
+        memory: "32G"
+        options:
+          k8s.nodeSelector:
+            agentpool: scpu
+            kubernetes.io/os: linux
+      - id: "mcpu"
+        executor: "k8s"
+        description: "Medium queue for execution"
+        processorType: "CPU"
+        cpu: 16
+        memory: "64G"
+        options:
+          k8s.nodeSelector:
+            agentpool: mcpu
+            kubernetes.io/os: linux
+      - id: "sgpu"
+        executor: "k8s"
+        description: "Small queue for GPU executions"
+        processorType: "GPU"
+        cpu: 6
+        memory: "112G"
+        options:
+          k8s.runtimeClass: null
+          # Image supporting NVIDIA GPU in Docker-in-Docker. Override default dind image.
+          k8s.dind.imageName: "ghcr.io/ehfd/nvidia-dind:latest"
+          # Do not use rootless dind for GPU workloads.
+          k8s.dind.rootless: false
+          k8s.nodeSelector:
+            agentpool: sgpu
+            kubernetes.io/os: linux
+    maxConcurrentJobs:
+      variant-index: 20
+      variant-annotation-index: 5
+      variant-secondary-annotation-index: 2
+      variant-secondary-sample-index: 2
+    options:
+      ## Job reuse policy. Do not create a new job if an equivalent PENDING or QUEUED job exists.
+      jobs.reuse.enabled: true
+      ## List of tools to apply the reuse policy. Add `.*` to apply widely.
+      jobs.reuse.tools:
+        - "variant-index"
+        - "variant-stats-index"
+        - "variant-annotation-index"
+        - "variant-secondary-annotation-index"
+        - "variant-secondary-sample-index"
+      ## Local executor configuration
+      local.maxConcurrentJobs: 2    # Max number of concurrent jobs to be executed locally in the master
+
+      ## Kubernetes executor configuration example
+      # k8s.masterUrl: "https://192.168.99.100:8443/"
+      k8s.clientTimeout: 30000 # ms
+      k8s.terminationGracePeriodSeconds: 300 # s
+      k8s.logToStdout: true
+      k8s.imageName: "opencb/opencga-base:${project.parent.version}"
+      k8s.imagePullPolicy: "IfNotPresent"
+      #      k8s.imagePullSecrets:
+      #        name : "dockerhub-secrets-name"
+      k8s.ttlSecondsAfterFinished: 3600 # s
+      k8s.namespace: "default"
+
+      # Job java heap.
+      # Can be defined as an absolute value (e.g., "1024M") or as a percentage of requirements.memory (e.g., "70%").
+      # If undefined, will use "requirements.memory - javaOffHeap - nonJavaMemory"
+      # This configures env variable JAVA_HEAP (which configures -Xmx for the JVM)
+      k8s.javaHeap: # undefined
+      # Job java off heap.
+      # Can be defined as an absolute value (e.g., "1024M") or as a percentage of requirements.memory (e.g., "10%").
+      # If undefined, will use 5% of requirements.memory
+      # Minimum off heap is 300MiB.
+      # This configures env variable JAVA_OFF_HEAP (which configures -XX:MaxDirectMemorySize for the JVM)
+      k8s.javaOffHeap: # undefined
+      # Job non-jvm memory. Overhead for non-jvm processes like OS processes, native libraries, docker runs, etc.
+      # Can be defined as an absolute value (e.g., "1024M") or as a percentage of requirements.memory (e.g., "10%").
+      # If undefined, will use 10% of requirements.memory
+      k8s.memoryOverhead: "10%"
+#      k8s.envs:
+#        KEY: value
+      # FOR ACI:
+      # k8s.nodeSelector:
+      #   kubernetes.io/role: agent
+      #   kubernetes.io/os: linux
+      #   type: virtual-kubelet
+      # k8s.tolerations:
+      # - key: virtual-kubelet.io/provider
+      #   operator: Exists
+      # - key: azure.com/aci
+      #   effect: NoSchedule
+
+      k8s.volumeMounts:
+        - name: conf
+          mountPath: /opt/opencga/conf
+        - name: sessions
+          mountPath: /opt/opencga/sessions
+        - name: variants
+          mountPath: /opt/opencga/variants
+        - name: analysisconf
+          mountPath: /opt/opencga/analysis
+      k8s.volumes:
+        - name: conf
+          persistentVolumeClaim:
+            claimName: "pvc-opencga-conf"
+        - name: sessions
+          persistentVolumeClaim:
+            claimName: "pvc-opencga-sessions"
+        - name: variants
+          persistentVolumeClaim:
+            claimName: "pvc-opencga-variants"
+        - name: analysisconf
+          persistentVolumeClaim:
+            claimName: "pvc-opencga-analysisconf"
+      k8s.podSecurityContext:
+        runAsNonRoot: true
+      k8s.securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        readOnlyRootFilesystem: false
+
+  # List of analysis frameworks
+  frameworks:
+    - id: "local"
+      available: true
+      options: { }
+
+    - id: "spark"
+      available: false
+      queue: "hadoop_queue" # Special executor queue to be used for jobs using this framework.
+      options: # Spark properties from https://spark.apache.org/docs/latest/configuration.html#viewing-spark-properties
+        spark.executor.memory: "1g"
+
+    - id: "mapreduce"
+      available: false
+      queue: "hadoop_queue" # Special executor queue to be used for jobs using this framework. This is NOT a yarn queue.
+      options: # MapReduce configuration from https://hadoop.apache.org/docs/r2.7.2/hadoop-mapreduce-client/hadoop-mapreduce-client-core/mapred-default.xml
+        mapreduce.job.queuename: default
+
+email:
+  host: ${OPENCGA.MAIL.HOST}
+  port: ${OPENCGA.MAIL.PORT}
+  user: ${OPENCGA.MAIL.USER}
+  password: ${OPENCGA.MAIL.PASSWORD}
+  from: ${OPENCGA.MAIL.USER}
+  ssl: false
+
+#hooks:
+#  user@project:study:              # Full Qualified Name of the study.
+#    file:                          # Entity where the hook will be checked
+#     - field: "name"               # Field of the entity to be checked
+#       value: "~(.*)SV.vcf.gz$"    # Value that needs to be satisfied to perform the hook action
+#       stage: "CREATE"             # Stage when the hook will be checked
+#       action: "ADD"               # Action to be performed
+#       where: "tags"               # Field over which the action will be performed
+#       what: "SV"                  # Value to be updated

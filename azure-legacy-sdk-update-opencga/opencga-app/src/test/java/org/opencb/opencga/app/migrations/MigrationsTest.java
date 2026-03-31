@@ -1,0 +1,135 @@
+package org.opencb.opencga.app.migrations;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.experimental.categories.Category;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.opencga.analysis.variant.OpenCGATestExternalResource;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.catalog.migration.Migration;
+import org.opencb.opencga.catalog.migration.MigrationTool;
+import org.opencb.opencga.core.models.migration.MigrationRun;
+import org.opencb.opencga.core.testclassification.duration.LongTests;
+import org.opencb.opencga.storage.hadoop.HBaseCompatApi;
+
+import java.net.URL;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+
+@Category(LongTests.class)
+public class MigrationsTest {
+
+    public OpenCGATestExternalResource opencga;
+
+//    @Test
+//    public void testUserBanMigration() throws Exception {
+//        setup("v3.0.0", false);
+//
+//        runMigration(UserBanMigration.class);
+//    }
+//
+//    @Test
+//    public void testMoveUserAccountToInternalMigration() throws Exception {
+//        setup("v3.1.0", false);
+//
+//        runMigration(MoveUserAccountToInternalMigration.class);
+//    }
+//
+//    @Test
+//    public void testAddNewNoteTypeMigration() throws Exception {
+//        setup("v3.2.1", false);
+//
+//        runMigration(AddNewNoteTypeMigration.class);
+//    }
+//
+//    @Test
+//    public void testVariantSetupMigration() throws Exception {
+//        setup("v3.1.0", true);
+//        String studyName = "test@1000G:phase1";
+//
+//        VariantStorageMetadataManager metadataManager = opencga.getVariantStorageEngineByProject("test@1000G").getMetadataManager();
+//        metadataManager.getAndUpdateProjectMetadata(new ObjectMap());
+//        StudyMetadata studyMetadata = metadataManager.createStudy(studyName);
+//        int fileId = metadataManager.registerFile(studyMetadata.getId(), "folder/file.vcf", Arrays.asList("s1", "s2"));
+//        metadataManager.addIndexedFiles(studyMetadata.getId(), Collections.singletonList(fileId));
+//
+//        for (Study study : opencga.getCatalogManager().getStudyManager().searchInOrganization("test", new Query(), new QueryOptions(), opencga.getAdminToken()).getResults()) {
+//            Assert.assertNull(study.getInternal().getConfiguration().getVariantEngine().getSetup());
+//        }
+//
+//        runMigration(VariantSetupMigration.class);
+//
+//        for (Study study : opencga.getCatalogManager().getStudyManager().searchInOrganization("test", new Query(), new QueryOptions(), opencga.getAdminToken()).getResults()) {
+//            if (study.getFqn().equals(studyName)) {
+//                Assert.assertNotNull(study.getInternal().getConfiguration().getVariantEngine().getSetup());
+//            } else {
+//                Assert.assertNull(study.getInternal().getConfiguration().getVariantEngine().getSetup());
+//            }
+//        }
+//    }
+//
+//    @Test
+//    public void testEnsureSampleIndexConfigurationIsAlwaysDefined() throws Exception {
+//        setup("v3.2.1", true);
+//        String studyName = "test@1000G:phase1";
+//
+//        VariantStorageMetadataManager metadataManager = opencga.getVariantStorageEngineByProject("test@1000G").getMetadataManager();
+//        metadataManager.getAndUpdateProjectMetadata(new ObjectMap());
+//        StudyMetadata studyMetadata = metadataManager.createStudy(studyName);
+//        int fileId = metadataManager.registerFile(studyMetadata.getId(), "folder/file.vcf", Arrays.asList("s1", "s2"));
+//        metadataManager.addIndexedFiles(studyMetadata.getId(), Collections.singletonList(fileId));
+//        metadataManager.updateStudyMetadata(studyMetadata, sm -> {
+//            sm.setSampleIndexConfigurations(Collections.emptyList());
+//        });
+//
+//        studyMetadata = metadataManager.getStudyMetadata(studyMetadata.getId());
+//        Assert.assertNull(studyMetadata.getSampleIndexConfigurationLatest());
+//
+//        runMigration(EnsureSampleIndexConfigurationIsAlwaysDefined.class);
+//
+//        studyMetadata = metadataManager.getStudyMetadata(studyMetadata.getId());
+//        Assert.assertNotNull(studyMetadata.getSampleIndexConfigurationLatest());
+//    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (opencga != null) {
+            opencga.after();
+            opencga = null;
+        }
+    }
+
+    protected void testMigration(Class<? extends MigrationTool> migration, String dataset) throws Exception {
+        setup(dataset);
+        runMigration(migration);
+    }
+
+    private void setup(String dataset) throws Exception {
+        setup(dataset, false);
+    }
+
+    private void setup(String dataset, boolean storageHadoop) throws Exception {
+        if (opencga != null) {
+            opencga.after();
+            opencga = null;
+        }
+        if (storageHadoop) {
+            Assume.assumeTrue(HBaseCompatApi.getInstance().isTestingAvailable());
+        }
+        opencga = new OpenCGATestExternalResource(storageHadoop);
+        opencga.before();
+        URL resource = getClass().getResource("/datasets/opencga/" + dataset + "/");
+        opencga.restore(resource);
+    }
+
+    private void runMigration(Class<? extends MigrationTool> migration) throws CatalogException {
+        Migration annotation = migration.getAnnotation(Migration.class);
+        List<MigrationRun> runs = opencga.getCatalogManager().getMigrationManager()
+                .runManualMigration(annotation.version(), annotation.id(), opencga.getOpencgaHome(), new ObjectMap(), opencga.getAdminToken());
+        for (MigrationRun run : runs) {
+            assertEquals("Migration " + migration + " failed", MigrationRun.MigrationStatus.DONE, run.getStatus());
+        }
+    }
+
+}

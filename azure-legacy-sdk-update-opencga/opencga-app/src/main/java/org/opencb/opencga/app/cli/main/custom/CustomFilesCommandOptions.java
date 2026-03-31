@@ -1,0 +1,105 @@
+package org.opencb.opencga.app.cli.main.custom;
+
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
+import com.beust.jcommander.ParametersDelegate;
+import org.opencb.opencga.app.cli.GeneralCliOptions;
+import org.opencb.opencga.core.api.ParamConstants;
+
+import static org.opencb.opencga.app.cli.GeneralCliOptions.CommonCommandOptions;
+
+/**
+ * This class contains methods for the Files command line. OpenCGA version: 2.2.0-SNAPSHOT PATH: /{apiVersion}/files
+ */
+@Parameters(commandNames = {"files"}, commandDescription = "Files commands")
+public class CustomFilesCommandOptions {
+
+    public JCommander jCommander;
+    public CommonCommandOptions commonCommandOptions;
+    public UploadCommandOptions uploadCommandOptions;
+    public DownloadCommandOptions downloadCommandOptions;
+
+    public CustomFilesCommandOptions(CommonCommandOptions commonCommandOptions, JCommander jCommander) {
+
+        this.jCommander = jCommander;
+        this.commonCommandOptions = commonCommandOptions;
+        uploadCommandOptions = new UploadCommandOptions();
+    }
+
+    @Parameters(commandNames = {"upload"}, commandDescription = "Upload a physical local file to catalog.")
+    public class UploadCommandOptions {
+
+        @ParametersDelegate
+        public GeneralCliOptions.CommonCommandOptions commonOptions = commonCommandOptions;
+
+        @Parameter(names = {"-i", "--input"}, description = "Input file", required = true, arity = 1)
+        public String file;
+
+        @Parameter(names = {"--file-format"}, description = "[DEPRECATED] Use --format",
+                arity = 1)
+        public String fileFormat;
+
+        @Parameter(names = {"--format"}, description = "Format of the file (VCF, BCF, GVCF, SAM, BAM, BAI...UNKNOWN)",
+                arity = 1)
+        public String format;
+
+        @Parameter(names = {"--bioformat"}, description = "Bioformat of the file (VARIANT, ALIGNMENT, SEQUENCE, PEDIGREE...NONE)",
+                arity = 1)
+        public String bioformat;
+
+        @Parameter(names = {"--relative-file-path"}, description = "Path (directory) within catalog where the file will be located (Default: root folder)", arity = 1)
+        public String relativeFilePath;
+
+        @Parameter(names = {"--path"}, description = "[DEPRECATED] Use --relative-file-path", arity = 1)
+        public String path;
+
+        @Parameter(names = {"--description"}, description = "Description of the file", arity = 1)
+        public String description;
+
+        @Parameter(names = {"--file-name"}, description = "[DEPRECATED] Use --name", required = false,
+                arity = 1)
+        public String fileName;
+
+        @Parameter(names = {"--name"}, description = "Name of the file by which it will be stored in catalog", required = false,
+                arity = 1)
+        public String name;
+
+        @Parameter(names = {"-P", "--parents"}, description = "Create parent directories if needed", required = false)
+        public boolean parents;
+
+        @Parameter(names = {"--replace"}, description = "[PENDING] Replace the existing attached file. ALERT: The existing file will be "
+                + "removed", arity = 0)
+        public boolean replace;
+
+        @Parameter(names = {"--resource"}, description = ParamConstants.FILE_RESOURCE_DESCRIPTION, arity = 1)
+        public Boolean resource;
+//        @Parameter(names = {"-ch", "--checksum"}, description = "[PENDING] Calculate checksum", arity = 0)
+//        public boolean checksum;
+
+        @Parameter(names = {"-ch", "--checksum"}, description = "[PENDING] Checksum", arity = 1)
+        public String checksum;
+
+        @Parameter(names = {"--study", "-s"}, description = "Study [[organization@]project:]study where study and project can be either the ID or" +
+                " UUID", required = false, arity = 1)
+        public String study;
+    }
+
+    @Parameters(commandNames = {"download"}, commandDescription ="Download file")
+    public class DownloadCommandOptions {
+
+        @ParametersDelegate
+        public CommonCommandOptions commonOptions = commonCommandOptions;
+
+        @Parameter(names = {"--file"}, description = "File id, name or path. Paths must be separated by : instead of /", required = true, arity = 1)
+        public String file;
+
+        @Parameter(names = {"--study", "-s"}, description = "Study [[organization@]project:]study where study and project can be either the ID or UUID", required = false, arity = 1)
+        public String study;
+
+        @Parameter(names = {"--to"}, description = "Path where the file will be downloaded", arity = 1, required = true)
+        public String to;
+
+    }
+
+}

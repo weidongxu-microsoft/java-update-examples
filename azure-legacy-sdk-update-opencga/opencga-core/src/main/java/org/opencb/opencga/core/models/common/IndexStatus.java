@@ -1,0 +1,75 @@
+package org.opencb.opencga.core.models.common;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class IndexStatus extends InternalStatus {
+
+    /*
+     * States
+     *
+     * NONE --> INDEXING --> READY
+     *
+     */
+    public static final String NONE = "NONE";
+    public static final String INDEXING = "INDEXING";
+    public static final String INVALID = "INVALID";
+
+    public static final List<String> STATUS_LIST = Arrays.asList(READY, DELETED, NONE, INDEXING, INVALID);
+
+    public IndexStatus(String status, String message) {
+        if (isValid(status)) {
+            init(status, message);
+        } else {
+            throw new IllegalArgumentException("Unknown status " + status);
+        }
+    }
+
+    public IndexStatus(String status) {
+        this(status, "");
+    }
+
+    public IndexStatus() {
+        this(NONE, "");
+    }
+
+    @Override
+    public String getId() {
+        return super.getId();
+    }
+
+    @Override
+    public String getName() {
+        return super.getName();
+    }
+
+    @JsonIgnore
+    public boolean isReady() {
+        return getId().equals(READY);
+    }
+
+    @JsonIgnore
+    public boolean isIndexing() {
+        return getId().equals(INDEXING);
+    }
+
+    @JsonIgnore
+    public boolean isNone() {
+        return getId().equals(NONE);
+    }
+
+    public static IndexStatus init() {
+        return new IndexStatus();
+    }
+
+    public static boolean isValid(String status) {
+        return status != null
+                && (status.equals(READY)
+                || status.equals(DELETED)
+                || status.equals(INVALID)
+                || status.equals(NONE)
+                || status.equals(INDEXING));
+    }
+}

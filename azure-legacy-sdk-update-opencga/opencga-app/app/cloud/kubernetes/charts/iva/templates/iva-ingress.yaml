@@ -1,0 +1,44 @@
+{{- $ingressBase := omit (deepCopy .Values.iva.ingress) "sites" -}}
+{{- range $key, $val := .Values.iva.ingress.sites }}
+{{- $ingress := merge (deepCopy $ingressBase) (deepCopy $val) -}}
+{{- if $ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $.Values.iva.name }}-{{ $key }}
+  labels:
+    {{- include "iva.labels" $ | nindent 4 }}
+    app: {{ $.Values.iva.name }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+{{- if $ingress.tls }}
+  tls:
+  {{- range $ingress.tls }}
+    - hosts:
+      {{- range .hosts }}
+        - {{ . | quote }}
+      {{- end }}
+      secretName: {{ .secretName }}
+  {{- end }}
+{{- end }}
+  rules:
+  {{- range $ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          {{- range $ingress.paths }}
+          - path: {{ . }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $.Values.iva.name }}
+                port:
+                  number: {{ $.Values.iva.service.port }}
+          {{- end }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

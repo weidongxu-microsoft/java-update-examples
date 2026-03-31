@@ -1,0 +1,119 @@
+<!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one or more
+  ~ contributor license agreements.  See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache License, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License.  You may obtain a copy of the License at
+  ~
+  ~       http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>hop-tech-azure</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <baseDirectory>.</baseDirectory>
+    <files>
+        <file>
+            <source>${project.basedir}/src/main/resources/version.xml</source>
+            <outputDirectory>plugins/tech/azure</outputDirectory>
+            <filtered>true</filtered>
+        </file>
+    </files>
+
+    <fileSets>
+        <fileSet>
+            <directory>${project.basedir}/src/main/samples</directory>
+            <outputDirectory>config/projects/samples/</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <dependencySets>
+        <dependencySet>
+            <includes>
+                <include>org.apache.hop:hop-tech-azure:jar</include>
+            </includes>
+            <outputDirectory>plugins/tech/azure</outputDirectory>
+        </dependencySet>
+        <dependencySet>
+            <scope>runtime</scope>
+            <excludes>
+                <exclude>org.apache.hop:hop-tech-azure:jar</exclude>
+                <exclude>org.jetbrains:annotations:jar</exclude>
+                <exclude>org.jetbrains.kotlin::jar</exclude>
+                <exclude>io.netty::jar</exclude>
+                <exclude>io.projectreactor.netty::jar</exclude>
+                <exclude>com.github.stephenc.jcip:jcip-annotations:jar</exclude>
+                <exclude>joda-time:joda-time:jar</exclude>
+                <exclude>com.squareup.okhttp3:okhttp:jar</exclude>
+                <exclude>com.squareup.okio::jar</exclude>
+                <exclude>io.projectreactor:reactor-core:jar</exclude>
+                <exclude>org.reactivestreams:reactive-streams:jar</exclude>
+                <exclude>com.fasterxml.jackson.core:*</exclude>
+                <exclude>com.fasterxml.jackson.datatype:*</exclude>
+                <exclude>com.fasterxml.jackson.dataformat:*</exclude>
+                <exclude>com.fasterxml.jackson.module:*</exclude>
+                <exclude>org.slf4j:*</exclude>
+                <exclude>net.java.dev.jna::jar</exclude>
+                <exclude>com.microsoft.azure:msal4j-persistence-extension:jar</exclude>
+                <exclude>com.microsoft.azure:msal4j:jar</exclude>
+                <exclude>com.nimbusds:oauth2-oidc-sdk:jar</exclude>
+                <exclude>com.azure:azure-core:jar</exclude>
+                <exclude>com.azure:azure-identity:jar</exclude>
+                <exclude>com.azure:azure-core-http-netty:jar</exclude>
+                <exclude>com.azure:azure-json:jar</exclude>
+                <exclude>com.microsoft.azure:azure-keyvault-core:jar</exclude>
+                <exclude>com.azure:azure-security-keyvault-secrets:jar</exclude>
+                <exclude>com.azure:azure-storage-blob:jar</exclude>
+                <exclude>com.azure:azure-storage-common:jar</exclude>
+                <exclude>com.azure:azure-storage-internal-avro:jar</exclude>
+                <exclude>com.azure:azure-xml:jar</exclude>
+                <exclude>com.nimbusds:nimbus-jose-jwt:jar</exclude>
+                <exclude>net.minidev:*:jar</exclude>
+            </excludes>
+            <outputDirectory>plugins/tech/azure/lib</outputDirectory>
+        </dependencySet>
+        <dependencySet>
+            <scope>runtime</scope>
+            <includes>
+                <include>org.jetbrains:annotations:jar</include>
+                <include>org.jetbrains.kotlin::jar</include>
+                <include>io.netty::jar</include>
+                <include>io.projectreactor.netty::jar</include>
+                <include>io.projectreactor:reactor-core:jar</include>
+                <include>com.github.stephenc.jcip:jcip-annotations:jar</include>
+                <include>joda-time:joda-time:jar</include>
+                <include>com.squareup.okhttp3:okhttp:jar</include>
+                <include>com.squareup.okio::jar</include>
+                <include>org.reactivestreams:reactive-streams:jar</include>
+                <include>net.java.dev.jna::jar</include>
+                <include>com.microsoft.azure:msal4j-persistence-extension:jar</include>
+                <include>com.microsoft.azure:msal4j:jar</include>
+                <include>com.nimbusds:oauth2-oidc-sdk:jar</include>
+                <include>com.azure:azure-core:jar</include>
+                <include>com.azure:azure-identity:jar</include>
+                <include>com.azure:azure-core-http-netty:jar</include>
+                <include>com.azure:azure-json:jar</include>
+                <include>com.microsoft.azure:azure-keyvault-core:jar</include>
+                <include>com.azure:azure-security-keyvault-secrets:jar</include>
+                <include>com.azure:azure-storage-blob:jar</include>
+                <include>com.azure:azure-storage-common:jar</include>
+                <include>com.azure:azure-storage-internal-avro:jar</include>
+                <include>com.azure:azure-xml:jar</include>
+                <include>com.nimbusds:nimbus-jose-jwt:jar</include>
+                <include>net.minidev:*:jar</include>
+            </includes>
+            <outputDirectory>lib/core</outputDirectory>
+        </dependencySet>
+    </dependencySets>
+</assembly>

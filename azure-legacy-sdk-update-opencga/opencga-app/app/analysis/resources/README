@@ -1,0 +1,6 @@
+README
+
+This directory is designated for OpenCGA analyses to download the necessary external data.
+For instance, during the first Exomiser analysis, the files '2109_hg38.zip' and '2109_phenotype.zip' will be downloaded
+from the OpenCGA analysis URL and stored in the 'exomiser' folder within this directory. Subsequent Exomiser analyses will
+then access this folder to read these files.

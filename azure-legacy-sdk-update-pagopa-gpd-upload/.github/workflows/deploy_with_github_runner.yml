@@ -1,0 +1,42 @@
+name: Deploy on AKS
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        description: The name of the environment where to deploy
+        type: string
+      branch:
+        required: false
+        default: ${{ github.ref_name }}
+        type: string
+
+env:
+  APP_NAME: gpd-upload-function
+
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [ self-hosted-job, "${{ inputs.environment }}" ]
+    name: Deploy on AKS
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Deploy
+        uses: pagopa/github-actions-template/aks-deploy@main
+        with:
+          branch: ${{ inputs.branch }}
+          client_id: ${{ secrets.CLIENT_ID }}
+          subscription_id: ${{ secrets.SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.TENANT_ID }}
+          env: ${{ inputs.environment }}
+          namespace: ${{ vars.NAMESPACE }}
+          cluster_name: ${{ vars.CLUSTER_NAME }}
+          resource_group: ${{ vars.CLUSTER_RESOURCE_GROUP }}
+          app_name: ${{ env.APP_NAME }}
+          helm_upgrade_options: '--debug --set microservice-chart.azure.workloadIdentityClientId=${{vars.WORKLOAD_IDENTITY_ID}}'
+          timeout: '15m0s'

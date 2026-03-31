@@ -1,0 +1,153 @@
+package org.opencb.opencga.storage.core.metadata.models;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.opencb.opencga.core.common.UriUtils;
+
+import java.net.URI;
+import java.util.LinkedHashSet;
+
+/**
+ * Created on 10/01/19.
+ *
+ * @author Jacobo Coll &lt;jacobo167@gmail.com&gt;
+ */
+public class FileMetadata extends StudyResourceMetadata<FileMetadata> {
+
+    public static final String VIRTUAL_PARENT = "virtualParent";
+    public static final String VIRTUAL_FILES = "virtualFiles";
+
+    /**
+     * Name of the file, if it is duplicated.
+     * If this is not null, then the file is a duplicated file.
+     * The name of the original file is stored here.
+     */
+    private String duplicatedName;
+    private String path;
+    private LinkedHashSet<Integer> samples;
+    private Type type = Type.NORMAL;
+
+    public enum Type {
+        NORMAL,
+        PARTIAL,
+        VIRTUAL;
+    }
+
+//    private VariantFileMetadata variantFileMetadata;
+
+//    private TaskMetadata.Status indexStatus;
+//    private TaskMetadata.Status annotationStatus;
+
+    public FileMetadata() {
+    }
+
+    public FileMetadata(int studyId, int id, String name) {
+        super(studyId, id, name);
+        this.path = name;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    @JsonIgnore
+    public URI getURI() {
+        return UriUtils.toUri(path);
+    }
+
+    public FileMetadata setPath(String path) {
+        this.path = path;
+        return this;
+    }
+
+    public LinkedHashSet<Integer> getSamples() {
+        return samples;
+    }
+
+    public FileMetadata setSamples(LinkedHashSet<Integer> samples) {
+        this.samples = samples;
+        return this;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public FileMetadata setType(Type type) {
+        this.type = type;
+        return this;
+    }
+
+    public boolean isDuplicatedName() {
+        return duplicatedName != null;
+    }
+
+    public String getDuplicatedName() {
+        return duplicatedName;
+    }
+
+    public FileMetadata setDuplicatedName(String duplicatedName) {
+        this.duplicatedName = duplicatedName;
+        return this;
+    }
+//    public VariantFileMetadata getVariantFileMetadata() {
+//        return variantFileMetadata;
+//    }
+//
+//    public FileMetadata setVariantFileMetadata(VariantFileMetadata variantFileMetadata) {
+//        this.variantFileMetadata = variantFileMetadata;
+//        return this;
+//    }
+
+    @JsonIgnore
+    public boolean isIndexed() {
+        return TaskMetadata.Status.READY.equals(getIndexStatus());
+    }
+
+    @JsonIgnore
+    public TaskMetadata.Status getIndexStatus() {
+        return getStatus("index");
+    }
+
+    @JsonIgnore
+    public FileMetadata setIndexStatus(TaskMetadata.Status indexStatus) {
+        return setStatus("index", indexStatus);
+    }
+
+    @JsonIgnore
+    public boolean isAnnotated() {
+        return TaskMetadata.Status.READY.equals(getAnnotationStatus());
+    }
+
+    @JsonIgnore
+    public TaskMetadata.Status getAnnotationStatus() {
+        return getStatus("annotation");
+    }
+
+    @JsonIgnore
+    public FileMetadata setAnnotationStatus(TaskMetadata.Status annotationStatus) {
+        return setStatus("annotation", annotationStatus);
+    }
+
+    @JsonIgnore
+    public TaskMetadata.Status getSecondaryAnnotationIndexStatus() {
+        return getStatus("secondaryAnnotationIndex");
+    }
+    @JsonIgnore
+    public FileMetadata setSecondaryAnnotationIndexStatus(TaskMetadata.Status annotationStatus) {
+        return setStatus("secondaryAnnotationIndex", annotationStatus);
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("studyId", getStudyId())
+                .append("id", getId())
+                .append("name", getName())
+                .append("status", getStatus())
+                .append("path", path)
+                .append("samples", samples)
+//                .append("variantFileMetadata", variantFileMetadata)
+                .toString();
+    }
+}

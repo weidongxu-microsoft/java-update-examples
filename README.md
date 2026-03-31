@@ -32,6 +32,11 @@
 - **azure-legacy-sdk-update-learn-azure-cosmosdb** – Getting started samples for Azure Cosmos DB (SQL API, MongoDB, Gremlin, Cassandra). Legacy Azure SDKs: `com.microsoft.azure:azure-cosmosdb:2.4.3`, `com.microsoft.azure:azure-documentdb:2.4.3`. Uses Maven, JDK 8. From https://github.com/yaravind/learn-azure-cosmosdb
 - **azure-legacy-sdk-update-eventgrid-connector** – Spring Boot application demonstrating connectivity to Azure Event Grid. Legacy Azure SDKs: `com.microsoft.azure:azure-eventgrid:1.2.0`, `com.microsoft.azure:azure-storage-spring-boot-starter`. Uses Maven, JDK 14. From https://github.com/crostonj/EventGridConnector
 - **azure-legacy-sdk-update-llmops-java** – LLMOps platform based on LangChain4j with Azure Cognitive Services integration. Legacy Azure SDKs: `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-websearch:1.0.1`, `com.microsoft.azure.cognitiveservices:azure-cognitiveservices-customsearch:1.0.1`. Uses Maven, JDK 17. From https://github.com/llm-manus/llmops-java
+- **azure-legacy-sdk-update-pagopa-gpd-upload** – Italian government payment platform Azure Function for GPD (Gestione Posizioni Debitorie) upload processing. Legacy Azure SDKs: `com.microsoft.azure:azure-storage:8.6.6`. Uses Maven, JDK 17. From https://github.com/pagopa/pagopa-gpd-upload-function
+- **azure-legacy-sdk-update-connector-msgraph** – ConnId connector for Microsoft Graph API providing identity management integration (users, groups, licenses) via the Microsoft Graph REST API. Legacy Azure SDKs: `com.microsoft.azure:adal4j:1.6.7`. Uses Maven, JDK 8. From https://github.com/Evolveum/connector-microsoft-graph-api
+- **azure-legacy-sdk-update-hop-azure** – Apache Hop data orchestration platform Azure plugin providing Event Hubs integration and Azure Blob Storage VFS support. Extracted from `plugins/tech/azure` module of the larger Apache Hop monorepo. Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:azure-eventhubs-eph:3.3.0`. Uses Maven, JDK 21, has 61 JUnit 5 tests. From https://github.com/apache/hop
+- **azure-legacy-sdk-update-opencga** – OpenCGA open computational genomics analysis platform for big data genomics. Uses Azure services for batch processing, blob storage, and AD authentication across multiple modules. Legacy Azure SDKs: `com.microsoft.azure:azure-batch:4.0.1`, `com.microsoft.azure:azure-storage-blob:11.0.0`, `com.microsoft.azure:adal4j:1.6.3`, `com.microsoft.azure:azure-client-authentication:1.7.14`, `com.microsoft.azure:azure-client-runtime:1.7.14`. Uses Maven, JDK 17+, has JUnit 4 tests. From https://github.com/opencb/opencga
+- **azure-legacy-sdk-update-beam-azure-io** – Apache Beam Azure IO module providing Azure Blob Storage read/write integration as a Beam FileSystem. Extracted from `sdks/java/io/azure` of the Apache Beam monorepo. Legacy Azure SDKs: `com.microsoft.azure:azure-storage:8.6.5` (alongside modern `com.azure:azure-storage-blob`). Uses Gradle (converted to standalone Maven pom.xml), JDK 8, has 36 JUnit 4 + Mockito tests. From https://github.com/apache/beam
 
 
 - **azure-legacy-sdk-update-storage-blob-spring-boot** – Spring Boot web app ("Cloud File Manager") with REST API for Azure Blob Storage CRUD operations. Uses Track 1 `azure-storage:8.6.6`. Includes modern file-manager UI, unit tests, and azd deployment configuration. Purpose-built for live demo of legacy SDK upgrade.
@@ -51,6 +56,11 @@
 - https://github.com/yaravind/learn-azure-cosmosdb (use Maven, JDK 8)
 - https://github.com/crostonj/EventGridConnector (use Maven/Spring Boot, JDK 14)
 - https://github.com/llm-manus/llmops-java (use Maven, JDK 17)
+- https://github.com/pagopa/pagopa-gpd-upload-function (use Maven, JDK 17)
+- https://github.com/Evolveum/connector-microsoft-graph-api (use Maven, JDK 8)
+- https://github.com/apache/hop (use Maven, JDK 21, extracted `plugins/tech/azure` module)
+- https://github.com/opencb/opencga (use Maven, JDK 17+, large monorepo with Azure batch/storage/AD auth)
+- https://github.com/apache/beam (use Gradle, JDK 8, extracted `sdks/java/io/azure` module)
 
 
 ## Attempted but failed

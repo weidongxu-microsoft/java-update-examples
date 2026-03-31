@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.rest.name }}
+  labels:
+    {{- include "opencga.labels" . | nindent 4 }}
+    app: {{  .Values.rest.name  }}
+spec:
+  replicas: {{ .Values.rest.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{  .Values.rest.name  }}
+      {{- include "opencga.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.rest.name  }}
+        confMd5: {{ .Values.confMd5 | default "NA" | quote }}
+        {{- include "opencga.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.rest.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ .Values.rest.name }}
+      securityContext:
+        {{- toYaml .Values.rest.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.rest.securityContext | nindent 12 }}
+          image: {{ tpl .Values.rest.image.repository . | quote }}
+          imagePullPolicy: {{ .Values.rest.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+          - "echo $PASSWORD | /opt/opencga/bin/opencga-admin.sh server rest --start"
+          env:
+          - name:  "PASSWORD"
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "opencga.secretName" . }}
+                key: openCgaAdminPassword
+          - name: DOCKER_HOST
+            value: tcp://localhost:2375
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 20
+            httpGet:
+              path: /opencga/webservices/rest/v1/meta/status
+              port: 9090
+          livenessProbe:
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 20
+            httpGet:
+              path: /opencga/webservices/rest/v1/meta/status
+              port: 9090
+          resources:
+            {{- toYaml .Values.rest.resources | nindent 12 }}
+          volumeMounts:
+            - name : conf
+              mountPath: /opt/opencga/conf
+            - name : sessions
+              mountPath: /opt/opencga/sessions
+            - name : variants
+              mountPath: /opt/opencga/variants
+            - name: analysisconf
+              mountPath: /opt/opencga/analysis
+            - name: opencgascratch
+              mountPath: /tmp/opencga_scratch
+            {{ include "additionalVolumeMounts" . | nindent 12 }}
+        - name: dind-daemon
+          image: docker:dind-rootless
+          securityContext:
+            privileged: true
+            runAsUser: 1000
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            dockerd-entrypoint.sh &
+            sleep 5
+            export DOCKER_HOST=unix:///run/user/1000/docker.sock
+            docker pull opencb/opencga-ext-tools:{{- .Chart.AppVersion }}
+            sleep infinity
+          env:
+              - name: DOCKER_TLS_CERTDIR
+                value: ""
+          volumeMounts:
+            - name: docker-graph-storage
+              mountPath: /var/lib/docker
+            - name: conf
+              mountPath: /opt/opencga/conf
+            - name: sessions
+              mountPath: /opt/opencga/sessions
+            - name: variants
+              mountPath: /opt/opencga/variants
+            - name: analysisconf
+              mountPath: /opt/opencga/analysis
+            - name: opencgascratch
+              mountPath: /tmp/opencga_scratch
+            {{ include "additionalVolumeMounts" . | nindent 12 }}
+      volumes:
+      - name: conf
+        persistentVolumeClaim:
+          claimName: {{ include "pvcConf" . | quote }}
+      - name: sessions
+        persistentVolumeClaim:
+          claimName: {{ include "pvcSessions" . | quote }}
+      - name: variants
+        persistentVolumeClaim:
+          claimName: {{ include "pvcVariants" . | quote }}
+      - name: analysisconf
+        persistentVolumeClaim:
+          claimName: {{ include "pvcAnalysisconf" . | quote }}
+      - name: docker-graph-storage
+        emptyDir: {}
+      - name: opencgascratch
+        emptyDir: {}
+      {{- include "additionalVolumes" . | nindent 6 -}}
+      {{- with .Values.rest.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.rest.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.rest.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

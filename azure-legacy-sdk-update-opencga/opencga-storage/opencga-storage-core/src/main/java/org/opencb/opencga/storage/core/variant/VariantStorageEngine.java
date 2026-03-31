@@ -1,0 +1,1630 @@
+/*
+ * Copyright 2015-2017 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.storage.core.variant;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
+import org.opencb.biodata.models.core.Region;
+import org.opencb.biodata.models.variant.StudyEntry;
+import org.opencb.biodata.models.variant.Variant;
+import org.opencb.biodata.models.variant.avro.VariantAnnotation;
+import org.opencb.biodata.models.variant.metadata.SampleVariantStats;
+import org.opencb.biodata.models.variant.metadata.VariantMetadata;
+import org.opencb.biodata.tools.variant.normalizer.extensions.VariantNormalizerExtensionFactory;
+import org.opencb.cellbase.client.config.ClientConfiguration;
+import org.opencb.cellbase.client.rest.CellBaseClient;
+import org.opencb.commons.datastore.core.*;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.common.TimeUtils;
+import org.opencb.opencga.core.config.storage.StorageConfiguration;
+import org.opencb.opencga.core.models.operations.variant.VariantAggregateFamilyParams;
+import org.opencb.opencga.core.models.operations.variant.VariantAggregateParams;
+import org.opencb.opencga.core.models.variant.VariantSetupParams;
+import org.opencb.opencga.storage.core.StorageEngine;
+import org.opencb.opencga.storage.core.StoragePipelineResult;
+import org.opencb.opencga.storage.core.exceptions.StorageEngineException;
+import org.opencb.opencga.storage.core.exceptions.StoragePipelineException;
+import org.opencb.opencga.storage.core.exceptions.VariantSearchException;
+import org.opencb.opencga.storage.core.metadata.StudyConfiguration;
+import org.opencb.opencga.storage.core.metadata.VariantMetadataFactory;
+import org.opencb.opencga.storage.core.metadata.VariantStorageMetadataManager;
+import org.opencb.opencga.storage.core.metadata.models.*;
+import org.opencb.opencga.storage.core.metadata.models.project.SearchIndexMetadata;
+import org.opencb.opencga.storage.core.utils.CellBaseUtils;
+import org.opencb.opencga.storage.core.variant.adaptors.*;
+import org.opencb.opencga.storage.core.variant.adaptors.iterators.MultiVariantDBIterator;
+import org.opencb.opencga.storage.core.variant.adaptors.iterators.VariantDBIterator;
+import org.opencb.opencga.storage.core.variant.adaptors.sample.VariantSampleDataManager;
+import org.opencb.opencga.storage.core.variant.annotation.DefaultVariantAnnotationManager;
+import org.opencb.opencga.storage.core.variant.annotation.VariantAnnotationManager;
+import org.opencb.opencga.storage.core.variant.annotation.VariantAnnotatorException;
+import org.opencb.opencga.storage.core.variant.annotation.annotators.VariantAnnotator;
+import org.opencb.opencga.storage.core.variant.annotation.annotators.VariantAnnotatorFactory;
+import org.opencb.opencga.storage.core.variant.io.VariantExporter;
+import org.opencb.opencga.storage.core.variant.io.VariantImporter;
+import org.opencb.opencga.storage.core.variant.io.VariantReaderUtils;
+import org.opencb.opencga.storage.core.variant.io.VariantWriterFactory.VariantOutputFormat;
+import org.opencb.opencga.storage.core.variant.io.db.VariantDBReader;
+import org.opencb.opencga.storage.core.variant.query.ParsedVariantQuery;
+import org.opencb.opencga.storage.core.variant.query.VariantQueryParser;
+import org.opencb.opencga.storage.core.variant.query.VariantQueryResult;
+import org.opencb.opencga.storage.core.variant.query.VariantQueryUtils;
+import org.opencb.opencga.storage.core.variant.query.executors.*;
+import org.opencb.opencga.storage.core.variant.score.VariantScoreFormatDescriptor;
+import org.opencb.opencga.storage.core.variant.search.SearchIndexVariantAggregationExecutor;
+import org.opencb.opencga.storage.core.variant.search.SearchIndexVariantQueryExecutor;
+import org.opencb.opencga.storage.core.variant.search.solr.VariantSearchLoadResult;
+import org.opencb.opencga.storage.core.variant.search.solr.VariantSearchManager;
+import org.opencb.opencga.storage.core.variant.search.solr.VariantSolrInputDocumentDataWriter;
+import org.opencb.opencga.storage.core.variant.search.solr.models.SolrCollectionStatus;
+import org.opencb.opencga.storage.core.variant.stats.DefaultVariantStatisticsManager;
+import org.opencb.opencga.storage.core.variant.stats.SampleVariantStatsAggregationQuery;
+import org.opencb.opencga.storage.core.variant.stats.VariantStatisticsManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+import static org.opencb.opencga.storage.core.utils.CellBaseUtils.toCellBaseSpeciesName;
+import static org.opencb.opencga.storage.core.variant.VariantStorageOptions.*;
+import static org.opencb.opencga.storage.core.variant.query.VariantQueryUtils.*;
+
+/**
+ * Created by imedina on 13/08/14.
+ */
+public abstract class VariantStorageEngine extends StorageEngine<VariantDBAdaptor> implements VariantIterable {
+
+    private final AtomicReference<VariantSearchManager> variantSearchManager = new AtomicReference<>();
+    private final List<VariantQueryExecutor> lazyVariantQueryExecutorsList = new ArrayList<>();
+    private final List<VariantAggregationExecutor> lazyVariantAggregationExecutorsList = new ArrayList<>();
+    private CellBaseUtils cellBaseUtils;
+
+    public static final String REMOVE_OPERATION_NAME = TaskMetadata.Type.REMOVE.name().toLowerCase();
+
+    private Logger logger = LoggerFactory.getLogger(VariantStorageEngine.class);
+    private ObjectMap options;
+
+    public enum MergeMode {
+        BASIC,
+        ADVANCED;
+
+        public static MergeMode from(ObjectMap options) {
+            String mergeModeStr = options.getString(MERGE_MODE.key(),
+                    MERGE_MODE.defaultValue().toString());
+            return MergeMode.valueOf(mergeModeStr.toUpperCase());
+        }
+    }
+
+    public enum UseSearchIndex {
+        YES, NO, AUTO;
+
+        public static UseSearchIndex from(Map<String, Object> options) {
+            return options == null || !options.containsKey(VariantSearchManager.USE_SEARCH_INDEX)
+                    ? AUTO
+                    : UseSearchIndex.valueOf(options.get(VariantSearchManager.USE_SEARCH_INDEX).toString().toUpperCase());
+        }
+    }
+
+    public enum SplitData {
+        CHROMOSOME,
+        REGION,
+        MULTI;
+
+        public static boolean isPartialSplit(ObjectMap options) {
+            return isPartialSplit(from(options));
+        }
+
+        public static boolean isPartialSplit(SplitData splitData) {
+            return splitData == CHROMOSOME || splitData == REGION;
+        }
+
+        public static SplitData from(ObjectMap options) {
+            Objects.requireNonNull(options);
+            String loadSplitDataStr = options.getString(LOAD_SPLIT_DATA.key());
+            boolean multiFile = options.getBoolean(LOAD_MULTI_FILE_DATA.key());
+            if (StringUtils.isNotEmpty(loadSplitDataStr) && multiFile) {
+                if (loadSplitDataStr.equalsIgnoreCase("multi")) {
+                    return MULTI;
+                } else {
+                    throw new IllegalArgumentException("Unable to mix " + LOAD_MULTI_FILE_DATA.key() + "=true and "
+                            + LOAD_SPLIT_DATA.key() + "='" + loadSplitDataStr + "'");
+                }
+            }
+            if (StringUtils.isEmpty(loadSplitDataStr) && !multiFile) {
+                return null;
+            }
+            if (multiFile) {
+                return MULTI;
+            } else {
+                switch (loadSplitDataStr.toLowerCase()) {
+                    case "chromosome":
+                        return CHROMOSOME;
+                    case "region":
+                        return REGION;
+                    case "multi":
+                        return MULTI; // FIXME: This shold not be allowed
+                    default:
+                        throw new IllegalArgumentException("Unknown split file method by '" + loadSplitDataStr + "'. "
+                                + "Available values: " + CHROMOSOME + ", " + REGION);
+                }
+            }
+        }
+    }
+
+    @Deprecated
+    public VariantStorageEngine() {}
+
+    public VariantStorageEngine(StorageConfiguration configuration) {
+        this(configuration.getVariant().getDefaultEngine(), configuration);
+    }
+
+    public VariantStorageEngine(String storageEngineId, StorageConfiguration configuration) {
+        super(storageEngineId, configuration);
+    }
+
+    /**
+     * Loads the given file into an empty database.
+     *
+     * The input file should have, in the same directory, a metadata file, with the same name ended with
+     * {@link VariantExporter#METADATA_FILE_EXTENSION}
+     *
+     * @param inputFile     Variants input file in avro format.
+     * @param params       Other options
+     * @throws IOException      if there is any I/O error
+     * @throws StorageEngineException  if there si any error loading the variants
+     * */
+    public void importData(URI inputFile, ObjectMap params) throws StorageEngineException, IOException {
+        VariantImporter variantImporter = newVariantImporter();
+        variantImporter.importData(inputFile);
+    }
+
+    /**
+     * Loads the given file into an empty database.
+     *
+     * @param inputFile     Variants input file in avro format.
+     * @param metadata      Metadata related with the data to be loaded.
+     * @param studies       Already processed StudyConfigurations
+     * @param params        Other options
+     * @throws IOException      if there is any I/O error
+     * @throws StorageEngineException  if there si any error loading the variants
+     * */
+    public void importData(URI inputFile, VariantMetadata metadata, List<StudyConfiguration> studies, ObjectMap params)
+            throws StorageEngineException, IOException {
+        VariantImporter variantImporter = newVariantImporter();
+        variantImporter.importData(inputFile, metadata, studies);
+    }
+
+    /**
+     * Creates a new {@link VariantImporter} for the current backend.
+     *
+     * There is no default VariantImporter.
+     *
+     * @return              new VariantImporter
+     * @throws StorageEngineException  if there is an error creating the VariantImporter
+     */
+    protected VariantImporter newVariantImporter() throws StorageEngineException {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Exports the result of the given query and the associated metadata.
+     * @param outputFile    Optional output file. If null or empty, will print into the Standard output. Won't export any metadata.
+     * @param outputFormat  Variant output format
+     * @param variantsFile  Optional variants file.
+     * @param query         Query with the variants to export
+     * @param queryOptions  Query options
+     * @throws IOException  If there is any IO error
+     * @throws StorageEngineException  If there is any error exporting variants
+     * @return output files, could be different from input
+     */
+    public List<URI> exportData(URI outputFile, VariantOutputFormat outputFormat, URI variantsFile, Query query, QueryOptions queryOptions)
+            throws IOException, StorageEngineException {
+        return exportData(outputFile, outputFormat, variantsFile, query, queryOptions, null);
+    }
+
+    /**
+     * Exports the result of the given query and the associated metadata.
+     *
+     * @param outputFile       Optional output file. If null or empty, will print into the Standard output. Won't export any metadata.
+     * @param outputFormat     Variant output format
+     * @param variantsFile     Optional variants file.
+     * @param query            Query with the variants to export
+     * @param queryOptions     Query options
+     * @param metadataFactory  Metadata factory. Metadata will only be generated if the outputFile is defined.
+     * @throws IOException            If there is any IO error
+     * @throws StorageEngineException If there is any error exporting variants
+     * @return outputFile could be different from input
+     */
+    public List<URI> exportData(URI outputFile, VariantOutputFormat outputFormat, URI variantsFile, Query query, QueryOptions queryOptions,
+                          VariantMetadataFactory metadataFactory)
+            throws IOException, StorageEngineException {
+        if (metadataFactory == null) {
+            metadataFactory = new VariantMetadataFactory(getMetadataManager());
+        }
+        VariantExporter exporter = newVariantExporter(metadataFactory);
+        switch (outputFormat.inPlain()) {
+            case VCF:
+                if (!isValidParam(query, VariantQueryParam.UNKNOWN_GENOTYPE)) {
+                    query.put(VariantQueryParam.UNKNOWN_GENOTYPE.key(), "./.");
+                }
+                break;
+            case JSON_SPARSE:
+                query.put(SPARSE_SAMPLES.key(), true);
+                query.put(VariantQueryParam.INCLUDE_SAMPLE_ID.key(), true);
+                break;
+            default:
+                break;
+        }
+        ParsedVariantQuery parsedVariantQuery = parseQuery(query, queryOptions);
+        if (!outputFormat.isMultiStudyOutput()) {
+            if (parsedVariantQuery.getProjection().getStudies().size() > 1) {
+                throw new IllegalArgumentException("Cannot export more than one study at a time with output format " + outputFormat
+                        + ". Please use the '" + VariantQueryParam.INCLUDE_STUDY.key() + "' query parameter to select a single study.");
+            }
+        }
+        return exporter.export(outputFile, outputFormat, variantsFile, parsedVariantQuery);
+    }
+
+    public List<URI> walkData(URI outputFile, VariantOutputFormat format, Query query, QueryOptions queryOptions,
+                              String dockerImage, String commandLine)
+            throws IOException, StorageEngineException {
+        if (format == VariantOutputFormat.VCF || format == VariantOutputFormat.VCF_GZ) {
+            if (!isValidParam(query, VariantQueryParam.UNKNOWN_GENOTYPE)) {
+                query.put(VariantQueryParam.UNKNOWN_GENOTYPE.key(), "./.");
+            }
+        }
+        commandLine = commandLine.replace("'", "'\"'\"'");
+
+        String memory = getOptions().getString(WALKER_DOCKER_MEMORY.key(), WALKER_DOCKER_MEMORY.defaultValue());
+        String cpu = getOptions().getString(WALKER_DOCKER_CPU.key(), WALKER_DOCKER_CPU.defaultValue());
+        String user = getOptions().getString(WALKER_DOCKER_USER.key(), WALKER_DOCKER_USER.defaultValue());
+        String envs = getOptions().getString(WALKER_DOCKER_ENV.key(), WALKER_DOCKER_ENV.defaultValue());
+        String volume = getOptions().getString(WALKER_DOCKER_MOUNT.key(), WALKER_DOCKER_MOUNT.defaultValue());
+        String opts = getOptions().getString(WALKER_DOCKER_OPTS.key(), WALKER_DOCKER_OPTS.defaultValue());
+
+        String dockerCommandLine = "docker run --rm -i "
+                + "--memory " + memory + " "
+                + "--cpus " + cpu + " ";
+
+        if (StringUtils.isNotEmpty(user)) {
+            dockerCommandLine += "--user " + user + " ";
+        }
+
+        if (StringUtils.isNotEmpty(volume)) {
+            dockerCommandLine += "-v " + volume + ":/data ";
+        }
+
+        if (StringUtils.isNotEmpty(envs)) {
+            for (String s : envs.split(",")) {
+                dockerCommandLine += "--env " + s + " ";
+            }
+        }
+        dockerCommandLine = dockerCommandLine
+                + opts
+                + dockerImage + " bash -ce '" + commandLine + "'";
+        return walkData(outputFile, format, query, queryOptions, dockerCommandLine);
+    }
+
+
+    public List<URI> walkData(URI outputFile, VariantOutputFormat format, Query query, QueryOptions queryOptions,
+                                       String commandLine)
+            throws StorageEngineException {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Creates a new {@link VariantExporter} for the current backend.
+     * The default implementation iterates locally through the database.
+     *
+     * @param metadataFactory metadataFactory
+     * @return              new VariantExporter
+     * @throws StorageEngineException  if there is an error creating the VariantExporter
+     */
+    protected VariantExporter newVariantExporter(VariantMetadataFactory metadataFactory) throws StorageEngineException {
+        return new VariantExporter(this, metadataFactory, ioConnectorProvider);
+    }
+
+    /**
+     * Index the given input files. By default, executes the steps in {@link VariantStoragePipeline}.
+     *
+     * Will create a {@link #newStoragePipeline} for each input file.
+     *
+     * @param inputFiles    Input files to index
+     * @param outdirUri     Output directory for possible intermediate files
+     * @param doExtract     Execute extract step {@link VariantStoragePipeline#extract}
+     * @param doTransform   Execute transform step {@link VariantStoragePipeline#transform}
+     * @param doLoad        Execute load step {@link VariantStoragePipeline#load}
+     * @return              List of {@link StoragePipelineResult}, one for each input file.
+     * @throws StorageEngineException      If there is any problem related with the StorageEngine
+     */
+    @Override
+    public List<StoragePipelineResult> index(List<URI> inputFiles, URI outdirUri, boolean doExtract, boolean doTransform, boolean doLoad)
+            throws StorageEngineException {
+        if (!doLoad) {
+            options.put(TRANSFORM_ISOLATE.key(), true);
+        } else {
+            createStudyIfNeeded();
+        }
+        List<StoragePipelineResult> results = super.index(inputFiles, outdirUri, doExtract, doTransform, doLoad);
+        if (doLoad) {
+            annotateLoadedFiles(outdirUri, inputFiles, results, getOptions());
+            calculateStatsForLoadedFiles(outdirUri, inputFiles, results, getOptions());
+            searchIndexLoadedFiles(inputFiles, getOptions());
+        }
+        return results;
+    }
+
+    @Override
+    public abstract VariantStoragePipeline newStoragePipeline(boolean connected) throws StorageEngineException;
+
+    /**
+     * Given a dbName, calculates the annotation for all the variants, and loads them into the database.
+     *
+     * @param outdir    Outdir where to store annotated variants
+     * @param params    Other params
+     * @throws VariantAnnotatorException    If the annotation goes wrong
+     * @throws StorageEngineException       If there is any problem related with the StorageEngine
+     * @return number of annotated variants
+     * @throws IOException                  If there is any IO problem
+     */
+    public long annotate(URI outdir, ObjectMap params) throws VariantAnnotatorException, StorageEngineException, IOException {
+        return annotate(outdir, new Query(), params);
+    }
+
+    /**
+     * Given a dbName, calculates the annotation for all the variants that matches with a given query, and loads them into the database.
+     *
+     * @param outdir    Outdir where to store annotated variants
+     * @param query     Query to select variants to annotate
+     * @param params    Other params
+     * @throws VariantAnnotatorException    If the annotation goes wrong
+     * @throws StorageEngineException       If there is any problem related with the StorageEngine
+     * @return number of annotated variants
+     * @throws IOException                  If there is any IO problem
+     */
+    public long annotate(URI outdir, Query query, ObjectMap params) throws VariantAnnotatorException, StorageEngineException, IOException {
+        // Merge with configuration
+        ObjectMap options = getMergedOptions(params);
+        options.put(DefaultVariantAnnotationManager.OUT_DIR, outdir.toString());
+        VariantAnnotationManager annotationManager = newVariantAnnotationManager(options);
+        return annotationManager.annotate(query, options);
+    }
+
+    /**
+     * Load an input file as VariantAnnotation.
+     *
+     * @param inputFile Annotation file to load
+     * @param params    Other params
+     * @throws VariantAnnotatorException    If the annotation goes wrong
+     * @throws StorageEngineException       If there is any problem related with the StorageEngine
+     * @return number of annotated variants
+     * @throws IOException                  If there is any IO problem
+     */
+    public long annotationLoad(URI inputFile, ObjectMap params) throws VariantAnnotatorException, StorageEngineException, IOException {
+        // Merge with configuration
+        ObjectMap options = getMergedOptions(params);
+        options.put(VariantAnnotationManager.LOAD_FILE, inputFile.toString());
+        VariantAnnotationManager annotationManager = newVariantAnnotationManager(options);
+        return annotationManager.annotate(new Query(), options);
+    }
+
+    /**
+     * Annotate loaded files. Used only to annotate recently loaded files, after the {@link #index}.
+     *
+     * @param outdirUri     Index output directory
+     * @param files         Indexed files
+     * @param results       StorageETLResults
+     * @param options       Other options
+     * @throws StorageEngineException  If there is any problem related with the StorageEngine
+     */
+    protected void annotateLoadedFiles(URI outdirUri, List<URI> files, List<StoragePipelineResult> results, ObjectMap options)
+            throws StorageEngineException {
+        if (files != null && !files.isEmpty() && options.getBoolean(ANNOTATE.key(),
+                ANNOTATE.defaultValue())) {
+            try {
+
+                String studyName = options.getString(STUDY.key());
+                VariantStorageMetadataManager metadataManager = getMetadataManager();
+                int studyId = metadataManager.getStudyId(studyName);
+
+                List<String> fileNames = new ArrayList<>(files.size());
+                for (URI uri : files) {
+                    Integer fileId;
+                    if (VariantReaderUtils.isTransformedVariants(uri.getPath())) {
+                        fileId = metadataManager.getFileId(studyId, VariantReaderUtils.getOriginalFromTransformedFile(uri));
+                    } else {
+                        fileId = metadataManager.getFileId(studyId, uri);
+                    }
+                    fileNames.add(metadataManager.getFileName(studyId, fileId));
+                }
+
+                // Annotate only the new indexed variants
+                Query annotationQuery = new Query();
+                if (!options.getBoolean(ANNOTATION_OVERWEITE.key(), false)) {
+                    annotationQuery.put(VariantQueryParam.ANNOTATION_EXISTS.key(), false);
+                }
+                annotationQuery.put(VariantQueryParam.STUDY.key(), Collections.singletonList(studyName));
+                annotationQuery.put(VariantQueryParam.FILE.key(), fileNames);
+
+                ObjectMap annotationOptions = new ObjectMap(options)
+                        .append(DefaultVariantAnnotationManager.FILE_NAME, dbName + "." + TimeUtils.getTime());
+
+                annotate(outdirUri, annotationQuery, annotationOptions);
+            } catch (RuntimeException | VariantAnnotatorException | IOException e) {
+                throw new StoragePipelineException("Error annotating: " + e.getMessage(), e, results);
+            }
+        }
+    }
+
+    public void saveAnnotation(String name, ObjectMap params) throws StorageEngineException, VariantAnnotatorException {
+        newVariantAnnotationManager(params).saveAnnotation(name, params);
+    }
+
+    public void deleteAnnotation(String name, ObjectMap params) throws StorageEngineException, VariantAnnotatorException {
+        newVariantAnnotationManager(params).deleteAnnotation(name, params);
+    }
+
+    public DataResult<VariantAnnotation> getAnnotation(Query query, QueryOptions options) throws StorageEngineException {
+        options = addDefaultLimit(options, getOptions());
+        return getDBAdaptor().getAnnotation(VariantAnnotationManager.CURRENT, query, options);
+    }
+
+    public DataResult<VariantAnnotation> getAnnotation(String name, Query query, QueryOptions options) throws StorageEngineException {
+        options = addDefaultLimit(options, getOptions());
+        return getDBAdaptor().getAnnotation(name, query, options);
+    }
+
+    public DataResult<ProjectMetadata.VariantAnnotationMetadata> getAnnotationMetadata(String name) throws StorageEngineException {
+        StopWatch started = StopWatch.createStarted();
+        ProjectMetadata projectMetadata = getMetadataManager().getProjectMetadata();
+        ProjectMetadata.VariantAnnotationSets annotation = projectMetadata.getAnnotation();
+        List<ProjectMetadata.VariantAnnotationMetadata> list;
+        if (StringUtils.isEmpty(name) || ALL.equals(name)) {
+            list = new ArrayList<>(annotation.getSaved().size() + 1);
+            if (annotation.getCurrent() != null) {
+                list.add(annotation.getCurrent());
+            }
+            list.addAll(annotation.getSaved());
+        } else {
+            list = new ArrayList<>();
+            for (String annotationName : name.split(",")) {
+                if (VariantAnnotationManager.CURRENT.equalsIgnoreCase(annotationName)) {
+                    if (annotation.getCurrent() != null) {
+                        list.add(annotation.getCurrent());
+                    }
+                } else {
+                    list.add(annotation.getSaved(annotationName));
+                }
+            }
+        }
+        return new DataResult<>(((int) started.getTime(TimeUnit.MILLISECONDS)), Collections.emptyList(), list.size(), list, list.size());
+    }
+
+    /**
+     * Provide a new VariantAnnotationManager for creating and loading annotations.
+     *
+     * @param params        Other params
+     * @return              A new instance of VariantAnnotationManager
+     * @throws StorageEngineException  if there is an error creating the VariantAnnotationManager
+     * @throws VariantAnnotatorException  if there is an error creating the VariantAnnotator
+     */
+    protected final VariantAnnotationManager newVariantAnnotationManager(ObjectMap params)
+            throws StorageEngineException, VariantAnnotatorException {
+        ProjectMetadata projectMetadata = getMetadataManager().getAndUpdateProjectMetadata(params);
+        VariantAnnotator annotator = VariantAnnotatorFactory.buildVariantAnnotator(
+                configuration, projectMetadata, getMergedOptions(params));
+        return newVariantAnnotationManager(annotator);
+    }
+
+    /**
+     * Provide a new VariantAnnotationManager for creating and loading annotations.
+     *
+     * @param annotator     VariantAnnotator to use for creating the new annotations
+     * @return              A new instance of VariantAnnotationManager
+     * @throws StorageEngineException  if there is an error creating the VariantAnnotationManager
+     */
+    protected VariantAnnotationManager newVariantAnnotationManager(VariantAnnotator annotator) throws StorageEngineException {
+        return new DefaultVariantAnnotationManager(annotator, getDBAdaptor(), ioConnectorProvider);
+    }
+
+    /**
+     *
+     * @param study     Study
+     * @param cohorts   Cohorts to calculate stats
+     * @param options   Other options
+     *                  {@link VariantStorageOptions#STATS_AGGREGATION_MAPPING_FILE}
+     *                  {@link VariantStorageOptions#STATS_OVERWRITE}
+     *                  {@link VariantStorageOptions#LOAD_THREADS}
+     *                  {@link VariantStorageOptions#LOAD_BATCH_SIZE}
+     *                  {@link VariantQueryParam#REGION}
+     *
+     * @throws StorageEngineException      If there is any problem related with the StorageEngine
+     * @throws IOException                  If there is any IO problem
+     */
+    public void calculateStats(String study, List<String> cohorts, QueryOptions options) throws StorageEngineException, IOException {
+        VariantStatisticsManager statisticsManager = newVariantStatisticsManager();
+        statisticsManager.calculateStatistics(study, cohorts, options);
+    }
+
+    public void calculateStats(String study, Map<String, ? extends Collection<String>> cohorts, QueryOptions options)
+            throws StorageEngineException, IOException {
+        VariantStatisticsManager statisticsManager = newVariantStatisticsManager();
+
+        VariantStorageMetadataManager metadataManager = getMetadataManager();
+        metadataManager.registerCohorts(study, cohorts);
+
+        statisticsManager.calculateStatistics(study, new ArrayList<>(cohorts.keySet()), options);
+    }
+
+    /**
+     * Calculate stats for loaded files. Used to calculate statistics for cohort ALL from recently loaded files, after the {@link #index}.
+     *
+     * @param output     Index output directory
+     * @param files         Indexed files
+     * @param results       StorageETLResults
+     * @param options       Other options
+     * @throws StoragePipelineException  If there is any problem related with the StorageEngine
+     */
+    protected void calculateStatsForLoadedFiles(URI output, List<URI> files, List<StoragePipelineResult> results, ObjectMap options)
+            throws StoragePipelineException {
+        if (files != null && !files.isEmpty() && options != null
+                && options.getBoolean(STATS_CALCULATE.key(), STATS_CALCULATE.defaultValue())) {
+            // TODO add filters
+            try {
+                VariantDBAdaptor dbAdaptor = getDBAdaptor();
+                logger.debug("Calculating stats for files: '{}'...", files.toString());
+
+                String studyName = options.getString(STUDY.key());
+                QueryOptions statsOptions = new QueryOptions(options);
+                VariantStorageMetadataManager metadataManager = dbAdaptor.getMetadataManager();
+                StudyMetadata studyMetadata = metadataManager.getStudyMetadata(studyName);
+
+                List<Integer> fileIds = new ArrayList<>(files.size());
+                for (URI uri : files) {
+                    Integer fileId;
+                    if (VariantReaderUtils.isTransformedVariants(uri.getPath())) {
+                        fileId = metadataManager.getFileId(studyMetadata.getId(), VariantReaderUtils.getOriginalFromTransformedFile(uri));
+                    } else {
+                        fileId = metadataManager.getFileId(studyMetadata.getId(), uri);
+                    }
+                    fileIds.add(fileId);
+                }
+                URI statsOutputUri = output.resolve(VariantStoragePipeline
+                        .buildFilename(studyMetadata.getName(), fileIds.get(0)) + "." + TimeUtils.getTime());
+                statsOptions.put(DefaultVariantStatisticsManager.OUTPUT, statsOutputUri.toString());
+
+                List<String> cohorts = Collections.singletonList(StudyEntry.DEFAULT_COHORT);
+                calculateStats(studyMetadata.getName(), cohorts, statsOptions);
+            } catch (Exception e) {
+                throw new StoragePipelineException("Can't calculate stats.", e, results);
+            }
+        }
+    }
+
+    public void deleteStats(String study, Collection<String> cohorts, ObjectMap params) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported deleteStats");
+    }
+
+    /**
+     * Build the sample index. For advanced users only.
+     * SampleIndex is built while loading data, so this operation should be executed only to rebuild the index,
+     * when changing some parameters.
+     *
+     * @param study   Study
+     * @param samples List of samples. Use {@link VariantQueryUtils#ALL} to index all samples.
+     * @param options Other options
+     * @throws StorageEngineException in an error occurs
+     */
+    public void sampleIndex(String study, List<String> samples, ObjectMap options) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported sampleIndex");
+    }
+
+    /**
+     * Annotate the sample index. For advanced users only.
+     * SampleIndex should be annotated after the annotation process, so this operation should be executed only
+     * to reannotate the index,when changing the annotation version.
+     *
+     * @param study   Study
+     * @param samples List of samples. Use {@link VariantQueryUtils#ALL} to index all samples.
+     * @param options Other options
+     * @throws StorageEngineException in an error occurs
+     */
+    public void sampleIndexAnnotate(String study, List<String> samples, ObjectMap options) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported sampleIndex annotate");
+    }
+
+    /**
+     * Build the family index given a list of trios.
+     * The Family Index is used alongside with the SampleIndex to speed up queries involving children and parents.
+     *
+     * @param study   Study
+     * @param trios Trios to index. If a family has two children, two trios should be defined.
+     * @param options Other options
+     * @throws StorageEngineException in an error occurs
+     * @return List of trios used to index. Empty if there was nothing to do.
+     */
+    public DataResult<Trio> familyIndex(String study, List<Trio> trios, ObjectMap options) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported familyIndex");
+    }
+
+    /**
+     * Update the family index.
+     * The Family Index is used alongside with the SampleIndex to speed up queries involving children and parents.
+     *
+     * @param study   Study
+     * @param options Other options
+     * @throws StorageEngineException in an error occurs
+     * @return List of trios used to index. Empty if there was nothing to do.
+     */
+    public DataResult<Trio> familyIndexUpdate(String study, ObjectMap options) throws StorageEngineException {
+        StudyMetadata studyMetadata = getMetadataManager().getStudyMetadata(study);
+        int studyId = studyMetadata.getId();
+        int version = studyMetadata.getSampleIndexConfigurationLatest().getVersion();
+        List<Trio> trios = new LinkedList<>();
+        for (SampleMetadata sampleMetadata : getMetadataManager().sampleMetadataIterable(studyId)) {
+            if (sampleMetadata.isFamilyIndexDefined()) {
+                if (sampleMetadata.getFamilyIndexStatus(version) != TaskMetadata.Status.READY) {
+                    // This sample's family index needs to be updated
+                    String father;
+                    if (sampleMetadata.getFather() == null) {
+                        father = null;
+                    } else {
+                        father = getMetadataManager().getSampleName(studyId, sampleMetadata.getFather());
+                    }
+                    String mother;
+                    if (sampleMetadata.getMother() == null) {
+                        mother = null;
+                    } else {
+                        mother = getMetadataManager().getSampleName(studyId, sampleMetadata.getMother());
+                    }
+                    trios.add(new Trio(father, mother, sampleMetadata.getName()));
+                }
+            }
+        }
+        if (trios.isEmpty()) {
+            logger.info("Nothing to do!");
+            return new DataResult<Trio>().setEvents(Collections.singletonList(new Event(Event.Type.INFO, "Nothing to do")));
+        } else {
+            return familyIndex(study, trios, options);
+        }
+    }
+
+    /**
+     * Provide a new VariantStatisticsManager for creating and loading statistics.
+     *
+     * @return              A new instance of VariantStatisticsManager
+     * @throws StorageEngineException  if there is an error creating the VariantStatisticsManager
+     */
+    public VariantStatisticsManager newVariantStatisticsManager() throws StorageEngineException {
+        return new DefaultVariantStatisticsManager(getDBAdaptor(), ioConnectorProvider);
+    }
+
+    /**
+     *
+     * @param study     Study
+     * @param params    Aggregate Family params
+     * @param options   Other options
+     * @param outdir    Output directory
+     * @throws StorageEngineException if there is any error
+     */
+    public void aggregateFamily(String study, VariantAggregateFamilyParams params, ObjectMap options, URI outdir)
+            throws StorageEngineException {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     *
+     * @param study     Study
+     * @param params    Aggregate Params
+     * @param options   Other options
+     * @throws StorageEngineException if there is any error
+     */
+    public void aggregate(String study, VariantAggregateParams params, ObjectMap options) throws StorageEngineException {
+        throw new UnsupportedOperationException();
+    }
+
+    public final VariantSearchLoadResult secondaryIndex() throws StorageEngineException, IOException, VariantSearchException {
+        return secondaryIndex(new Query(), new QueryOptions(), false);
+    }
+
+    public final VariantSearchLoadResult secondaryIndex(Query inputQuery, QueryOptions inputQueryOptions, final boolean overwrite)
+            throws StorageEngineException, IOException, VariantSearchException {
+
+        if (!configuration.getSearch().isActive()) {
+            throw new StorageEngineException("Search is not active!");
+        }
+
+        Query query = copy(inputQuery);
+        QueryOptions queryOptions = copy(inputQueryOptions);
+
+        VariantDBAdaptor dbAdaptor = getDBAdaptor();
+
+
+        VariantSearchManager variantSearchManager = getVariantSearchManager();
+        SearchIndexMetadata indexMetadata = variantSearchManager.getSearchIndexMetadataForLoading();
+
+        if (indexMetadata == null) {
+            if (variantSearchManager.existsCollection(dbName)) {
+                // Check if a default collection exists
+                indexMetadata = variantSearchManager.createMissingIndexMetadata();
+                logger.info("Collection {} exists. Missing index metadata. Create index metadata for configSet {}",
+                        dbName, indexMetadata.getConfigSetId());
+            } else {
+                // Create if it does not exist
+                indexMetadata = variantSearchManager.createIndexMetadataIfEmpty();
+                logger.info("Creating new secondary annotation index collection '{}' , configSetId:'{}'",
+                        variantSearchManager.buildCollectionName(indexMetadata), indexMetadata.getConfigSetId());
+            }
+        } else {
+            boolean shouldCreateNewIndex = false;
+            boolean collectionExists = variantSearchManager.exists(indexMetadata);
+            if (!collectionExists) {
+                String collectionName = variantSearchManager.buildCollectionName(indexMetadata);
+                logger.info("Collection {} does not exist. Clearing 'lastUpdateDate', 'creationDate' and 'status' for index metadata",
+                        collectionName);
+                int indexMetadataVersion = indexMetadata.getVersion();
+                indexMetadata = getMetadataManager().updateProjectMetadata(pm -> {
+                    pm.getSecondaryAnnotationIndex().getIndexMetadata(indexMetadataVersion)
+                            .setLastUpdateDate(null)
+                            .setCreationDate(Date.from(Instant.now()))
+                            .setStatus(SearchIndexMetadata.Status.STAGING);
+                }).getSecondaryAnnotationIndex().getIndexMetadata(indexMetadataVersion);
+            }
+            if (overwrite || !collectionExists) {
+                if (!indexMetadata.getConfigSetId().equals(configuration.getSearch().getConfigSet())) {
+                    logger.info("ConfigSetId changed from '{}' to '{}'. Creating new secondary annotation index to match new configSetId",
+                            indexMetadata.getConfigSetId(), configuration.getSearch().getConfigSet());
+                    shouldCreateNewIndex = true;
+                } else if (collectionExists) {
+                    String collectionName = variantSearchManager.buildCollectionName(indexMetadata);
+                    SolrCollectionStatus status = variantSearchManager.getCollectionStatus(collectionName);
+                    int numShards = status.getShards().size();
+                    int numNodes = variantSearchManager.getLiveNodes().size();
+                    int shardsPerNode = getOptions().getInt(VariantStorageOptions.SEARCH_LOAD_SHARDS_PER_NODE.key(),
+                            VariantStorageOptions.SEARCH_LOAD_SHARDS_PER_NODE.defaultValue());
+
+                    if (numShards < numNodes * shardsPerNode) {
+                        logger.info("Number of shards '{}' is less than expected '{}' ({} nodes * {} shards per node). "
+                                        + "Creating new secondary annotation index to match new number of shards",
+                                numShards, numNodes * shardsPerNode, numNodes, shardsPerNode);
+                        shouldCreateNewIndex = true;
+                    }
+                    // Check for any attribute change
+                    if (!shouldCreateNewIndex) {
+                        ObjectMap defaultAttributes = getVariantSearchManager().getDefaultIndexMetadataAttributes();
+                        ObjectMap attributes = new ObjectMap();
+                        for (String key : defaultAttributes.keySet()) {
+                            String defaultValue = defaultAttributes.getString(key);
+                            String value = indexMetadata.getAttributes().getString(key);
+                            attributes.put(key, value);
+                            if (!defaultValue.equals(value)) {
+                                shouldCreateNewIndex = true;
+                            }
+                        }
+                        if (shouldCreateNewIndex) {
+                            logger.info("Index metadata attributes '{}' do not match default attributes '{}'. "
+                                            + "Creating new secondary annotation index to match new attributes",
+                                    attributes.toJson(), defaultAttributes.toJson());
+                        }
+                    }
+                    // If nothing else, check if blue-green deployment is enabled
+                    if (!shouldCreateNewIndex) {
+                        boolean blueGreen = getOptions().getBoolean(SEARCH_LOAD_BLUE_GREEN_ON_OVERWRITE.key(),
+                                SEARCH_LOAD_BLUE_GREEN_ON_OVERWRITE.defaultValue());
+                        if (blueGreen) {
+                            shouldCreateNewIndex = true;
+                            logger.info("Blue-green deployment enabled. Creating new secondary annotation index.");
+                        }
+                    }
+                }
+            }
+
+            if (shouldCreateNewIndex) {
+                logger.info("Create new secondary annotation index collection.");
+                logger.info(" Prev : '{}' , configSetId:'{}', attributes:'{}'", variantSearchManager.buildCollectionName(indexMetadata),
+                        indexMetadata.getConfigSetId(), indexMetadata.getAttributes().toJson());
+                indexMetadata = variantSearchManager.newIndexMetadata();
+                logger.info(" New : '{}' , configSetId:'{}', attributes:'{}'",
+                        variantSearchManager.buildCollectionName(indexMetadata),
+                        indexMetadata.getConfigSetId(), indexMetadata.getAttributes().toJson());
+            }
+        }
+
+        long updateTimestamp = System.currentTimeMillis();
+        return secondaryIndex(inputQuery, inputQueryOptions, overwrite, indexMetadata, updateTimestamp);
+    }
+
+    protected VariantSearchLoadResult secondaryIndex(Query inputQuery, QueryOptions inputQueryOptions, boolean overwrite,
+                                                     SearchIndexMetadata indexMetadata, long updateStartTimestamp)
+            throws StorageEngineException, IOException, VariantSearchException {
+        Query query = VariantQueryUtils.copy(inputQuery);
+        if (query.keySet().stream().anyMatch(key -> !VariantQueryParam.REGION.key().equals(key))) {
+            throw new IllegalArgumentException("Secondary annotation index only supports queries with "
+                    + VariantQueryParam.REGION.key() + " parameter");
+        }
+        QueryOptions queryOptions = VariantQueryUtils.copy(inputQueryOptions);
+        queryOptions.put(QueryOptions.EXCLUDE, Arrays.asList(VariantField.STUDIES_SAMPLES, VariantField.STUDIES_FILES));
+
+        // check files and samples that will be affected
+        boolean partialLoad = isValidParam(query, VariantQueryParam.REGION);
+        VariantStorageMetadataManager mm = getMetadataManager();
+        Map<Integer, Set<Integer>> filesToBeUpdated = new HashMap<>();
+        Map<Integer, Set<Integer>> samplesToBeUpdated = new HashMap<>();
+        if (partialLoad) {
+            logger.info("Partial secondary index.");
+        } else {
+            for (Integer studyId : mm.getStudyIds()) {
+                HashSet<Integer> filesFromStudy = new HashSet<>();
+                HashSet<Integer> samplesFromStudy = new HashSet<>();
+                filesToBeUpdated.put(studyId, filesFromStudy);
+                samplesToBeUpdated.put(studyId, samplesFromStudy);
+                for (FileMetadata fileMetadata : mm.fileMetadataIterable(studyId)) {
+                    if (fileMetadata.getIndexStatus() == TaskMetadata.Status.READY
+                            && fileMetadata.getAnnotationStatus() == TaskMetadata.Status.READY) {
+                        if (fileMetadata.getSecondaryAnnotationIndexStatus() != TaskMetadata.Status.READY) {
+                            filesFromStudy.add(fileMetadata.getId());
+                        }
+                    }
+                }
+                for (SampleMetadata sampleMetadata : mm.sampleMetadataIterable(studyId)) {
+                    if (sampleMetadata.getIndexStatus() == TaskMetadata.Status.READY
+                            && sampleMetadata.getAnnotationStatus() == TaskMetadata.Status.READY) {
+                        if (sampleMetadata.getSecondaryAnnotationIndexStatus() != TaskMetadata.Status.READY) {
+                            samplesFromStudy.add(sampleMetadata.getId());
+                        }
+                    }
+                }
+            }
+
+            logger.info("Running secondary annotation index for {} new files and {} new samples",
+                    filesToBeUpdated.values().stream().mapToInt(Collection::size).sum(),
+                    samplesToBeUpdated.values().stream().mapToInt(Collection::size).sum());
+        }
+
+        // then, load variants
+        VariantSearchLoadResult load = secondaryIndexLoad(overwrite, indexMetadata, query, queryOptions, updateStartTimestamp);
+
+        if (partialLoad) {
+            logger.info("Partial secondary annotation index. Do not update modificationDate nor status");
+        } else {
+            logger.info("Update secondary annotation index status for {} new files and {} new samples",
+                    filesToBeUpdated.values().stream().mapToInt(Collection::size).sum(),
+                    samplesToBeUpdated.values().stream().mapToInt(Collection::size).sum());
+            if (indexMetadata.getStatus() != SearchIndexMetadata.Status.ACTIVE) {
+                logger.info("Updating secondary annotation index status from {} to {}",
+                        indexMetadata.getStatus(), SearchIndexMetadata.Status.ACTIVE);
+            }
+            VariantSearchManager variantSearchManager = getVariantSearchManager();
+            ProjectMetadata projectMetadata = variantSearchManager.setActiveIndex(indexMetadata, updateStartTimestamp);
+
+            for (SearchIndexMetadata deprecatedIndex : projectMetadata.getSecondaryAnnotationIndex().getDeprecatedIndexes()) {
+                variantSearchManager.delete(deprecatedIndex);
+            }
+
+            for (Map.Entry<Integer, Set<Integer>> entry : filesToBeUpdated.entrySet()) {
+                Integer study = entry.getKey();
+                for (Integer file : entry.getValue()) {
+                    mm.updateFileMetadata(study, file, fileMetadata -> {
+                        fileMetadata.setSecondaryAnnotationIndexStatus(TaskMetadata.Status.READY);
+                    });
+                }
+            }
+            for (Map.Entry<Integer, Set<Integer>> entry : samplesToBeUpdated.entrySet()) {
+                Integer study = entry.getKey();
+                for (Integer sample : entry.getValue()) {
+                    mm.updateSampleMetadata(study, sample, sampleMetadata -> {
+                        sampleMetadata.setSecondaryAnnotationIndexStatus(TaskMetadata.Status.READY);
+                    });
+                }
+            }
+        }
+
+        return load;
+
+    }
+
+    protected VariantSearchLoadResult secondaryIndexLoad(boolean overwrite, SearchIndexMetadata indexMetadata,
+                                                         Query query, QueryOptions queryOptions, long updateStartTimestamp)
+            throws StorageEngineException, IOException {
+        VariantSearchManager variantSearchManager = getVariantSearchManager();
+        VariantDBAdaptor dbAdaptor = getDBAdaptor();
+
+        if (!overwrite) {
+            query.put(VARIANTS_TO_INDEX.key(), true);
+        }
+        VariantSolrInputDocumentDataWriter writer = new VariantSolrInputDocumentDataWriter(
+                getVariantSearchManager(), indexMetadata);
+
+        try (VariantDBIterator iterator = dbAdaptor.iterator(query, queryOptions)) {
+            return variantSearchManager.load(indexMetadata, new VariantDBReader(iterator), writer, null);
+        } catch (StorageEngineException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new StorageEngineException("Exception building secondary index", e);
+        }
+    }
+
+    protected void searchIndexLoadedFiles(List<URI> inputFiles, ObjectMap options) throws StorageEngineException {
+        try {
+            if (options.getBoolean(INDEX_SEARCH.key())) {
+                secondaryIndex(new Query(), new QueryOptions(), false);
+            }
+        } catch (IOException | VariantSearchException e) {
+            throw new StorageEngineException("Error indexing in search", e);
+        }
+    }
+
+    public boolean secondaryAnnotationIndexActiveAndAlive() throws StorageEngineException {
+        if (!configuration.getSearch().isActive()) {
+            // Search is not active
+            return false;
+        }
+        SearchIndexMetadata indexMetadata = getVariantSearchManager().getSearchIndexMetadataForQueries();
+        if (indexMetadata == null) {
+            // No index metadata
+            // TODO: Add a migration step to create the index metadata if it does not exist
+            return false;
+        }
+        VariantSearchManager variantSearchManager = getVariantSearchManager();
+        if (variantSearchManager == null) {
+            // No search manager
+            return false;
+        }
+        return variantSearchManager.isAlive(indexMetadata);
+    }
+
+    /**
+     * Removes a file from the Variant Storage.
+     *
+     * @param study  StudyName or StudyId
+     * @param file   FileName
+     * @param outdir Output directory
+     * @throws StorageEngineException If the file can not be removed or there was some problem deleting it.
+     */
+    public void removeFile(String study, String file, URI outdir) throws StorageEngineException {
+        removeFiles(study, Collections.singletonList(file), outdir);
+    }
+
+    /**
+     * Removes files from the Variant Storage.
+     *
+     * @param study  StudyName or StudyId
+     * @param files Files to remove
+     * @param outdir Output directory
+     * @throws StorageEngineException If the files can not be removed or there was some problem deleting it.
+     */
+    public abstract void removeFiles(String study, List<String> files, URI outdir) throws StorageEngineException;
+
+    /**
+     * Removes samples from the Variant Storage.
+     *
+     * @param study  StudyName or StudyId
+     * @param samples Samples to remove
+     * @param outdir Output directory
+     * @throws StorageEngineException If the samples can not be removed or there was some problem deleting it.
+     */
+    public void removeSamples(String study, List<String> samples, URI outdir) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported remove sample operation at storage engine " + getStorageEngineId());
+    }
+
+    /**
+     * Atomically updates the storage metadata before removing samples.
+     *
+     * @param study    Study
+     * @param files     Files to fully delete, including all their samples.
+     * @param samples   Samples to remove, leaving partial files.
+     * @return FileIds to remove
+     * @throws StorageEngineException StorageEngineException
+     */
+    protected TaskMetadata preRemove(String study, List<String> files, List<String> samples) throws StorageEngineException {
+        AtomicReference<TaskMetadata> batchFileOperation = new AtomicReference<>();
+        boolean force = getOptions().getBoolean(FORCE.key(), FORCE.defaultValue());
+        boolean resume = getOptions().getBoolean(RESUME.key(), RESUME.defaultValue());
+        VariantStorageMetadataManager metadataManager = getMetadataManager();
+
+        int studyId = metadataManager.getStudyId(study);
+        List<Integer> fileIds = new ArrayList<>(files.size());
+        for (String file : files) {
+            FileMetadata fileMetadata = metadataManager.getFileMetadata(studyId, file);
+            if (fileMetadata == null) {
+                throw VariantQueryException.fileNotFound(file, study);
+            }
+            if (fileMetadata.getType() == FileMetadata.Type.PARTIAL) {
+                String virtualFileName = metadataManager.getFileName(
+                        studyId,
+                        fileMetadata.getAttributes().getInt(FileMetadata.VIRTUAL_PARENT));
+                throw new StorageEngineException("Unable to remove " + FileMetadata.Type.PARTIAL + " file. "
+                        + "Try removing its virtual file : '" + virtualFileName + "'");
+            }
+            if (fileMetadata.getIndexStatus() == TaskMetadata.Status.NONE) {
+                if (force) {
+                    logger.info("Force remove. Removing non indexed file: " + fileMetadata.getName());
+                } else {
+                    throw new StorageEngineException("Unable to remove non indexed file: " + fileMetadata.getName());
+                }
+            }
+            if (fileMetadata.getIndexStatus() == TaskMetadata.Status.RUNNING) {
+                if (force) {
+                    logger.info("Force remove. Removing file while being indexed: " + fileMetadata.getName());
+                } else {
+                    throw new StorageEngineException("Unable to remove file while being indexed: " + fileMetadata.getName());
+                }
+            }
+            fileIds.add(fileMetadata.getId());
+        }
+
+        metadataManager.updateStudyMetadata(study, studyMetadata -> {
+            List<TaskMetadata> tasksToAbort = new ArrayList<>();
+            HashSet<Integer> fileIdsSet = new HashSet<>(fileIds);
+
+            batchFileOperation.set(metadataManager.addRunningTask(
+                    studyMetadata.getId(),
+                    REMOVE_OPERATION_NAME,
+                    fileIds,
+                    resume,
+                    TaskMetadata.Type.REMOVE, runningTask -> {
+                        if (runningTask.getType() == TaskMetadata.Type.LOAD) {
+                            if (force && fileIdsSet.containsAll(runningTask.getFileIds())) {
+                                // Abort running load task as all files are being removed
+                                tasksToAbort.add(runningTask);
+                                return true;
+                            } else {
+                                if (force) {
+                                    logger.error("Unable to force remove the file while other files are being loaded.");
+                                }
+                                // Unable to remove files. Other files are being loaded.
+                                return false;
+                            }
+                        } else {
+                            // Unable to remove files. Other tasks are running.
+                            return false;
+                        }
+                    }));
+            // If the task was successfully created, abort other tasks.
+            for (TaskMetadata task : tasksToAbort) {
+                List<String> fileNames = task.getFileIds().stream()
+                        .map(fileId -> metadataManager.getFileName(studyMetadata.getId(), fileId))
+                        .collect(Collectors.toList());
+                TaskMetadata.Status status = TaskMetadata.Status.ABORTED;
+                logger.info("Force remove. Setting status to " + status + " of running task "
+                        + task.getName() + "('id=" + task.getId() + ") for files " + fileNames);
+                metadataManager.setStatus(studyMetadata.getId(), task.getId(), status);
+            }
+
+            return studyMetadata;
+        });
+        return batchFileOperation.get();
+    }
+
+    /**
+     * Atomically updates the storage metadata after removing samples.
+     *
+     * If success:
+     *    Updates remove status with READY
+     *    Removes the files from indexed files list
+     *    Removes the samples removed from the default cohort {@link StudyEntry#DEFAULT_COHORT}
+     *      * Be aware that some samples can be in multiple files.
+     *    Invalidates the cohorts with removed samples
+     *    Removes partially removed samples from their files
+     * If error:
+     *    Updates remove status with ERROR
+     *
+     * @param study      Study
+     * @param fileIds    Files to fully delete, including all their samples.
+     * @param samplesPartial  Samples to remove, leaving partial files.
+     * @param taskId     Remove task id
+     * @param error      If the remove operation succeeded
+     * @throws StorageEngineException StorageEngineException
+     */
+    protected void postRemoveFiles(String study, List<Integer> fileIds, List<Integer> samplesPartial, int taskId, boolean error)
+            throws StorageEngineException {
+        VariantStorageMetadataManager metadataManager = getMetadataManager();
+        metadataManager.updateStudyMetadata(study, studyMetadata -> {
+            if (error) {
+                metadataManager.setStatus(studyMetadata.getId(), taskId, TaskMetadata.Status.ERROR);
+            } else {
+                metadataManager.setStatus(studyMetadata.getId(), taskId, TaskMetadata.Status.READY);
+
+                Set<Integer> samples = new HashSet<>(samplesPartial);
+                Set<Integer> samplesFromFiles = new HashSet<>();
+                for (Integer fileId : fileIds) {
+                    samplesFromFiles.addAll(metadataManager.getFileMetadata(studyMetadata.getId(), fileId).getSamples());
+                }
+                samples.addAll(samplesFromFiles);
+
+                // Remove files and belonging samples
+                metadataManager.removeIndexedFiles(studyMetadata.getId(), fileIds);
+
+                for (Integer fileId : fileIds) {
+                    metadataManager.removeVariantFileMetadata(studyMetadata.getId(), fileId);
+                }
+
+                // Remove samples
+                metadataManager.removeSamples(studyMetadata.getId(), samplesPartial, fileIds);
+
+                // Restore default cohort with indexed samples
+                metadataManager.setSamplesToCohort(studyMetadata.getId(), StudyEntry.DEFAULT_COHORT,
+                        metadataManager.getIndexedSamples(studyMetadata.getId()));
+
+
+            }
+            return studyMetadata;
+        });
+        // Invalidate caches
+        metadataManager.clearCaches();
+    }
+
+    /**
+     * Remove a whole study from the Variant Storage.
+     *
+     * @param study  StudyName or StudyId
+     * @param outdir Output directory
+     * @throws StorageEngineException If the file can not be removed or there was some problem deleting it.
+     */
+    public abstract void removeStudy(String study, URI outdir) throws StorageEngineException;
+
+    /**
+     * Removes samples from the Variant Storage.
+     *
+     * @param dryMode Dry mode. Do not execute deletes
+     * @param resume Resume previously failed execution
+     * @param outdir Output directory
+     * @throws StorageEngineException If the samples can not be removed or there was some problem deleting it.
+     */
+    public void variantsPrune(boolean dryMode, boolean resume, URI outdir) throws StorageEngineException {
+        throw new UnsupportedOperationException("Unsupported variant prune operation at storage engine " + getStorageEngineId());
+    }
+
+    public abstract void loadVariantScore(URI scoreFile, String study, String scoreName, String cohort1, String cohort2,
+                                          VariantScoreFormatDescriptor descriptor, ObjectMap options)
+    throws StorageEngineException;
+
+    public abstract void deleteVariantScore(String study, String scoreName, ObjectMap options) throws StorageEngineException;
+
+    @Override
+    public abstract void testConnection() throws StorageEngineException;
+
+    public void validateNewConfiguration(ObjectMap params) throws StorageEngineException {
+        for (VariantStorageOptions option : values()) {
+            if (option.isProtected() && params.get(option.key()) != null) {
+                throw new StorageEngineException("Unable to update protected option '" + option.key() + "'");
+            }
+        }
+    }
+
+    public void reloadCellbaseConfiguration() {
+        cellBaseUtils = null;
+    }
+
+    public CellBaseUtils getCellBaseUtils() throws StorageEngineException {
+        if (cellBaseUtils == null) {
+            final ProjectMetadata metadata = getMetadataManager().getAndUpdateProjectMetadata(getOptions());
+
+            String species = metadata.getSpecies();
+            String assembly = metadata.getAssembly();
+
+            ClientConfiguration clientConfiguration = configuration.getCellbase().toClientConfiguration();
+            if (StringUtils.isEmpty(species)) {
+                species = clientConfiguration.getDefaultSpecies();
+            }
+            species = toCellBaseSpeciesName(species);
+            cellBaseUtils = new CellBaseUtils(new CellBaseClient(species, assembly, configuration.getCellbase().getDataRelease(),
+                    configuration.getCellbase().getApiKey(), clientConfiguration));
+        }
+        return cellBaseUtils;
+    }
+
+    @Override
+    public void setConfiguration(StorageConfiguration configuration, String storageEngineId, String dbName) {
+        options = new ObjectMap(configuration.getVariantEngine(storageEngineId).getOptions());
+        // Merge general options
+        configuration.getVariant().getOptions().forEach(options::putIfNotNull);
+        super.setConfiguration(configuration, storageEngineId, dbName);
+    }
+
+    public ObjectMap getOptions() {
+        return options;
+    }
+
+    public final ObjectMap getMergedOptions(Map<? extends String, ?> params) {
+        ObjectMap options = new ObjectMap(getOptions());
+        if (params != null) {
+            params.forEach(options::putIfNotNull);
+        }
+        return options;
+    }
+
+    public VariantReaderUtils getVariantReaderUtils() {
+        return new VariantReaderUtils(ioConnectorProvider);
+    }
+
+    /**
+     * Build the default VariantStorageMetadataManager. This method could be override by children classes if they want to use other class.
+     *
+     * @return VariantStorageMetadataManager
+     * @throws StorageEngineException If object is null
+     */
+    public abstract VariantStorageMetadataManager getMetadataManager() throws StorageEngineException;
+
+    public VariantSearchManager getVariantSearchManager() throws StorageEngineException {
+        if (variantSearchManager.get() == null) {
+            synchronized (variantSearchManager) {
+                if (variantSearchManager.get() == null) {
+                    // TODO One day we should use reflection here reading from storage-configuration.yml
+                    variantSearchManager.set(
+                            new VariantSearchManager(dbName, getMetadataManager(), getCellBaseUtils(), configuration, getOptions()));
+                }
+            }
+        }
+        return variantSearchManager.get();
+    }
+
+    public VariantQueryResult<Variant> getPhased(String variant, String studyName, String sampleName, QueryOptions options, int windowsSize)
+            throws StorageEngineException {
+        VariantQueryExecutor.setDefaultTimeout(options, getOptions());
+        return getDBAdaptor().getPhased(variant, studyName, sampleName, options, windowsSize);
+    }
+
+    public VariantQueryResult<Variant> getCompoundHeterozygous(String study, String child, String father, String mother,
+                                                               Query query, QueryOptions options) {
+        father = StringUtils.isEmpty(father) ? CompoundHeterozygousQueryExecutor.MISSING_SAMPLE : father;
+        mother = StringUtils.isEmpty(mother) ? CompoundHeterozygousQueryExecutor.MISSING_SAMPLE : mother;
+        query = new Query(query)
+                .append(SAMPLE_COMPOUND_HETEROZYGOUS.key(), new Trio(father, mother, child))
+                .append(VariantQueryParam.STUDY.key(), study);
+
+        return get(query, options);
+    }
+
+    public DataResult<Variant> getSampleData(String variantStr, String study, QueryOptions options) throws StorageEngineException {
+        final Variant variant = getVariant(variantStr);
+        return getVariantSampleDataManager().getSampleData(variant, study, options);
+    }
+
+    public Variant getVariant(String variantStr) {
+        final Variant variant;
+        if (isVariantId(variantStr)) {
+            variant = toVariant(variantStr, true);
+        } else if (isVariantAccession(variantStr)) {
+            VariantQueryResult<Variant> result = get(new Query(VariantQueryParam.ANNOT_XREF.key(), variantStr),
+                    new QueryOptions(QueryOptions.INCLUDE, VariantField.ID).append(QueryOptions.LIMIT, 1).append(QueryOptions.COUNT, true));
+            if (result.getNumMatches() > 1) {
+                throw new VariantQueryException("Not unique variant identifier '" + variantStr + "'."
+                        + " Found " + result.getNumMatches() + " results");
+            } else if (result.getNumResults() == 1) {
+                variant = result.first();
+            } else {
+                throw VariantQueryException.variantNotFound(variantStr);
+            }
+        } else {
+            throw new VariantQueryException("Variant not valid. Variant = '" + variantStr + "'. Supported values:"
+                    + " {chr}:{start}:{end}:{ref}:{alt}, rs{id}");
+        }
+        variant.setId(variant.toString());
+        return variant;
+    }
+
+    protected VariantSampleDataManager getVariantSampleDataManager() throws StorageEngineException {
+        return new VariantSampleDataManager(getDBAdaptor());
+    }
+
+    public VariantQueryResult<Variant> get(Query query, QueryOptions options) {
+        if (options == null) {
+            options = new QueryOptions();
+        }
+        if (query == null) {
+            query = new Query();
+        }
+        addDefaultLimit(options, getOptions());
+        addDefaultSampleLimit(query, getOptions());
+        ParsedVariantQuery variantQuery = parseQuery(query, options);
+        return getVariantQueryExecutor(variantQuery).get(variantQuery);
+    }
+
+    @Override
+    public MultiVariantDBIterator iterator(Iterator<?> variants, Query query, QueryOptions options, int batchSize) {
+        query = preProcessQuery(query, options);
+        try {
+            return getDBAdaptor().iterator(variants, query, options, batchSize);
+        } catch (StorageEngineException e) {
+            throw VariantQueryException.internalException(e);
+        }
+    }
+
+    @Override
+    public VariantDBIterator iterator(Query query, QueryOptions options) {
+        query = copy(query);
+        options = copy(options);
+        ParsedVariantQuery variantQuery = parseQuery(query, options);
+        return getVariantQueryExecutor(variantQuery).iterator(variantQuery);
+    }
+
+    public final List<VariantQueryExecutor> getVariantQueryExecutors() throws StorageEngineException {
+        if (lazyVariantQueryExecutorsList.isEmpty()) {
+            synchronized (lazyVariantQueryExecutorsList) {
+                if (lazyVariantQueryExecutorsList.isEmpty()) {
+                    lazyVariantQueryExecutorsList.addAll(initVariantQueryExecutors());
+                }
+            }
+        }
+        return lazyVariantQueryExecutorsList;
+    }
+
+    protected List<VariantQueryExecutor> initVariantQueryExecutors() throws StorageEngineException {
+        List<VariantQueryExecutor> executors = new ArrayList<>(6);
+
+        executors.add(new NoOpVariantQueryExecutor(
+                getMetadataManager(), getStorageEngineId(), getOptions()));
+        executors.add(new CompoundHeterozygousQueryExecutor(
+                getMetadataManager(), getStorageEngineId(), getOptions(), this));
+        executors.add(new BreakendVariantQueryExecutor(
+                getStorageEngineId(), getOptions(), new DBAdaptorVariantQueryExecutor(
+                getDBAdaptor(), getStorageEngineId(), getOptions()), getDBAdaptor()));
+        executors.add(new SearchIndexVariantQueryExecutor(
+                getDBAdaptor(), getVariantSearchManager(), getStorageEngineId(), configuration, getOptions()));
+        executors.add(new DBAdaptorVariantQueryExecutor(
+                getDBAdaptor(), getStorageEngineId(), getOptions()));
+        return executors;
+    }
+
+    /**
+     * Determine which {@link VariantQueryExecutor} should be used to execute the given query.
+     *
+     * @param query   Query to execute
+     * @param options Options for the query
+     * @return VariantQueryExecutor to use
+     */
+    public VariantQueryExecutor getVariantQueryExecutor(Query query, QueryOptions options) {
+        return getVariantQueryExecutor(parseQuery(query, options));
+    }
+
+    /**
+     * Determine which {@link VariantQueryExecutor} should be used to execute the given query.
+     *
+     * @param variantQuery Parsed variant query
+     * @return VariantQueryExecutor to use
+     */
+    public VariantQueryExecutor getVariantQueryExecutor(ParsedVariantQuery variantQuery) {
+        try {
+            for (VariantQueryExecutor executor : getVariantQueryExecutors()) {
+                if (executor.acceptsQuery(variantQuery)) {
+                    logger.info("Using VariantQueryExecutor : " + executor.getClass().getName());
+                    logger.info("  Query : " + printQuery(variantQuery.getInputQuery()));
+                    logger.info("  Options : " + variantQuery.getInputOptions().toJson());
+                    return executor;
+                }
+            }
+        } catch (StorageEngineException e) {
+            throw VariantQueryException.internalException(e);
+        }
+        // This should never happen, as the DBAdaptorVariantQueryExecutor can always run the query
+        throw new VariantQueryException("No VariantQueryExecutor found to run the query!");
+    }
+
+    public final VariantQueryExecutor getVariantQueryExecutor(Class<? extends VariantQueryExecutor> clazz)
+            throws StorageEngineException {
+        Optional<VariantQueryExecutor> first = getVariantQueryExecutors()
+                .stream()
+                .filter(e -> e instanceof SearchIndexVariantQueryExecutor)
+                .findFirst();
+        if (first.isPresent()) {
+            return first.get();
+        } else {
+            throw new StorageEngineException("VariantQueryExecutor " + clazz + " not found");
+        }
+    }
+
+    public Query preProcessQuery(Query originalQuery, QueryOptions options) {
+        try {
+            return getVariantQueryParser().preProcessQuery(originalQuery, options);
+        } catch (StorageEngineException e) {
+            throw VariantQueryException.internalException(e).setQuery(originalQuery);
+        }
+    }
+
+    public ParsedVariantQuery parseQuery(Query originalQuery, QueryOptions options) {
+        try {
+            return getVariantQueryParser().parseQuery(originalQuery, options);
+        } catch (StorageEngineException e) {
+            throw VariantQueryException.internalException(e).setQuery(originalQuery);
+        }
+    }
+
+    protected VariantQueryParser getVariantQueryParser() throws StorageEngineException {
+        return new VariantQueryParser(getCellBaseUtils(), getMetadataManager());
+    }
+
+    public DataResult distinct(Query query, String field) throws StorageEngineException {
+        return getDBAdaptor().distinct(query, field);
+    }
+
+    public DataResult rank(Query query, String field, int numResults, boolean asc) throws StorageEngineException {
+        return getDBAdaptor().rank(query, field, numResults, asc);
+    }
+
+    public DataResult getFrequency(Query query, Region region, int regionIntervalSize) throws StorageEngineException {
+        return getDBAdaptor().getFrequency(getVariantQueryParser().parseQuery(query, new QueryOptions(VariantField.SUMMARY, true)),
+                region, regionIntervalSize);
+    }
+
+    public DataResult groupBy(Query query, String field, QueryOptions options) throws StorageEngineException {
+        return getDBAdaptor().groupBy(query, field, options);
+    }
+
+    public DataResult groupBy(Query query, List<String> fields, QueryOptions options) throws StorageEngineException {
+        return getDBAdaptor().groupBy(query, fields, options);
+    }
+
+    public DataResult<Long> count(Query query) throws StorageEngineException {
+        VariantQueryResult<Variant> result = get(copy(query),
+                new QueryOptions(QueryOptions.INCLUDE, VariantField.ID)
+                        .append(QueryOptions.LIMIT, 1)
+                        .append(QueryOptions.COUNT, true));
+        return new DataResult<>(
+                result.getTime(),
+                result.getEvents(),
+                1,
+                Collections.singletonList(result.getNumMatches()), 1L, result.getAttributes());
+    }
+
+    public DataResult<SampleVariantStats> sampleStatsQuery(String studyStr, String sample, Query query, QueryOptions options)
+            throws StorageEngineException {
+        return new SampleVariantStatsAggregationQuery(this).sampleStatsQuery(studyStr, sample, query, options);
+    }
+
+    /**
+     * Fetch facet (i.e., counts) resulting of executing the query in the database.
+     *
+     * @param query          Query to be executed in the database to filter variants
+     * @param options        Query modifiers, accepted values are: facet fields and facet ranges
+     * @return               A FacetedQueryResult with the result of the query
+     */
+    public DataResult<FacetField> facet(Query query, QueryOptions options) {
+        query = copy(query);
+        options = copy(options);
+        // Hardcode INCLUDE to simplify preProcess operation, as the query does not return any study data.
+        options.put(QueryOptions.INCLUDE, VariantField.ID.fieldName());
+        addDefaultLimit(options, getOptions());
+        query = preProcessQuery(query, options);
+//        logger.info("Filter transcript = {} (raw: '{}')",
+//                options.getBoolean("filterTranscript", false), options.get("filterTranscript"));
+        return getVariantAggregationExecutor(query, options).aggregation(query, options);
+    }
+
+    protected final List<VariantAggregationExecutor> getVariantAggregationExecutors() {
+        if (lazyVariantAggregationExecutorsList.isEmpty()) {
+            synchronized (lazyVariantAggregationExecutorsList) {
+                if (lazyVariantAggregationExecutorsList.isEmpty()) {
+                    lazyVariantAggregationExecutorsList.addAll(initVariantAggregationExecutors());
+                }
+            }
+        }
+        return lazyVariantAggregationExecutorsList;
+    }
+
+    protected List<VariantAggregationExecutor> initVariantAggregationExecutors() {
+        List<VariantAggregationExecutor> executors = new ArrayList<>(3);
+
+        try {
+            executors.add(new SearchIndexVariantAggregationExecutor(getVariantSearchManager()));
+            executors.add(new ChromDensityVariantAggregationExecutor(this, getMetadataManager()));
+        } catch (Exception e) {
+            throw VariantQueryException.internalException(e);
+        }
+        return executors;
+    }
+
+    protected void createStudyIfNeeded() throws StorageEngineException {
+        String studyName = getOptions().getString(STUDY.key(), STUDY.defaultValue());
+        if (studyName == null || studyName.isEmpty()) {
+            throw new StorageEngineException("Missing study");
+        }
+        StudyMetadata studyMetadata = getMetadataManager().getStudyMetadata(studyName);
+        if (studyMetadata == null) {
+            logger.info("Creating a new StudyMetadata '{}'", studyName);
+            String cellbaseVersion;
+            try {
+                cellbaseVersion = getCellBaseUtils().getVersionFromServer();
+            } catch (IOException e) {
+                throw new StorageEngineException("Unable to get CellBase version", e);
+            }
+            getMetadataManager().createStudy(studyName, cellbaseVersion);
+        }
+    }
+
+    /**
+     * Determine which {@link VariantQueryExecutor} should be used to execute the given query.
+     *
+     * @param query   Query to execute
+     * @param options Options for the query
+     * @return VariantQueryExecutor to use
+     */
+    public VariantAggregationExecutor getVariantAggregationExecutor(Query query, QueryOptions options) {
+        List<String> messages = new LinkedList<>();
+        for (VariantAggregationExecutor executor : getVariantAggregationExecutors()) {
+            if (executor.canUseThisExecutor(query, options, messages)) {
+                return executor;
+            }
+        }
+        String facet = options == null ? null : options.getString(QueryOptions.FACET);
+        // This should rarely happen
+        logger.warn("Unable to run aggregation facet '" + facet + "' with query " + printQuery(query));
+        for (String message : messages) {
+            logger.warn(message);
+        }
+        throw new VariantQueryException("No VariantAggregationExecutor found to run the query. " + messages).setQuery(query);
+    }
+
+    public ObjectMap inferConfigurationParams(VariantSetupParams params) {
+        ObjectMap options = new ObjectMap();
+
+        List<String> normalizeExtensions = params.getNormalizeExtensions();
+        if (normalizeExtensions != null && !normalizeExtensions.isEmpty()) {
+            if (!normalizeExtensions.equals(Collections.singletonList(ParamConstants.ALL))) {
+                List<String> unsupportedExtensions = new ArrayList<>();
+                for (String normalizeExtension : normalizeExtensions) {
+                    if (!VariantNormalizerExtensionFactory.ALL_EXTENSIONS.contains(normalizeExtension)) {
+                        unsupportedExtensions.add(normalizeExtension);
+                    }
+                }
+                if (!unsupportedExtensions.isEmpty()) {
+                    throw new IllegalArgumentException("Unsupported normalize extensions: " + unsupportedExtensions + ". Supported "
+                            + "extensions are: " + VariantNormalizerExtensionFactory.ALL_EXTENSIONS);
+                }
+            }
+            options.put(NORMALIZATION_EXTENSIONS.key(), normalizeExtensions);
+        }
+        if (params.getDataDistribution() != null) {
+            switch (params.getDataDistribution()) {
+                case FILES_SPLIT_BY_CHROMOSOME:
+                    options.put(LOAD_SPLIT_DATA.key(), SplitData.CHROMOSOME);
+                    break;
+                case FILES_SPLIT_BY_REGION:
+                    options.put(LOAD_SPLIT_DATA.key(), SplitData.REGION);
+                    break;
+                case MULTIPLE_FILES_PER_SAMPLE:
+                    options.put(LOAD_MULTI_FILE_DATA.key(), true);
+                    options.put(LOAD_SPLIT_DATA.key(), SplitData.MULTI);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return options;
+    }
+
+    @Override
+    public void close() throws IOException {
+        cellBaseUtils = null;
+        if (variantSearchManager.get() != null) {
+            try {
+                variantSearchManager.get().close();
+            } finally {
+                variantSearchManager.set(null);
+            }
+        }
+        lazyVariantQueryExecutorsList.clear();
+    }
+}
+

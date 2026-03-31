@@ -1,0 +1,391 @@
+/*
+ * Copyright 2015-2017 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.storage.core.variant.io;
+
+import org.apache.commons.lang3.StringUtils;
+import org.opencb.biodata.models.variant.Variant;
+import org.opencb.biodata.models.variant.avro.VariantAvro;
+import org.opencb.biodata.models.variant.metadata.VariantMetadata;
+import org.opencb.biodata.tools.variant.stats.writer.VariantStatsPopulationFrequencyExporter;
+import org.opencb.biodata.tools.variant.stats.writer.VariantStatsTsvExporter;
+import org.opencb.biodata.tools.variant.writers.EnsemblVepOutputWriter;
+import org.opencb.commons.datastore.core.Query;
+import org.opencb.commons.datastore.core.QueryOptions;
+import org.opencb.commons.io.DataWriter;
+import org.opencb.opencga.core.common.UriUtils;
+import org.opencb.opencga.storage.core.exceptions.StorageEngineException;
+import org.opencb.opencga.storage.core.io.managers.IOConnectorProvider;
+import org.opencb.opencga.storage.core.metadata.VariantMetadataFactory;
+import org.opencb.opencga.storage.core.metadata.VariantStorageMetadataManager;
+import org.opencb.opencga.storage.core.metadata.models.CohortMetadata;
+import org.opencb.opencga.storage.core.metadata.models.StudyMetadata;
+import org.opencb.opencga.storage.core.variant.adaptors.VariantDBAdaptor;
+import org.opencb.opencga.storage.core.variant.io.avro.VariantAvroWriter;
+import org.opencb.opencga.storage.core.variant.io.json.VariantJsonWriter;
+import org.opencb.opencga.storage.core.variant.query.projection.VariantQueryProjectionParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.io.BufferedOutputStream;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URI;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.zip.GZIPOutputStream;
+
+import static org.opencb.opencga.storage.core.variant.adaptors.VariantQueryParam.INCLUDE_STUDY;
+import static org.opencb.opencga.storage.core.variant.io.VariantWriterFactory.VariantOutputFormat.*;
+
+/**
+ * Created on 06/12/16.
+ *
+ * @author Jacobo Coll &lt;jacobo167@gmail.com&gt;
+ */
+public class VariantWriterFactory {
+
+    private static Logger logger = LoggerFactory.getLogger(VariantWriterFactory.class);
+    private final VariantStorageMetadataManager variantStorageMetadataManager;
+
+    public VariantWriterFactory(VariantDBAdaptor dbAdaptor) {
+        variantStorageMetadataManager = dbAdaptor.getMetadataManager();
+    }
+
+    public VariantWriterFactory(VariantStorageMetadataManager variantStorageMetadataManager) {
+        this.variantStorageMetadataManager = variantStorageMetadataManager;
+    }
+
+    public enum VariantOutputFormat {
+        VCF("vcf", false),
+        VCF_GZ("vcf.gz", false),
+        JSON("json"),
+        JSON_GZ("json.gz"),
+        JSON_SPARSE("sparse.json"),
+        JSON_SPARSE_GZ("sparse.json.gz"),
+        AVRO("avro", true, true),
+        AVRO_GZ("avro.gz", true, true),
+        AVRO_SNAPPY("avro.snappy", true, true),
+        PARQUET("parquet", true, true),
+        PARQUET_GZ("parquet.gz", true, true),
+        STATS("stats.tsv", false),
+        STATS_GZ("stats.tsv.gz", false),
+        CELLBASE("frequencies.json"),
+        CELLBASE_GZ("frequencies.json.gz"),
+        TPED("tped", false),
+        ENSEMBL_VEP("vep.txt", false),
+        ENSEMBL_VEP_GZ("vep.txt.gz", false);
+
+        private final boolean multiStudy;
+        private final boolean binary;
+        private final String extension;
+
+        VariantOutputFormat(String extension) {
+            this.extension = extension;
+            this.multiStudy = true;
+            this.binary = false;
+        }
+
+        VariantOutputFormat(String extension, boolean multiStudy) {
+            this.multiStudy = multiStudy;
+            this.extension = extension;
+            this.binary = false;
+        }
+
+        VariantOutputFormat(String extension, boolean multiStudy, boolean binary) {
+            this.multiStudy = multiStudy;
+            this.extension = extension;
+            this.binary = binary;
+        }
+
+        public String getExtension() {
+            return extension;
+        }
+
+        public boolean isMultiStudyOutput() {
+            return multiStudy;
+        }
+
+        public boolean isPlain() {
+            return !isGzip() && !isSnappy();
+        }
+
+        public boolean isGzip() {
+            return extension.endsWith(".gz");
+        }
+
+        public boolean isSnappy() {
+            return extension.endsWith(".snappy");
+        }
+
+        public boolean isBinary() {
+            return binary;
+        }
+
+        public VariantOutputFormat inPlain() {
+            if (!isPlain()) {
+                return VariantOutputFormat.valueOf(name().replace("_GZ", "").replace("_SNAPPY", ""));
+            } else {
+                return this;
+            }
+        }
+
+        public VariantOutputFormat withGzip() {
+            try {
+                if (isGzip()) {
+                    return this;
+                } else if (isSnappy()) {
+                    return VariantOutputFormat.valueOf(name().replace("_SNAPPY", "_GZ"));
+                } else {
+                    return VariantOutputFormat.valueOf(name() + "_GZ");
+                }
+            } catch (IllegalArgumentException e) {
+                logger.debug("Unable to get gzip of " + this, e);
+                return this;
+            }
+        }
+
+    }
+
+    /**
+     * Transform the string to a valid output format.
+     * If none, VCF by default.
+     *
+     * @param outputFormatStr   Output format as String
+     * @param output            Output file
+     * @return                  Valid VariantOutputFormat
+     * @throws                  IllegalArgumentException if the outputFormatStr is not valid
+     */
+    public static VariantOutputFormat toOutputFormat(String outputFormatStr, String output) {
+        return toOutputFormat(outputFormatStr, StringUtils.isEmpty(output) ? null : URI.create(output));
+    }
+
+    /**
+     * Transform the string to a valid output format.
+     * If none, VCF by default.
+     *
+     * @param outputFormatStr   Output format as String
+     * @param output            Output file
+     * @return                  Valid VariantOutputFormat
+     * @throws                  IllegalArgumentException if the outputFormatStr is not valid
+     */
+    public static VariantOutputFormat toOutputFormat(String outputFormatStr, URI output) {
+        if (StringUtils.isNotEmpty(outputFormatStr)) {
+            outputFormatStr = outputFormatStr.replace('.', '_');
+            return VariantOutputFormat.valueOf(outputFormatStr.toUpperCase());
+        } else if (isStandardOutput(output)) {
+            return VCF;
+        } else {
+            return VCF_GZ;
+        }
+    }
+
+    public static URI checkOutput(@Nullable URI output, VariantOutputFormat outputFormat) throws IOException {
+        if (isStandardOutput(output)) {
+            return null;
+        }
+
+        return UriUtils.replacePath(output, checkOutput(output.getPath(), outputFormat));
+    }
+
+    public static String checkOutput(@Nullable String output, VariantOutputFormat outputFormat) throws IOException {
+        if (isStandardOutput(output)) {
+            // Standard output
+            return null;
+        }
+        if (output.endsWith("/")) {
+            throw new IllegalArgumentException("Invalid directory as output file name");
+        }
+        if (output.endsWith(".")) {
+            output = output.substring(0, output.length() - 1);
+        }
+        if (!output.endsWith(outputFormat.getExtension())) {
+            String[] split = outputFormat.getExtension().split("\\.");
+            int idx = 0;
+            for (int i = 0; i < split.length; i++) {
+                String s = split[i];
+                if (output.endsWith('.' + s)) {
+                    idx = i + 1;
+                }
+            }
+            for (int i = idx; i < split.length; i++) {
+                String s = split[i];
+                if (!output.endsWith(s)) {
+                    output = output + '.' + s;
+                }
+            }
+        }
+
+        return output;
+    }
+
+    public static OutputStream getOutputStream(URI output, VariantOutputFormat outputFormat, IOConnectorProvider ioConnectorProvider)
+            throws IOException {
+        boolean gzip = outputFormat.isGzip();
+
+        if (outputFormat == PARQUET || outputFormat == PARQUET_GZ) {
+            // dummy stream. Do not use a stream for Parquet
+            return new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    throw new IOException("Unexpected write");
+                }
+            };
+        }
+        // output format has priority over output name
+        OutputStream outputStream;
+        if (isStandardOutput(output)) {
+            // Unclosable OutputStream
+            outputStream = new UnclosableOutputStream(System.out);
+        } else {
+            outputStream = ioConnectorProvider.newOutputStreamRaw(output);
+            logger.debug("writing to %s", output);
+        }
+
+        // If compressed a GZip output stream is used
+        if (gzip && outputFormat != VariantOutputFormat.AVRO_GZ) {
+            outputStream = new GZIPOutputStream(outputStream);
+        } else {
+            outputStream = new BufferedOutputStream(outputStream);
+        }
+
+        logger.debug("using {} output stream", gzip ? "gzipped" : "plain");
+
+        return outputStream;
+    }
+
+    public DataWriter<Variant> newDataWriter(VariantOutputFormat outputFormat, final OutputStream outputStream,
+                                                Query query, QueryOptions queryOptions) throws IOException {
+        final DataWriter<Variant> exporter;
+
+        switch (outputFormat) {
+            case VCF_GZ:
+            case VCF:
+                VariantMetadataFactory metadataFactory = new VariantMetadataFactory(variantStorageMetadataManager);
+                VariantMetadata variantMetadata;
+                try {
+                    variantMetadata = metadataFactory.makeVariantMetadata(query, queryOptions, true);
+                } catch (StorageEngineException e) {
+                    throw new IOException(e);
+                }
+                if (!variantMetadata.getStudies().isEmpty()) {
+                    List<String> annotations = queryOptions.getAsStringList("annotations");
+                    exporter = VcfDataWriter.newWriterForAvro(variantMetadata, annotations, outputStream);
+                } else {
+                    throw new IllegalArgumentException("No study found named " + query.getAsStringList(INCLUDE_STUDY.key()));
+                }
+                break;
+
+            case JSON_GZ:
+            case JSON:
+            case JSON_SPARSE_GZ:
+            case JSON_SPARSE:
+                exporter = new VariantJsonWriter(outputStream);
+                break;
+
+            case AVRO:
+            case AVRO_GZ:
+            case AVRO_SNAPPY:
+                String codecName = "";
+                if (outputFormat.isGzip()) {
+                    codecName = "gzip";
+                } else if (outputFormat.isSnappy()) {
+                    codecName = "snappy";
+                }
+                exporter = new VariantAvroWriter(VariantAvro.getClassSchema(), codecName, outputStream);
+                break;
+
+            case STATS_GZ:
+            case STATS:
+                StudyMetadata sm = getStudyMetadata(query, true);
+                List<String> cohorts = new LinkedList<>();
+                for (CohortMetadata cohort : variantStorageMetadataManager.getCalculatedCohorts(sm.getId())) {
+                    cohorts.add(cohort.getName());
+                }
+                exporter = new VariantStatsTsvExporter(outputStream, sm.getName(), cohorts);
+                break;
+
+            case CELLBASE_GZ:
+            case CELLBASE:
+                exporter = new VariantStatsPopulationFrequencyExporter(outputStream);
+                break;
+
+            case TPED:
+                exporter = new VariantTpedWriter(outputStream);
+                break;
+
+            case ENSEMBL_VEP:
+            case ENSEMBL_VEP_GZ:
+                exporter = new EnsemblVepOutputWriter(outputStream);
+                break;
+
+            default:
+                throw variantFormatNotSupported(outputFormat.toString());
+        }
+
+        return exporter;
+    }
+
+    protected static IllegalArgumentException variantFormatNotSupported(String outputFormatStr) {
+        return new IllegalArgumentException("Unknown output format " + outputFormatStr);
+    }
+
+    public static boolean isStandardOutput(String output) {
+        return StringUtils.isEmpty(output);
+    }
+
+    public static boolean isStandardOutput(URI output) {
+        return output == null;
+    }
+
+    protected StudyMetadata getStudyMetadata(Query query, boolean singleStudy) {
+        List<Integer> studyIds = VariantQueryProjectionParser.getIncludeStudies(query, QueryOptions.empty(), variantStorageMetadataManager);
+
+        if (studyIds.isEmpty()) {
+            studyIds = variantStorageMetadataManager.getStudyIds(null);
+            if (studyIds == null) {
+                throw new IllegalArgumentException();
+            }
+        }
+        if (singleStudy) {
+            if (studyIds.size() > 1) {
+                throw new IllegalArgumentException();
+            }
+        }
+        return variantStorageMetadataManager.getStudyMetadata(studyIds.get(0));
+    }
+
+    /**
+     * Unclosable output stream.
+     *
+     * Avoid passing System.out directly to HTSJDK, because it will close it at the end.
+     *
+     * http://stackoverflow.com/questions/8941298/system-out-closed-can-i-reopen-it/23791138#23791138
+     */
+    public static class UnclosableOutputStream extends FilterOutputStream {
+
+        public UnclosableOutputStream(OutputStream os) {
+            super(os);
+        }
+
+        @Override
+        public void close() throws IOException {
+            super.flush();
+        }
+    }
+}

@@ -1,0 +1,22 @@
+---
+logLevel: "INFO"
+
+# Number of seconds that session remains open without any activity [10 min]
+#cliSessionDuration: 600
+
+## REST client configuration options
+rest:
+  hosts:
+    - name: "opencga"
+      url: "${OPENCGA.CLIENT.REST.HOST}"
+  defaultHost: "opencga"
+  tokenAutoRefresh: true
+  tlsAllowInvalidCertificates: false
+  query:
+    batchSize: 200
+    limit: 2000
+
+
+## gRPC configuration options
+grpc:
+  host: "${OPENCGA.CLIENT.GRPC.HOST}"

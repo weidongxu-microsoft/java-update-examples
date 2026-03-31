@@ -1,0 +1,378 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "aksClusterName": {
+            "type": "string",
+            "defaultValue": "aks",
+            "metadata": {
+                "description": "Azure Kubernetes Service name"
+            }
+        },
+        "aksServicePrincipalAppId": {
+            "type": "string",
+            "metadata": {
+                "description": "appId of the service principal. Used by AKS to manage AKS related resources on Azure like vms, subnets."
+            }
+        },
+        "aksServicePrincipalClientSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "password for the service principal. Used by AKS to manage Azure."
+            }
+        },
+        "aksServicePrincipalObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "objectId of the service principal."
+            }
+        },
+        "aksNodeResourceGroup": {
+            "type": "string",
+            "defaultValue": null,
+            "metadata": {
+                "description": "Name of the resource group containing agent pool nodes."
+            }
+        },
+        "vnetId": {
+            "type": "string",
+            "metadata": {
+                "description": "VNet Name."
+            }
+        },
+        "kubernetesSubnetId": {
+            "type": "string",
+            "metadata": {
+                "description": "Kubernetes Subnet Name."
+            }
+        },
+        "aciSubnetId": {
+            "type": "string",
+            "metadata": {
+                "description": "ACI Subnet Name."
+            }
+        },
+        "aksDnsPrefix": {
+            "defaultValue": "opencga",
+            "type": "string",
+            "metadata": {
+                "description": "Optional DNS prefix to use with hosted Kubernetes API server FQDN."
+            }
+        },
+        "aksAgentOsDiskSizeGB": {
+            "defaultValue": 1023,
+            "minValue": 30,
+            "maxValue": 1023,
+            "type": "int",
+            "metadata": {
+                "description": "Disk size (in GB) to provision for each of the agent pool nodes. This value ranges from 30 to 1023."
+            }
+        },
+        "aksAgentCount": {
+            "defaultValue": 3,
+            "minValue": 1,
+            "maxValue": 50,
+            "type": "int",
+            "metadata": {
+                "description": "The number of agent nodes for the cluster."
+            }
+        },
+        "aksAgentVMSize": {
+            "defaultValue": "Standard_D4s_v3",
+            "type": "string",
+            "metadata": {
+                "description": "The size of the Virtual Machine."
+            }
+        },
+        "kubernetesVersion": {
+            "type": "string",
+            "metadata": {
+                "description": "The version of Kubernetes."
+            }
+        },
+        "aksServiceCIDR": {
+            "defaultValue": "10.0.100.0/24",
+            "type": "string",
+            "metadata": {
+                "description": "A CIDR notation IP range from which to assign service cluster IPs."
+            }
+        },
+        "aksDnsServiceIP": {
+            "defaultValue": "10.0.100.10",
+            "type": "string",
+            "metadata": {
+                "description": "Containers DNS server IP address."
+            }
+        },
+        "aksDockerBridgeCIDR": {
+            "defaultValue": "172.17.0.1/16",
+            "type": "string",
+            "metadata": {
+                "description": "A CIDR notation IP for Docker bridge."
+            }
+        },
+        "aksEnableRBAC": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable RBAC on the AKS cluster."
+            }
+        },
+        "jobsAgentPoolOrVirtualNode": {
+            "type": "string",
+            "defaultValue": "AgentPool",
+            "allowedValues": [
+                "AgentPool",
+                "VirtualNode"
+            ],
+            "metadata": {
+                "description": "Enable jobs pool"
+            }
+        },
+        "maxJobsPoolAgents": {
+            "defaultValue": 1,
+            "minValue": 1,
+            "maxValue": 250,
+            "type": "int",
+            "metadata": {
+                "description": "The number of agent nodes for the jobs pool."
+            }
+        },
+        "aksJobsAgentVMSize": {
+            "defaultValue": "Standard_D2s_v3",
+            "type": "string",
+            "metadata": {
+                "description": "The size of the jobs agent pool Virtual Machines."
+            }
+        },
+        "aksMongodbAgentVMSize": {
+            "defaultValue": "Standard_E4s_v3",
+            "type": "string",
+            "metadata": {
+                "description": "The size of the mongodb agent pool Virtual Machines."
+            }
+        },
+        "aksSolrAgentVMSize": {
+            "defaultValue": "Standard_E4s_v3",
+            "type": "string",
+            "metadata": {
+                "description": "The size of the solr agent pool Virtual Machines."
+            }
+        },
+        "mongodbAgentPool" : {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "solrAgentPool" : {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "skipRoleAssignment" : {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "LogAnalyticsWorkspaceResourceID": {
+            "type": "string",
+            "metadata": {
+                "description": "Log Analytics Workspace Resource ID"
+            }
+        }
+    },
+    "variables": {
+        "vnetName": "[substring( parameters('vnetId') , lastIndexOf(parameters('vnetId'), '/'))]",
+        "kubernetesSubnetName": "[substring( parameters('kubernetesSubnetId') , lastIndexOf(parameters('kubernetesSubnetId'), '/'))]",
+        "aciSubnetName":"[substring( parameters('aciSubnetId') , lastIndexOf(parameters('aciSubnetId'), '/'))]",
+        "aksClusterId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName'))]",
+        "networkContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4d97b98b-1d4f-4787-a291-c67834d212e7')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deployments",
+            "name": "RoleAssignmentDeploymentForKubenetesSp",
+            "apiVersion": "2019-05-01",
+            "subscriptionId": "[subscription().subscriptionId]",
+            "resourceGroup": "[resourceGroup().name]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                    },
+                    "variables": {
+                    },
+                    "resources": [
+                        {
+                            "condition": "[not(parameters('skipRoleAssignment'))]",
+                            "type": "Microsoft.Network/virtualNetworks/subnets/providers/roleAssignments",
+                            "apiVersion": "2017-05-01",
+                            "name": "[concat(variables('vnetName'), '/', variables('kubernetesSubnetName'),'/Microsoft.Authorization/', guid(resourceGroup().id, 'aksvnetaccess'))]",
+                            "properties": {
+                                "roleDefinitionId": "[variables('networkContributorRole')]",
+                                "principalId": "[parameters('aksServicePrincipalObjectId')]",
+                                "scope": "[parameters('kubernetesSubnetId')]"
+                            }
+                        },
+                        {
+                            "condition": "[not(parameters('skipRoleAssignment'))]",
+                            "type": "Microsoft.Network/virtualNetworks/providers/roleAssignments",
+                            "apiVersion": "2017-05-01",
+                            "name": "[concat(variables('vnetName') , '/Microsoft.Authorization/', guid(resourceGroup().id, 'acivnetaccess'))]",
+                            "properties": {
+                                "roleDefinitionId": "[variables('networkContributorRole')]",
+                                "principalId": "[parameters('aksServicePrincipalObjectId')]",
+                                "scope": "[parameters('vnetId')]"
+                            }
+                        }
+
+                    ]
+                }
+            },
+            "dependsOn": [
+            ]
+        },
+        {
+            "type": "Microsoft.ContainerService/managedClusters",
+            "name": "[parameters('aksClusterName')]",
+            "apiVersion": "2021-02-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "kubernetesVersion": "[parameters('kubernetesVersion')]",
+                "nodeResourceGroup" : "[parameters('aksNodeResourceGroup')]",
+                "enableRBAC": "[parameters('aksEnableRBAC')]",
+                "dnsPrefix": "[parameters('aksDnsPrefix')]",
+                "addonProfiles": {
+                    "httpApplicationRouting": {
+                        "enabled": false
+                    },
+                    "omsagent": {
+                        "enabled": true,
+                        "config": {
+                            "logAnalyticsWorkspaceResourceID": "[parameters('LogAnalyticsWorkspaceResourceID')]"
+                        }
+                    },
+                    "aciConnectorLinux": {
+                        "config": {
+                            "SubnetName": "[variables('aciSubnetName')]"
+                        },
+                        "enabled": "[equals(parameters('jobsAgentPoolOrVirtualNode'),'VirtualNode')]"
+                    }
+                },
+                "servicePrincipalProfile": {
+                    "clientId": "[parameters('aksServicePrincipalAppId')]",
+                    "secret": "[parameters('aksServicePrincipalClientSecret')]"
+                },
+                "networkProfile": {
+                    "networkPlugin": "azure",
+                    "loadBalancerSku": "Standard",
+                    "serviceCidr": "[parameters('aksServiceCIDR')]",
+                    "dnsServiceIP": "[parameters('aksDnsServiceIP')]",
+                    "dockerBridgeCidr": "[parameters('aksDockerBridgeCIDR')]"
+                },
+                "agentPoolProfiles": [
+                    {
+                        "name": "default",
+                        "osDiskSizeGB": "[parameters('aksAgentOsDiskSizeGB')]",
+                        "count": "[parameters('aksAgentCount')]",
+                        "vmSize": "[parameters('aksAgentVMSize')]",
+                        "osType": "Linux",
+                        "mode": "System",
+                        "storageProfile": "ManagedDisks",
+                        "vnetSubnetID": "[parameters('kubernetesSubnetId')]",
+                        "dnsPrefix": "agents",
+                        "type": "VirtualMachineScaleSets"
+                    }
+                ]
+            },
+            "dependsOn": [
+
+            ],
+            "resources": [
+                {
+                    "condition": "[equals(parameters('jobsAgentPoolOrVirtualNode'),'AgentPool')]",
+                    "name": "jobs",
+                    "type": "agentPools",
+                    "apiVersion": "2021-10-01",
+                    "properties": {
+                        "osDiskSizeGB": "[parameters('aksAgentOsDiskSizeGB')]",
+                        "count": 0,
+                        "maxPods": 30,
+                        "vmSize": "[parameters('aksJobsAgentVMSize')]",
+                        "osType": "Linux",
+                        "mode": "User",
+                        "storageProfile": "ManagedDisks",
+                        "vnetSubnetID": "[parameters('kubernetesSubnetId')]",
+                        "dnsPrefix": "jobs",
+                        "enableAutoScaling": true,
+                        "minCount": 0,
+                        "maxCount": "[parameters('maxJobsPoolAgents')]",
+                        "type": "VirtualMachineScaleSets"
+                    },
+                    "dependsOn": [
+                        "[resourceId('Microsoft.ContainerService/managedClusters',parameters('aksClusterName'))]"
+                    ]
+                },
+                {
+                    "condition" : "[parameters('mongodbAgentPool')]",
+                    "name": "mongodb",
+                    "type": "agentPools",
+                    "apiVersion": "2021-10-01",
+                    "properties": {
+                        "osDiskSizeGB": "[parameters('aksAgentOsDiskSizeGB')]",
+                        "count": 3,
+                        "maxPods": 30,
+                        "vmSize": "[parameters('aksMongodbAgentVMSize')]",
+                        "osType": "Linux",
+                        "mode": "User",
+                        "storageProfile": "ManagedDisks",
+                        "vnetSubnetID": "[parameters('kubernetesSubnetId')]",
+                        "dnsPrefix": "mongodb",
+                        "type": "VirtualMachineScaleSets"
+                    },
+                    "dependsOn": [
+                        "[resourceId('Microsoft.ContainerService/managedClusters',parameters('aksClusterName'))]"
+                    ]
+                },
+                {
+                    "condition" : "[parameters('solrAgentPool')]",
+                    "name": "solr",
+                    "type": "agentPools",
+                    "apiVersion": "2021-10-01",
+                    "properties": {
+                        "osDiskSizeGB": "[parameters('aksAgentOsDiskSizeGB')]",
+                        "count": 2,
+                        "maxPods": 30,
+                        "vmSize": "[parameters('aksSolrAgentVMSize')]",
+                        "osType": "Linux",
+                        "mode": "User",
+                        "storageProfile": "ManagedDisks",
+                        "vnetSubnetID": "[parameters('kubernetesSubnetId')]",
+                        "dnsPrefix": "solr",
+                        "type": "VirtualMachineScaleSets"
+                    },
+                    "dependsOn": [
+                        "[resourceId('Microsoft.ContainerService/managedClusters',parameters('aksClusterName'))]"
+                    ]
+                }
+            ]
+        }
+    ],
+    "outputs": {
+        "aksApiServerAddress": {
+            "type": "string",
+            "value": "[reference(variables('aksClusterId'), '2018-03-31').fqdn]"
+        },
+        "aksClusterName": {
+            "type": "string",
+            "value": "[parameters('aksClusterName')]"
+        },
+        "resourceGroupName": {
+            "type": "string",
+            "value": "[resourceGroup().name]"
+        },
+        "aksDnsServiceIP": {
+            "type": "string",
+            "value": "[parameters('aksDnsServiceIP')]"
+        }
+    }
+}

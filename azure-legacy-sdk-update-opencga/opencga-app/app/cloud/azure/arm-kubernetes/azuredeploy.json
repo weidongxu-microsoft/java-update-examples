@@ -1,0 +1,1080 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "_artifactsLocation": {
+            "type": "string",
+            "defaultValue": "https://raw.githubusercontent.com/opencb/opencga/azure/opencga-app/app/scripts/azure/arm",
+            "metadata": {
+                "description": ""
+            }
+        },
+        "_artifactsLocationSasToken": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": ""
+            }
+        },
+        "deploymentSize": {
+            "type": "int",
+            "allowedValues": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "defaultValue": 1,
+            "metadata": {
+                "description": "What size of deployment do you want? 0 = For single researches testing things out. 1 = For x genomics with xgb per sec load rate. 2 = is for x/y"
+            }
+        },
+        "clusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "Cluster name. Used as general naming prefix."
+            },
+            "defaultValue": "opencga"
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "Location for deployment"
+            }
+        },
+        "uniqueString": {
+            "type": "string",
+            "metadata": {
+                "description": "Random unique string for this deployment"
+            },
+            "defaultValue": "[uniqueString(concat(parameters('location'), subscription().id, parameters('clusterName')))]"
+        },
+        "storageNamePrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "Storage accounts naming prefix"
+            },
+            "defaultValue": "[substring(concat(replace(parameters('clusterName'), '-', ''), parameters('uniqueString') ), 0, 20)]"
+        },
+        "nsgNamePrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "Name Security Group name prefix"
+            },
+            "defaultValue": "[concat('nsg-', parameters('clusterName'))]"
+        },
+        "rgPrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "The resource group prefix"
+            },
+            "defaultValue": "[parameters('clusterName')]"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('storageNamePrefix'), 'main')]",
+            "metadata": {
+                "description": "Main storage account name. The name must be unique across all existing storage account names in Azure. It must be 3 to 24 characters long, and can contain only lowercase letters and numbers."
+            }
+        },
+        "logAnalyticsWorkspaceName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('clusterName'), parameters('uniqueString') )]"
+        },
+        "privateDnsZonesName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('clusterName'), '.zone')]",
+            "metadata": {
+                "description": "Private internal DNS name"
+            }
+        },
+        "aksClusterName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('clusterName'), '-aks')]",
+            "metadata": {
+                "description": "Azure Kubernetes Service name"
+            }
+        },
+        "kubernetesVersion": {
+            "defaultValue": "1.22.4",
+            "type": "string",
+            "metadata": {
+                "description": "The version of Kubernetes."
+            }
+        },
+        "aksServicePrincipalAppId": {
+            "type": "string"
+        },
+        "aksServicePrincipalClientSecret": {
+            "type": "string"
+        },
+        "aksServicePrincipalObjectId": {
+            "type": "string"
+        },
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "opencgaadmin",
+            "metadata": {
+                "description": "Admin username used by various services"
+            }
+        },
+        "sshAdminKeyData": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The RSA data for the SSH Public Key used to authenticate the following machines: WebServers, DaemonVM, Mongo, Solr and Zookeeper."
+            }
+        },
+        "deploySolr" : {
+            "type": "bool",
+            "defaultValue": "true",
+            "metadata": {
+                "description": "Deploy a Solr database"
+            }
+        },
+        "deploySolrAksPool": {
+            "type": "bool",
+            "defaultValue": "false",
+            "metadata": {
+                "description": "Deploy a K8s pool of VMs dedicated for Solr"
+            }
+        },
+        "deployMongoDB" : {
+            "type": "bool",
+            "defaultValue": "true",
+            "metadata": {
+                "description": "Deploy a MongoDB database"
+            }
+        },
+        "deployMongoDBAksPool": {
+            "type": "bool",
+            "defaultValue": "false",
+            "metadata": {
+                "description": "Deploy a K8s pool of VMs dedicated for MongoDB"
+            }
+        },
+        "mongoDBPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "This Data is used to derive unique passwords for several different services. Select a unique and random combination of data, the longer the better, and do not disclose it."
+            }
+        },
+        "openCgaAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Used to login to OpenCGA. The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "HDInsightClusterName": {
+            "type": "string",
+            "defaultValue": "[replace(concat(parameters('clusterName'), parameters('uniqueString')), '-', '')]",
+            "metadata": {
+                "description": "HDInsight cluster name. Allowed characters: a-z, 0-9, A-Z . Max length: 59. Reserved names: apps. The cluster naming scope is for all Azure, across all subscriptions. So the cluster name must be unique worldwide. First six characters must be unique within a virtual network. See https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-provision-linux-clusters#cluster-name"
+            }
+        },
+        "HDInsightStorageAccountName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('storageNamePrefix'), 'hdi')]",
+            "metadata": {
+                "description": "HDInsight storage account name. The name must be unique across all existing storage account names in Azure. It must be 3 to 24 characters long, and can contain only lowercase letters and numbers."
+            }
+        },
+        "HDInsightStorageAccountBlobName": {
+            "type": "string",
+            "defaultValue": "opencga",
+            "metadata": {
+                "description": "HDInsight storage account blob name."
+            }
+        },
+        "HDInsightClusterLoginPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Used to login to HDInsights cluster interface. The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "HDInsightSshPassword": {
+            "type": "securestring",
+            "defaultValue": null,
+            "metadata": {
+                "description": "Used to login to HDInsight cluster nodes via SSH. The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+            }
+        },
+        "HDInsightSshPublicKey": {
+            "type": "securestring",
+            "defaultValue": "[parameters('sshAdminKeyData')]",
+            "metadata": {
+                "description": "Used to login to HDInsight cluster nodes via SSH key."
+            }
+        },
+        "HDInsightConfigurations": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Extra cluster configurations to be merged with 'base' configurations"
+            }
+        },
+        "HDInsightSqlServerName": {
+            "type": "string",
+            "defaultValue": "hadoopmysql",
+            "metadata": {
+                "description": "SQL Server name"
+            }
+        },
+        "HDInsightSqlPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL Server administrator login password"
+            }
+        },
+        "jobsAgentPoolOrVirtualNode": {
+            "type": "string",
+            "defaultValue": "AgentPool",
+            "allowedValues": [
+                "AgentPool",
+                "VirtualNode"
+            ],
+            "metadata": {
+                "description": "Enable jobs pool"
+            }
+        },
+        "customDeploymentSize": {
+            "type": "object",
+            "defaultValue": {
+            },
+            "metadata": {
+                "description": "Define an object for a custom tshirt size of the deployment. WARNING: Intended for experimenting or debugging use with care."
+            }
+        },
+        "loginNode": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Optionally deploy a login node named {namePrefix}-login01"
+            }
+        },
+        "loginNodeVMSize": {
+            "type": "string",
+            "defaultValue": "Standard_D2_v3",
+            "metadata": {
+                "description": "Size of the Login Node VM"
+            }
+        },
+        "loginNodePublicIPAddressDNS": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('clusterName'), '-', parameters('uniqueString') )]",
+            "metadata": {
+                "description": "Login node public IP address DNS. There are a number of reserved words that can not be part of the DNS name, such as 'windows' or 'login'. Get more information at https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/error-reserved-resource-name"
+            }
+        },
+        "networkCIDR": {
+            "type": "object",
+            "metadata": {
+                "description": "Object containing all the hardcoded IPs and CIDRs required for the deployment"
+            },
+            "defaultValue": {
+                "vnet": {
+                    "name" : "vnet",
+                    "addressPrefix": "10.0.0.0/16",
+                    "subnets": {
+                        "kubernetes" : {
+                            "name" : "kubernetes",
+                            "addressPrefix": "10.0.0.0/22"
+                        },
+                        "aci" : {
+                            "name" : "aci",
+                            "addressPrefix": "10.0.4.0/22"
+                        },
+                        "hdinsight" : {
+                            "name" : "hdinsight",
+                            "addressPrefix": "10.0.8.0/24",
+                            "nsg": {
+                                "name": "[concat(parameters('nsgNamePrefix'), '-hdi')]"
+                            }
+                        },
+                        "mongodb" : {
+                            "name" : "mongodb",
+                            "addressPrefix": "10.0.9.0/24"
+                        },
+                        "solr" : {
+                            "name" : "solr",
+                            "addressPrefix": "10.0.10.0/24"
+                        },
+                        "login" : {
+                            "name" : "login",
+                            "addressPrefix": "10.0.12.0/24",
+                            "nsg": {
+                                "name": "[concat(parameters('nsgNamePrefix'), '-login')]"
+                            }
+                        }
+                    }
+                },
+                "aks": {
+                    "serviceCIDR": "10.0.100.0/24",
+                    "dnsServiceIP" : "10.0.100.10",
+                    "dockerBridgeCIDR" : "172.17.0.1/16"
+                }
+            }
+        },
+        "skipRoleAssignment" : {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Do not execute role assignments. This option could be interesting in scenarios were the account does not have User Access Administrator role. In this case, the role assignments should be done manually. See README.md#(Deploy without User Access Administrator role)"
+            }
+        }
+    },
+    "variables": {
+        "sizingOptions": [
+            "[parameters('customDeploymentSize')]",
+            {
+                "type": "1 = Small",
+                "aks": {
+                    "nodeCount": 3,
+                    "nodeSize": "Standard_D2s_v3",
+                    "diskSizeGB": 256,
+                    "maxJobsPoolAgents": 1,
+                    "aksJobsAgentVMSize": "Standard_D8s_v3",
+                    "aksMongodbAgentVMSize": "Standard_D8s_v3",
+                    "aksSolrAgentVMSize": "Standard_D8s_v3"
+                },
+                "solr": {
+                    "ha": false,
+                    "nodeSize": "Standard_E4_v3",
+                    "nodeCount": 1,
+                    "diskType": "StandardSSD_LRS",
+                    "diskSizeGB": 512,
+                    "zookeeper": {
+                        "nodeSize": "Standard_D2_v2"
+                    }
+                },
+                "mongo": {
+                    "nodeCount": 1,
+                    "nodeSize": "Standard_D4s_v3",
+                    "diskType": "StandardSSD_LRS",
+                    "diskSizeGB": 512
+                },
+                "hdInsight": {
+                    "zookeeper": {
+                        "nodeCount": 3,
+                        "nodeSize": "Standard_D2_V2"
+                    },
+                    "head": {
+                        "nodeCount": 2,
+                        "nodeSize": "Standard_D4_v2"
+                    },
+                    "worker": {
+                        "nodeCount": 3,
+                        "nodeSize": "Standard_D3_v2"
+                    },
+                    "yarnSiteMemoryInMb": 7000,
+                    "enableHBaseAcceleratedWrites": false
+                }
+            },
+            {
+                "type": "2 = Medium",
+                "aks": {
+                    "nodeCount": 3,
+                    "nodeSize": "Standard_D4s_v3",
+                    "diskSizeGB": 512,
+                    "maxJobsPoolAgents": 5,
+                    "aksJobsAgentVMSize": "Standard_D16s_v3",
+                    "aksMongodbAgentVMSize": "Standard_D16s_v3",
+                    "aksSolrAgentVMSize": "Standard_D16s_v3"
+                },
+                "solr": {
+                    "ha": true,
+                    "nodeSize": "Standard_E8_v3",
+                    "nodeCount": 2,
+                    "diskType": "StandardSSD_LRS",
+                    "diskSizeGB": 1028,
+                    "zookeeper": {
+                        "nodeSize": "Standard_D2_v2"
+                    }
+                },
+                "mongo": {
+                    "nodeCount": 3,
+                    "nodeSize": "Standard_E8s_v3",
+                    "diskType": "StandardSSD_LRS",
+                    "diskSizeGB": 1028
+                },
+                "hdInsight": {
+                    "zookeeper": {
+                        "nodeCount": 3,
+                        "nodeSize": "Standard_D2_V2"
+                    },
+                    "head": {
+                        "nodeCount": 2,
+                        "nodeSize": "Standard_D4_v2"
+                    },
+                    "worker": {
+                        "nodeCount": 20,
+                        "nodeSize": "Standard_D5_v2"
+                    },
+                    "yarnSiteMemoryInMb": 14000,
+                    "enableHBaseAcceleratedWrites": true
+                }
+            },
+            {
+                "type": "3 = Large",
+                "aks": {
+                    "nodeCount": 7,
+                    "nodeSize": "Standard_D4s_v3",
+                    "diskSizeGB": 1028,
+                    "maxJobsPoolAgents": 50,
+                    "aksJobsAgentVMSize": "Standard_D16s_v3",
+                    "aksMongodbAgentVMSize": "Standard_D16s_v3",
+                    "aksSolrAgentVMSize": "Standard_D16s_v3"
+                },
+                "solr": {
+                    "ha": true,
+                    "nodeSize": "Standard_E16_v3",
+                    "nodeCount": 2,
+                    "diskType": "Premium_LRS",
+                    "diskSizeGB": 2018,
+                    "zookeeper": {
+                        "nodeSize": "Standard_D2_v2"
+                    }
+                },
+                "mongo": {
+                    "nodeCount": 5,
+                    "nodeSize": "Standard_E16s_v3",
+                    "diskType": "Premium_LRS",
+                    "diskSizeGB": 1028
+                },
+                "hdInsight": {
+                    "zookeeper": {
+                        "nodeCount": 3,
+                        "nodeSize": "Standard_D2_V2"
+                    },
+                    "head": {
+                        "nodeCount": 2,
+                        "nodeSize": "Standard_D4_v2"
+                    },
+                    "worker": {
+                        "nodeCount": 50,
+                        "nodeSize": "Standard_D14_v2"
+                    },
+                    "yarnSiteMemoryInMb": 62720,
+                    "enableHBaseAcceleratedWrites": true
+                }
+            }
+        ],
+        "selectedSize": "[variables('sizingOptions')[parameters('deploymentSize')]]",
+        "createAciSubnet": "[equals(parameters('jobsAgentPoolOrVirtualNode'), 'VirtualNode')]",
+        "createMongoDBSubnet": "[parameters('deployMongoDB')]",
+        "createSolrSubnet": "[parameters('deploySolr')]",
+        "hdInsightResourceGroup": "[concat(parameters('rgPrefix'),'-hdinsight')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[parameters('location')]",
+            "name": "[parameters('rgPrefix')]",
+            "properties": {
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "vnet",
+            "dependsOn": [
+                "[parameters('rgPrefix')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/vnet/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "config": {
+                        "value" : "[parameters('networkCIDR').vnet]"
+                    },
+                    "createAciSubnet": {
+                        "value": "[variables('createAciSubnet')]"
+                    },
+                    "createMongoDBSubnet": {
+                        "value": "[variables('createMongoDBSubnet')]"
+                    },
+                    "createSolrSubnet": {
+                        "value": "[variables('createSolrSubnet')]"
+                    }
+                }
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "dns",
+            "dependsOn": [
+                "vnet",
+                "[parameters('rgPrefix')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/dns/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "privateDnsZonesName" : {
+                        "value": "[parameters('privateDnsZonesName')]"
+                    },
+                    "vnetId": {
+                        "value": "[reference('vnet').outputs.vnetId.value]"
+                    }
+                }
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "storageaccount",
+            "dependsOn": [
+                "[parameters('rgPrefix')]",
+                "vnet"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/storageaccount/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[parameters('storageAccountName')]"
+                    },
+                    "vnetId": {
+                        "value" : "[reference('vnet').outputs.vnetId.value]"
+                    },
+                    "loginSubnetId": {
+                        "value" : "[reference('vnet').outputs.loginSubnetId.value]"
+                    },
+                    "aciSubnetId": {
+                        "value" : "[if (variables('createAciSubnet'), reference('vnet').outputs.aciSubnetId.value, '')]"
+                    },
+                    "kubernetesSubnetId": {
+                        "value" : "[reference('vnet').outputs.kubernetesSubnetId.value]"
+                    }
+                }
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "loganalytics",
+            "dependsOn": [
+                "[parameters('rgPrefix')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/loganalytics/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "WorkspaceName": {
+                        "value": "[parameters('logAnalyticsWorkspaceName')]"
+                    },
+                    "WorkspaceLocation": {
+                        "value": "[parameters('location')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[parameters('location')]",
+            "name": "[variables('hdInsightResourceGroup')]",
+            "properties": {
+            }
+        },
+        {
+            "resourceGroup": "[concat(parameters('rgPrefix'),'-hdinsight')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "hdinsight",
+            "dependsOn": [
+                "[concat(parameters('rgPrefix'),'-hdinsight')]",
+                "vnet",
+                "loganalytics"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/hdinsight/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "clusterName": {
+                        "value": "[parameters('HDInsightClusterName')]"
+                    },
+                    "storageAccountName": {
+                        "value": "[parameters('HDInsightStorageAccountName')]"
+                    },
+                    "storageAccountBlobName": {
+                        "value": "[parameters('HDInsightStorageAccountBlobName')]"
+                    },
+                    "clusterLoginUserName": {
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    "clusterLoginPassword": {
+                        "value": "[parameters('HDInsightClusterLoginPassword')]"
+                    },
+                    "clusterZookeeperNodeCount": {
+                        "value": "[variables('selectedSize').hdInsight.zookeeper.nodeCount]"
+                    },
+                    "clusterZookeeperNodeSize": {
+                        "value": "[variables('selectedSize').hdInsight.zookeeper.nodeSize]"
+                    },
+                    "clusterHeadNodeCount": {
+                        "value": "[variables('selectedSize').hdInsight.head.nodeCount]"
+                    },
+                    "clusterHeadNodeSize": {
+                        "value": "[variables('selectedSize').hdInsight.head.nodeSize]"
+                    },
+                    "clusterWorkerNodeCount": {
+                        "value": "[variables('selectedSize').hdInsight.worker.nodeCount]"
+                    },
+                    "clusterWorkerNodeSize": {
+                        "value": "[variables('selectedSize').hdInsight.worker.nodeSize]"
+                    },
+                    "clusterConfigurations": {
+                        "value": "[parameters('HDInsightConfigurations')]"
+                    },
+                    "sqlServerName":{
+                        "value": "[parameters('HDInsightSqlServerName')]"
+                    },
+                    "sqlAdministratorLoginPassword": {
+                        "value": "[parameters('HDInsightSqlPassword')]"
+                    },
+                    "yarnSiteMemoryInMb": {
+                        "value": "[variables('selectedSize').hdInsight.yarnSiteMemoryInMb]"
+                    },
+                    "enableHBaseAcceleratedWrites": {
+                        "value": "[variables('selectedSize').hdInsight.enableHBaseAcceleratedWrites]"
+                    },
+                    "sshPassword": {
+                        "value": "[parameters('HDInsightSshPassword')]"
+                    },
+                    "vnetId": {
+                        "value": "[reference('vnet').outputs.vnetId.value]"
+                    },
+                    "subnetId": {
+                        "value": "[reference('vnet').outputs.hdinsightSubnetId.value]"
+                    },
+                    "skipRoleAssignment": {
+                        "value": "[parameters('skipRoleAssignment')]"
+                    },
+                    "LogAnalyticsWorkspaceResourceID": {
+                        "value": "[reference('loganalytics').outputs.logAnalyticsWorkspaceResourceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceKey": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceKey.value]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[concat(parameters('rgPrefix'))]",
+            "apiVersion": "2019-05-01",
+            "name": "appinsights",
+            "dependsOn": [
+                "vnet",
+                "[parameters('rgPrefix')]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/appinsights/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                }
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "aks",
+            "dependsOn": [
+                "vnet",
+                "[parameters('rgPrefix')]",
+                "loganalytics"
+
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/aks/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "aksClusterName": {
+                        "value": "[parameters('aksClusterName')]"
+                    },
+                    "aksServicePrincipalAppId": {
+                        "value": "[parameters('aksServicePrincipalAppId')]"
+                    },
+                    "kubernetesVersion": {
+                        "value": "[parameters('kubernetesVersion')]"
+                    },
+                    "aksAgentCount": {
+                        "value": "[variables('selectedSize').aks.nodeCount]"
+                    },
+                    "aksAgentVMSize": {
+                        "value": "[variables('selectedSize').aks.nodeSize]"
+                    },
+                    "aksAgentOsDiskSizeGB": {
+                        "value": "[variables('selectedSize').aks.diskSizeGB]"
+                    },
+                    "maxJobsPoolAgents": {
+                        "value": "[variables('selectedSize').aks.maxJobsPoolAgents]"
+                    },
+                    "aksJobsAgentVMSize": {
+                        "value": "[variables('selectedSize').aks.aksJobsAgentVMSize]"
+                    },
+                    "aksMongodbAgentVMSize": {
+                        "value": "[variables('selectedSize').aks.aksMongodbAgentVMSize]"
+                    },
+                    "aksSolrAgentVMSize": {
+                        "value": "[variables('selectedSize').aks.aksSolrAgentVMSize]"
+                    },
+                    "jobsAgentPoolOrVirtualNode": {
+                        "value": "[parameters('jobsAgentPoolOrVirtualNode')]"
+                    },
+                    "aksServicePrincipalClientSecret": {
+                        "value": "[parameters('aksServicePrincipalClientSecret')]"
+                    },
+                    "aksServicePrincipalObjectId": {
+                        "value": "[parameters('aksServicePrincipalObjectId')]"
+                    },
+                    "aksNodeResourceGroup": {
+                        "value": "[concat(parameters('rgPrefix'), '-agentpools')]"
+                    },
+                    "solrAgentPool": {
+                        "value": "[and(parameters('deploySolrAksPool'), not(parameters('deploySolr')))]"
+                    },
+                    "mongodbAgentPool": {
+                        "value": "[and(parameters('deployMongoDBAksPool'), not(parameters('deployMongoDB')))]"
+                    },
+                    "vnetId": {
+                        "value": "[reference('vnet').outputs.vnetId.value]"
+                    },
+                    "kubernetesSubnetId": {
+                        "value": "[reference('vnet').outputs.kubernetesSubnetId.value]"
+                    },
+                    "aciSubnetId": {
+                        "value": "[reference('vnet').outputs.aciSubnetId.value]"
+                    },
+                    "aksServiceCIDR": {
+                        "value": "[parameters('networkCIDR').aks.serviceCIDR]"
+                    },
+                    "aksDnsServiceIP": {
+                        "value": "[parameters('networkCIDR').aks.dnsServiceIP]"
+                    },
+                    "aksDockerBridgeCIDR": {
+                        "value": "[parameters('networkCIDR').aks.dockerBridgeCIDR]"
+                    },
+                    "skipRoleAssignment": {
+                        "value": "[parameters('skipRoleAssignment')]"
+                    },
+                    "LogAnalyticsWorkspaceResourceID": {
+                        "value": "[reference('loganalytics').outputs.logAnalyticsWorkspaceResourceID.value]"
+                    }
+                }
+            }
+        },
+        {
+            "resourceGroup": "[parameters('rgPrefix')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-05-01",
+            "name": "loginNode",
+            "condition": "[parameters('loginNode')]",
+            "dependsOn": [
+                "vnet",
+                "[parameters('rgPrefix')]",
+                "loganalytics"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/login/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "VMName" : {
+                        "value" : "[concat(parameters('clusterName'), '-login01')]"
+                    },
+                    "VMSize" : {
+                        "value" : "[parameters('loginNodeVMSize')]"
+                    },
+                    "publicIPAddressDNS" : {
+                        "value" : "[parameters('loginNodePublicIPAddressDNS')]"
+                    },
+                    "adminUsername" : {
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    "sshKeyData" : {
+                        "value": "[parameters('sshAdminKeyData')]"
+                    },
+                    "subnetId" : {
+                        "value" : "[reference('vnet').outputs.loginSubnetId.value]"
+                    },
+                    "LogAnalyticsWorkspaceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceKey": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceKey.value]"
+                    },
+                    "LogAnalyticsWorkspaceResourceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceResourceID.value]"
+                    }
+                }
+            }
+        },
+        {
+            "condition" : "[parameters('deploySolr')]",
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[parameters('location')]",
+            "name": "[concat(parameters('rgPrefix'),'-solr')]",
+            "properties": {
+            }
+        },
+        {
+            "condition" : "[parameters('deploySolr')]",
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[concat(parameters('rgPrefix'),'-solr')]",
+            "apiVersion": "2019-05-01",
+            "name": "solr",
+            "dependsOn": [
+                "vnet",
+                "dns"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/solr/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "clusterName": {
+                        "value": "[parameters('clusterName')]"
+                    },
+                    "subnetId": {
+                        "value": "[reference('vnet').outputs.solrSubnetId.value]"
+                    },
+                    "_artifactsLocation": {
+                        "value": "[parameters('_artifactsLocation')]"
+                    },
+                    "_artifactsLocationSasToken": {
+                        "value": "[parameters('_artifactsLocationSasToken')]"
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "adminUsername": {
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    "sshKeyData": {
+                        "value": "[parameters('sshAdminKeyData')]"
+                    },
+                    "highAvailability": {
+                        "value": "[variables('selectedSize').solr.ha]"
+                    },
+                    "solrDiskType": {
+                        "value": "[variables('selectedSize').solr.diskType]"
+                    },
+                    "solrDiskSizeGB": {
+                        "value": "[variables('selectedSize').solr.diskSizeGB]"
+                    },
+                    "solrVMSize": {
+                        "value": "[variables('selectedSize').solr.nodeSize]"
+                    },
+                    "zookeeperVMSize": {
+                        "value": "[variables('selectedSize').solr.zookeeper.nodeSize]"
+                    },
+                    "LogAnalyticsWorkspaceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceKey": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceKey.value]"
+                    },
+                    "LogAnalyticsWorkspaceResourceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceResourceID.value]"
+                    }
+                }
+            }
+        },
+        {
+            "condition" : "[parameters('deployMongoDB')]",
+            "type": "Microsoft.Resources/resourceGroups",
+            "apiVersion": "2018-05-01",
+            "location": "[parameters('location')]",
+            "name": "[concat(parameters('rgPrefix'),'-mongodb')]",
+            "properties": {
+            }
+        },
+        {
+            "condition" : "[parameters('deployMongoDB')]",
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[concat(parameters('rgPrefix'),'-mongodb')]",
+            "apiVersion": "2019-05-01",
+            "name": "mongodb",
+            "dependsOn": [
+                "vnet",
+                "[parameters('rgPrefix')]",
+                "dns"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('_artifactsLocation'), '/mongodb/azuredeploy.json', parameters('_artifactsLocationSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "_artifactsLocation": {
+                        "value": "[parameters('_artifactsLocation')]"
+                    },
+                    "_artifactsLocationSasToken": {
+                        "value": "[parameters('_artifactsLocationSasToken')]"
+                    },
+                    "subnetId": {
+                        "value": "[reference('vnet').outputs.mongodbSubnetId.value]"
+                    },
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "clusterName": {
+                        "value": "[parameters('clusterName')]"
+                    },
+                    "vmSize": {
+                        "value": "[variables('selectedSize').mongo.nodeSize]"
+                    },
+                    "clusterSize": {
+                        "value": "[variables('selectedSize').mongo.nodeCount]"
+                    },
+                    "diskType": {
+                        "value": "[variables('selectedSize').mongo.diskType]"
+                    },
+                    "diskSizeGB": {
+                        "value": "[variables('selectedSize').mongo.diskSizeGB]"
+                    },
+                    "dnsZonesName": {
+                        "value": "[parameters('privateDnsZonesName')]"
+                    },
+                    "adminUsername": {
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    "adminSSHKeyData": {
+                        "value": "[parameters('sshAdminKeyData')]"
+                    },
+                    "mongoDBUsername": {
+                        "value": "[parameters('adminUsername')]"
+                    },
+                    "mongoDBPassword": {
+                        "value": "[parameters('mongoDBPassword')]"
+                    },
+                    "LogAnalyticsWorkspaceResourceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceResourceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceID": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceID.value]"
+                    },
+                    "LogAnalyticsWorkspaceKey": {
+                        "value": "[reference('loganalytics').outputs.LogAnalyticsWorkspaceKey.value]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "aksApiServerAddress": {
+            "type": "string",
+            "value": "[reference('aks').outputs.aksApiServerAddress.value]"
+        },
+        "aksClusterName": {
+            "type": "string",
+            "value": "[reference('aks').outputs.aksClusterName.value]"
+        },
+        "aksResourceGroupName": {
+            "type": "string",
+            "value": "[reference('aks').outputs.resourceGroupName.value]"
+        },
+        "aksDnsServiceIP": {
+            "type": "string",
+            "value": "[reference('aks').outputs.aksDnsServiceIP.value]"
+        },
+        "aciSubnetId": {
+            "type": "string",
+            "value": "[reference('vnet').outputs.aciSubnetId.value]"
+        },
+        "openCgaAdminPassword": {
+            "type": "string",
+            "value": "[parameters('openCgaAdminPassword')]"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "value": "[reference('storageaccount').outputs.accountName.value]"
+        },
+        "storageAccountKey": {
+            "type": "string",
+            "value": "[reference('storageaccount').outputs.accountKey.value]"
+        },
+        "hdInsightSshDns": {
+            "type": "string",
+            "value": "[reference('hdinsight').outputs.clusterSshDNSName.value]"
+        },
+        "hdInsightSshUsername": {
+            "type": "string",
+            "value": "[reference('hdinsight').outputs.clusterSshUsername.value]"
+        },
+        "hdInsightSshPassword": {
+            "type": "string",
+            "value": "[reference('hdinsight').outputs.clusterSshPassword.value]"
+        },
+        "hdInsightResourceGroup": {
+            "type": "string",
+            "value": "[variables('hdInsightResourceGroup')]"
+        },
+        "hdInsightEnableMonitor": {
+            "type": "string",
+            "value": "[reference('hdinsight').outputs.enableMonitor.value]"
+        },
+        "mongoDbHostsCSV": {
+            "type": "string",
+            "value": "[if (parameters('deployMongoDB'), replace(replace(replace(replace(string(reference('mongodb').outputs.dnsNames.value), ' ', ''), '[{\"fqdn\":\"', ''), '\"},{\"fqdn\":\"', ','), '\"}]', ''), '')]"
+        },
+        "mongoDbUser": {
+            "type": "string",
+            "value": "[parameters('adminUsername')]"
+        },
+        "mongoDbPassword": {
+            "type": "string",
+            "value": "[parameters('mongoDBPassword')]"
+        },
+        "solrHostsCSV": {
+            "type": "string",
+            "value": "[if (parameters('deploySolr'), replace(replace(replace(replace(string(reference('solr').outputs.solrURLs.value), ' ', ''), '[{\"host\":\"', ''), '\"},{\"host\":\"', ','), '\"}]', ''), '')]"
+        },
+        "solrConnectionDetails": {
+            "type": "array",
+            "value": "[if (parameters('deploySolr'), reference('solr').outputs.solrConnectionDetails.value, createArray())]"
+        },
+        "privateDnsZonesName": {
+            "type": "string",
+            "value": "[parameters('privateDnsZonesName')]"
+        }
+    }
+}

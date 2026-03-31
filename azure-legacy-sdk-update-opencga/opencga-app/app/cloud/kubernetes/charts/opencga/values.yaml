@@ -1,0 +1,331 @@
+# Default values for opencga.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+mongodb:
+  user: "FILL_ME"
+  password: "FILL_ME"
+  ssl: true
+  authenticationDatabase : "admin"
+  authenticationMechanism : "SCRAM-SHA-1" # Must use "SCRAM-SHA-256" for instances deployed with mongodb community operator
+  replicaSet : ""
+
+  # MongoDB can either be deployed in the same Kubernetes instance, or be provided externally.
+
+  external:
+    hosts: "FILL_ME"
+
+  # https://docs.mongodb.com/kubernetes-operator/stable/tutorial/resize-pv-storage/
+  deploy:
+    enabled: false
+    name: "opencga-mongodb-rs0"
+    version: "4.2.6"
+    replicas: 3
+
+    certificateKeySecretRef: mongodb-tls-certificate
+
+    volume:
+      size: "128Gi"
+
+    resources:
+      limits:
+        cpu: "2"
+        memory: "10G"
+      requests:
+        cpu: "1"
+        memory: "8G"
+
+    nodeSelector:
+      agentpool: mongodb
+
+    # Service account and role assignments do not need to be created if the MongoDB Community Operator is installed in the same namespace
+    serviceAccount:
+      create: true
+      name: mongodb-database
+
+solr:
+  external:
+    hosts: "FILL_ME"
+  deploy:
+    enabled: false
+    name: "solr"
+    replicas: 2
+
+    image:
+      repository: "library/solr" # TODO: Value not supported yet
+      tag: 8.8.2
+      imagePullSecret: ""
+
+    javaMem: "-Xms1g -Xmx3g"
+    opts: '-Dsolr.autoSoftCommit.maxTime=10000 -Dsolr.max.booleanClauses=32768 -Dsolr.environment=prod,label={{ include "opencga.fullname" . }},color=blue'
+    GCTune: "-XX:SurvivorRatio=4 -XX:TargetSurvivorRatio=90 -XX:MaxTenuringThreshold=8"
+
+    backupVolume: {}
+#      azureFile:
+#        shareName: solrbackup
+#        secretName: ???
+
+    volume:
+      size: "512Gi"
+
+    resources:
+      limits:
+        memory: "1G"
+      requests:
+        cpu: "65m"
+        memory: "156Mi"
+
+    nodeSelector:
+      agentpool: solr
+
+    zookeeper:
+      replicas: 3
+      volume:
+        size: "5Gi"
+      resources:
+        limits:
+          memory: "1G"
+        requests:
+          cpu: "65m"
+          memory: "156Mi"
+
+      nodeSelector:
+        agentpool: solr
+
+cellbase:
+  host: "https://ws.opencb.org/cellbase/"
+  version: "v4"
+
+analysis:
+  execution:
+    id: "k8s"
+    options:
+      k8s:
+        masterNode: "FILL_ME"
+
+hadoop:
+  sshDns: "FILL_ME"
+  sshUsername: "FILL_ME"
+  sshPassword: "FILL_ME"
+  flavour: "hdp3.1"
+
+opencga:
+#  secretName: {{ include "opencga.fullname" . }}-secret
+  admin:
+    password: "FILL_ME"
+  images:
+    base:
+      sha256: ""
+    init:
+      sha256: ""
+
+# https://docs.microsoft.com/en-gb/azure/aks/azure-files-volume
+azureStorageAccount:
+  enabled: true
+  secretName: azure-files-secret
+  name: "FILL_ME"
+  key: "FILL_ME"
+  volumes:
+    conf:
+      shareName: conf
+    analysisconf:
+      shareName: analysisconf
+    sessions:
+      shareName: sessions
+    variants:
+      shareName: variants
+
+blobfuse:
+  enabled: false
+
+# https://artifacthub.io/packages/helm/cert-manager/cert-manager
+tls:
+  publicIssuer:
+    ## WARNING!
+    ##  Manual steps involved to enable public certificate issuer
+    enabled: false
+    # Issuer or ClusterIssuer
+    type: Issuer
+    name: letsencrypt-prod
+    acme:
+      email: # REQUIRED
+  privateIssuer:
+    ## Internal CA self-signed
+    enabled: true
+    selfSignedName: tls-selfsigned-issuer
+    caName: tls-ca-issuer
+    caCertificateSecretRef: tls-ca-key-pair
+
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Mount additional volumes into rest and master.
+# User responsability:
+#  - Ensure that the new volumes are defined in the cluster
+#  - Add the new volumes to the configuration.yaml so they are present in the k8s jobs
+#volumes:
+#  - name: volume_name
+#    mountPath: /data/my_volume
+#    # Source field contains the volume type details. Could be persistentVolumeClaim, azureDisk, azureFile, configMap, ...
+#    source:
+#      persistentVolumeClaim:
+#        claimName: "myVolumeClaim"
+
+rest:
+  name: rest
+  replicaCount: 3
+
+  image:
+    repository: "opencb/opencga-base:{{ .Chart.AppVersion }}-{{ .Values.hadoop.flavour }}{{ if .Values.opencga.images.base.sha256 }}@sha256:{{ .Values.opencga.images.base.sha256 }}{{ end }}"
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+
+  podSecurityContext:
+    runAsNonRoot: true
+    # fsGroup: 2000
+
+  securityContext:
+    readOnlyRootFilesystem: false
+    runAsUser: 1001
+    # capabilities:
+    #   drop:
+    #   - ALL
+
+  service:
+    type: ClusterIP
+    #type: LoadBalancer
+    port: 80
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/proxy-body-size: 1024m
+      nginx.ingress.kubernetes.io/rewrite-target: /opencga/$2
+#      cert-manager.io/issuer: letsencrypt-prod
+#      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - "opencga.local" # This host name should be added to the internal DNS zone pointing to the nginx service external IP
+      - ""              # Accept access by IP .Testing purposes only.
+    # Accepts /opencga and /opencga/....
+    paths:
+    - "/opencga($|/)(.*)"
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  resources: 
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  nodeSelector: 
+    agentpool: default
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+
+  tolerations: []
+
+  affinity: {}
+
+# TODO
+grpc:
+  name: grpc
+
+master:
+  name: master
+  replicaCount: 1
+
+  image:
+    repository: "opencb/opencga-base:{{ .Chart.AppVersion }}-{{ .Values.hadoop.flavour }}{{ if .Values.opencga.images.base.sha256 }}@sha256:{{ .Values.opencga.images.base.sha256 }}{{ end }}"
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+
+  podSecurityContext:
+    runAsNonRoot: true
+    # fsGroup: 2000
+
+  securityContext:
+    readOnlyRootFilesystem: false
+    runAsUser: 1001
+    # capabilities:
+    #   drop:
+    #   - ALL
+
+  resources: 
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  nodeSelector: 
+    agentpool: default
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+
+
+  tolerations: []
+
+  affinity: {}
+
+init:
+  name: init
+  image:
+    repository: "opencb/opencga-init:{{ .Chart.AppVersion }}-{{ .Values.hadoop.flavour }}{{ if .Values.opencga.images.init.sha256 }}@sha256:{{ .Values.opencga.images.init.sha256 }}{{ end }}"
+    pullPolicy: IfNotPresent
+
+  configuration:
+    # Overwrite persistent volume configuration with new values from configMap.
+    overwrite: true
+
+  securityContext:
+    readOnlyRootFilesystem: false
+    runAsUser: 1001
+    # capabilities:
+    #   drop:
+    #   - ALL
+
+  resources:
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}

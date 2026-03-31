@@ -1,0 +1,135 @@
+!define TEST_SYSTEM {slim}
+!define O.S.Name {Homo sapiens}
+!define O.Assembly {GRCh37}
+
+!|Table: Rest Fixture | $baseURL |
+|let|pName|js|Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 5)||
+|let|pAlias|js|Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 5)||
+|let|studyName|js|Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 5)||
+|let|studyAlias|js|Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 5)||
+
+!3 Create New Project
+!|Table: Rest Fixture | $baseURL |
+| setBody |{ "name" : "$pName", "alias" : "$pAlias", "organism" : {"scientificName" : "Homo sapiens", "assembly" : "${O.Assembly}"}}|
+| POST | /v1/projects/create |200|  Content-Type: application/json ||
+|let|lProjectId|js.responses.jsonbody.responses[0].results[0].id||
+
+!3 Get Project Info
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$lProjectId/info |200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == '$lProjectId'|
+
+!3 Get Multiple Projects Info
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$lProjectId,$projectId/info |200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == '$lProjectId' && jsonbody.responses[1].results[0].id == '$projectId'|
+
+!3 (Negative) Create Project With Existing Name
+!|Table: Rest Fixture | $baseURL |
+| setBody |{ "name" : "$pName", "alias" : "$pAlias", "organism" : {"scientificName" : "Homo sapiens", "assembly" : "${O.Assembly}"}}|
+| POST | /v1/projects/create |500|  Content-Type: application/json ||
+
+!3 Get Project (Suite Set UP)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$projectId/info |200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == '$projectId'|
+
+!3 Get Studies from Project (Suite Set UP)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$projectId/studies |200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == '$studyId'|
+
+!3 Get Studies from Multiple Projects 
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$lProjectId,$projectId/studies |200|  Content-Type: application/json |jsonbody.responses[0].numTotalResults == '0.0' && jsonbody.responses[1].results[0].id == '$studyId'|
+
+!3 Get Studies from Multiple Projects with Reverse Order
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$projectId,$lProjectId/studies |200|  Content-Type: application/json | jsonbody.responses[0].results[0].id == '$studyId' && jsonbody.responses[1].numTotalResults == '0.0'|
+
+!3 Update Project
+!|Table: Rest Fixture | $baseURL |
+| setBody |{"description" : "update"}|
+| POST | /v1/projects/$lProjectId/update |200|  Content-Type: application/json |jsonbody.responses[0].results[0].description == 'update'|
+
+!3 (Negative) Update Project ID
+!|Table: Rest Fixture | $baseURL |
+| setBody |{"id" : "updatedID"}|
+| POST | /v1/projects/$lProjectId/update |400|Content-Type : text/plain||
+
+!3 (Negative) Update Project Mandatory Field ( Not Allowed)
+!|Table: Rest Fixture | $baseURL |
+| setBody |{ "organism" : {"scientificName" : "Homo sapiens update"}}|
+| POST | /v1/projects/$lProjectId/update |500|  Content-Type: application/json |jsonbody.error === 'Cannot update organism information that is already filled in'|
+
+!3 Update Project
+!|Table: Rest Fixture | $baseURL |
+| setBody |{"description" : "update"}|
+| POST | /v1/projects/$lProjectId/update |200|  Content-Type: application/json |jsonbody.responses[0].results[0].description == 'update'|
+
+!3 Get Project Release (Suite Set UP)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$projectId/info |200|  Content-Type: application/json ||
+| let | releaseNumber | js |.responses.jsonbody.responses[0].results[0].currentRelease||
+
+!3 Create Study 
+!|Table: Rest Fixture | $baseURL |
+| setBody |{  "name": "dummyStudyName", "alias": "dummYStudyAlias", "type": "CASE_CONTROL"}|
+| POST | /v1/studies/create?projectId=$projectId |200|  Content-Type: application/json ||
+
+!3 Increment Project Release (Suite Set UP)
+!|Table: Rest Fixture | $baseURL |
+| POST | /v1/projects/$projectId/incRelease |200|  Content-Type: application/json |jsonbody.responses[0].results[0] > "$releaseNumber"|
+
+!3 (Negative) Increment Empty Project Release
+!|Table: Rest Fixture | $baseURL |
+| POST | /v1/projects/$lProjectId/incRelease |500|  Content-Type: application/json |jsonbody.error === 'Cannot increment current release number. No studies found for release 1'|
+
+!3 Create Study (Release 1)  
+!|Table: Rest Fixture | $baseURL |
+| setBody |{  "name": "$studyName", "alias": "$studyAlias", "type": "CASE_CONTROL"}|
+| POST | /v1/studies/create?projectId=$lProjectId |200|  Content-Type: application/json ||
+|let|studyId1|js.responses.jsonbody.responses[0].results[0].id||
+
+!3 Increment Project Release
+!|Table: Rest Fixture | $baseURL |
+| POST | /v1/projects/$lProjectId/incRelease |200|  Content-Type: application/json |jsonbody.responses[0].results[0] == '2'|
+
+!3 Get Studies from Project For All Releases
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$lProjectId/studies |200|  Content-Type: application/json |jsonbody.responses[0].results.length == '1'|
+
+!3 Create Sample (Release 2)
+!|Table: Rest Fixture | $baseURL |
+| setBody | {"name" : "sample" }|
+| POST | /v1/samples/create?study=$studyId1 |200|  Content-Type: application/json ||
+
+!3 Increment Project Release
+!|Table: Rest Fixture | $baseURL |
+| POST | /v1/projects/$lProjectId/incRelease |200|  Content-Type: application/json |jsonbody.responses[0].results[0] == '3'|
+
+!3 Create Study  (Release 3)
+!|Table: Rest Fixture | $baseURL |
+| setBody |{  "name": "study", "alias": "alias", "type": "CASE_CONTROL"}|
+| POST | /v1/studies/create?projectId=$lProjectId |200|  Content-Type: application/json ||
+
+!3 Get Studies from Project For All Releases
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/projects/$lProjectId/studies |200|  Content-Type: application/json |jsonbody.responses[0].results.length == '2'|
+
+!3 Get Studies from Project For Current Release ONLY
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/studies/search?projectId=$lProjectId&release=3|200|  Content-Type: application/json |jsonbody.responses[0].results[0].name == 'study' && jsonbody.responses[0].results[0].alias == 'alias'|
+
+!3 Get Studies from Project From A Specific Release
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/studies/search?projectId=$lProjectId&release=1|200|  Content-Type: application/json |jsonbody.responses[0].results[0].name == '$studyName' && jsonbody.responses[0].results[0].alias == '$studyAlias'|
+
+!3 Search Non-Existing Sample (Release 1)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/samples/search?study=$studyId1&release=1|200|  Content-Type: application/json |jsonbody.responses[0].results.length == '0'|
+
+!3 Search Existing Sample (Release 2)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/samples/search?study=$studyId1&release=2|200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == 'sample'|
+
+!3 Search All Samples (Current Release)
+!|Table: Rest Fixture | $baseURL |
+| GET | /v1/samples/search?study=$studyId1|200|  Content-Type: application/json |jsonbody.responses[0].results[0].id == 'sample'|
+

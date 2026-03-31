@@ -1,0 +1,728 @@
+/*
+ * Copyright 2015-2020 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.opencb.opencga.analysis.tools;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
+import org.opencb.commons.datastore.core.Event;
+import org.opencb.commons.datastore.core.ObjectMap;
+import org.opencb.opencga.analysis.ConfigurationUtils;
+import org.opencb.opencga.analysis.variant.manager.VariantStorageManager;
+import org.opencb.opencga.analysis.workflow.NextFlowToolExecutor;
+import org.opencb.opencga.catalog.exceptions.CatalogException;
+import org.opencb.opencga.catalog.managers.CatalogManager;
+import org.opencb.opencga.catalog.managers.ProjectManager;
+import org.opencb.opencga.catalog.managers.StudyManager;
+import org.opencb.opencga.catalog.utils.CatalogFqn;
+import org.opencb.opencga.core.api.ParamConstants;
+import org.opencb.opencga.core.common.ExceptionUtils;
+import org.opencb.opencga.core.common.GitRepositoryState;
+import org.opencb.opencga.core.common.MemoryUsageMonitor;
+import org.opencb.opencga.core.common.TimeUtils;
+import org.opencb.opencga.core.config.Configuration;
+import org.opencb.opencga.core.config.storage.StorageConfiguration;
+import org.opencb.opencga.core.exceptions.ToolException;
+import org.opencb.opencga.core.models.common.Enums;
+import org.opencb.opencga.core.models.file.File;
+import org.opencb.opencga.core.models.project.DataStore;
+import org.opencb.opencga.core.models.project.Project;
+import org.opencb.opencga.core.models.study.Study;
+import org.opencb.opencga.core.tools.OpenCgaToolExecutor;
+import org.opencb.opencga.core.tools.ToolDependency;
+import org.opencb.opencga.core.tools.ToolParams;
+import org.opencb.opencga.core.tools.annotations.Tool;
+import org.opencb.opencga.core.tools.annotations.ToolExecutor;
+import org.opencb.opencga.core.tools.result.ExecutionResult;
+import org.opencb.opencga.core.tools.result.ExecutionResultManager;
+import org.opencb.opencga.core.tools.result.ExecutorInfo;
+import org.opencb.opencga.core.tools.result.ToolStep;
+import org.opencb.opencga.storage.core.StorageEngineFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import static org.opencb.opencga.core.tools.OpenCgaToolExecutor.EXECUTOR_ID;
+
+public abstract class OpenCgaTool {
+
+    protected CatalogManager catalogManager;
+    protected Configuration configuration;
+    protected StorageConfiguration storageConfiguration;
+    protected VariantStorageManager variantStorageManager;
+
+    protected String study;
+    private String jobId;
+    private String opencgaHome;
+    private boolean dryRun;
+    protected String token;
+
+    protected final ObjectMap params;
+    protected ObjectMap executorParams;
+    private List<ToolExecutor.Source> sourceTypes;
+    private List<ToolExecutor.Framework> availableFrameworks;
+    protected Logger logger;
+    private Path outDir;
+    private Path scratchDir;
+
+    private final ToolExecutorFactory toolExecutorFactory;
+    private final Logger privateLogger;
+
+    private MemoryUsageMonitor memoryUsageMonitor;
+
+    private ExecutionResultManager erm;
+    private String currentStep;
+
+    public OpenCgaTool() {
+        privateLogger = LoggerFactory.getLogger(OpenCgaTool.class);
+        toolExecutorFactory = new ToolExecutorFactory();
+        params = new ObjectMap();
+    }
+
+    public final OpenCgaTool setUp(String opencgaHome, CatalogManager catalogManager, StorageEngineFactory engineFactory,
+                                   ObjectMap params, Path outDir, String study, String jobId, boolean dryRun, String token) {
+        VariantStorageManager manager = new VariantStorageManager(catalogManager, engineFactory);
+        return setUp(opencgaHome, catalogManager, manager, params, outDir, study, jobId, dryRun, token);
+    }
+
+    public final OpenCgaTool setUp(String opencgaHome, CatalogManager catalogManager, VariantStorageManager variantStorageManager,
+                                   ObjectMap params, Path outDir, String study, String jobId, boolean dryRun, String token) {
+        this.opencgaHome = opencgaHome;
+        this.catalogManager = catalogManager;
+        this.configuration = catalogManager.getConfiguration();
+        this.variantStorageManager = variantStorageManager;
+        this.storageConfiguration = variantStorageManager.getStorageConfiguration();
+        this.study = study;
+        this.jobId = jobId;
+        this.dryRun = dryRun;
+        this.token = token;
+        if (params != null) {
+            this.params.putAll(params);
+        }
+        this.executorParams = new ObjectMap();
+        this.outDir = outDir;
+        //this.params.put("outDir", outDir.toAbsolutePath().toString());
+
+        setUpFrameworksAndSource();
+        return this;
+    }
+
+    public final OpenCgaTool setUp(String opencgaHome, ObjectMap params, Path outDir, String token)
+            throws ToolException {
+        this.opencgaHome = opencgaHome;
+        this.token = token;
+        if (params != null) {
+            this.params.putAll(params);
+        }
+        this.executorParams = new ObjectMap();
+        this.outDir = outDir;
+        //this.params.put("outDir", outDir.toAbsolutePath().toString());
+
+        try {
+            loadConfiguration();
+            loadStorageConfiguration();
+
+            this.catalogManager = new CatalogManager(configuration);
+            this.variantStorageManager = new VariantStorageManager(catalogManager, StorageEngineFactory.get(storageConfiguration));
+        } catch (IOException | CatalogException e) {
+            throw new ToolException(e);
+        }
+
+        setUpFrameworksAndSource();
+        return this;
+    }
+
+    private void setUpFrameworksAndSource() {
+        logger = LoggerFactory.getLogger(this.getClass().toString());
+
+        availableFrameworks = new ArrayList<>();
+        sourceTypes = new ArrayList<>();
+        if (storageConfiguration.getVariant().getDefaultEngine().equals("mongodb")) {
+            if (getToolResource().equals(Enums.Resource.VARIANT)) {
+                sourceTypes.add(ToolExecutor.Source.MONGODB);
+            }
+        } else if (storageConfiguration.getVariant().getDefaultEngine().equals("hadoop")) {
+            availableFrameworks.add(ToolExecutor.Framework.MAP_REDUCE);
+            // TODO: Check from configuration if spark is available
+//            availableFrameworks.add(ToolExecutor.Framework.SPARK);
+            if (getToolResource().equals(Enums.Resource.VARIANT)) {
+                sourceTypes.add(ToolExecutor.Source.HBASE);
+            }
+        }
+
+        availableFrameworks.add(ToolExecutor.Framework.LOCAL);
+        sourceTypes.add(ToolExecutor.Source.STORAGE);
+//        return this;
+    }
+
+    /**
+     * Execute the tool. The tool should have been properly setUp before being executed.
+     *
+     * @return ExecutionResult
+     * @throws ToolException on error
+     */
+    public final ExecutionResult start() throws ToolException {
+        if (this.getClass().getAnnotation(Tool.class) == null) {
+            throw new ToolException("Missing @" + Tool.class.getSimpleName() + " annotation in " + this.getClass());
+        }
+        if (configuration.getAnalysis().getExecution().getOptions().getBoolean("memoryMonitor", false)) {
+            startMemoryMonitor();
+        }
+        erm = new ExecutionResultManager(getId(), outDir);
+        erm.init(params, executorParams);
+        Thread hook = new Thread(() -> {
+            Throwable exception = null;
+            try {
+                onShutdown();
+            } catch (Throwable e) {
+                exception = e;
+            }
+            if (!erm.isClosed()) {
+                String message = "Unexpected system shutdown. Job killed by the system.";
+                privateLogger.error(message);
+                if (exception == null) {
+                    exception = new RuntimeException(message);
+                }
+                try {
+                    close(exception);
+                } catch (ToolException e) {
+                    privateLogger.error("Error closing ExecutionResult", e);
+                }
+            }
+        });
+        Runtime.getRuntime().addShutdownHook(hook);
+        Throwable exception = null;
+        ExecutionResult result;
+        try {
+            if (scratchDir == null) {
+                Path baseScratchDir = this.outDir;
+                if (StringUtils.isNotEmpty(configuration.getAnalysis().getScratchDir())) {
+                    try {
+                        Path scratch = Paths.get(configuration.getAnalysis().getScratchDir());
+                        if (scratch.toFile().isDirectory() && scratch.toFile().canWrite()) {
+                            baseScratchDir = scratch;
+                        } else {
+                            try {
+                                FileUtils.forceMkdir(scratch.toFile());
+                                baseScratchDir = scratch;
+                            } catch (IOException e) {
+                                String warn = "Unable to access scratch folder '" + scratch + "'. " + e.getMessage();
+                                privateLogger.warn(warn);
+                                addWarning(warn);
+                            }
+                        }
+                    } catch (InvalidPathException e) {
+                        String warn = "Unable to access scratch folder '"
+                                + configuration.getAnalysis().getScratchDir() + "'. " + e.getMessage();
+                        privateLogger.warn(warn);
+                        addWarning(warn);
+                    }
+                }
+
+                try {
+                    scratchDir = Files.createDirectory(baseScratchDir.resolve("scratch_" + getId() + RandomStringUtils.randomAlphanumeric(10)));
+                } catch (IOException e) {
+                    throw new ToolException(e);
+                }
+            }
+            try {
+                currentStep = "check";
+                privateCheck();
+                if (dryRun) {
+                    logger.info("Dry run enabled. Sleep for 5 seconds and skip execution.");
+                    Thread.sleep(5000);
+                } else {
+                    currentStep = null;
+                    erm.setSteps(getSteps());
+                    erm.addDependencies(getDependencies());
+                    run();
+                }
+            } catch (ToolException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ToolException(e);
+            }
+            Runtime.getRuntime().removeShutdownHook(hook);
+        } catch (Throwable e) {
+            exception = e;
+            // Do not use a finally block to remove shutdownHook, as finally blocks will be executed even if the JVM is killed,
+            // and this would throw IllegalStateException("Shutdown in progress");
+            try {
+                Runtime.getRuntime().removeShutdownHook(hook);
+            } catch (Exception e1) {
+                e.addSuppressed(e1);
+            }
+            throw e;
+        } finally {
+            close();
+            // If the shutdown hook has been executed, the ExecutionResultManager is already closed
+            if (!erm.isClosed()) {
+                result = close(exception);
+            } else {
+                result = erm.read();
+            }
+        }
+        return result;
+    }
+
+    private ExecutionResult close(Throwable exception) throws ToolException {
+        if (scratchDir != null) {
+            deleteScratchDirectory();
+        }
+        logException(exception);
+        stopMemoryMonitor();
+        ExecutionResult result = erm.close(exception);
+        privateLogger.info("------- Tool '" + getId() + "' executed in "
+                + TimeUtils.durationToString(result.getEnd().getTime() - result.getStart().getTime()) + " -------");
+        return result;
+    }
+
+    private void logException(Throwable throwable) {
+        if (throwable == null) {
+            return;
+        }
+        privateLogger.error("## -----------------------------------------------------");
+//        privateLogger.error("## Catch exception [" + throwable.getClass().getSimpleName() + "] at step '" + getCurrentStep() + "'");
+        for (String line : ExceptionUtils.prettyExceptionMessage(throwable, true, true).split("\n")) {
+            privateLogger.error("## - " + line);
+        }
+        privateLogger.error("## -----------------------------------------------------");
+    }
+
+    private void deleteScratchDirectory() throws ToolException {
+        // FIXME: In the future, allow removing the scratch directory for Nextflow tools too
+        if (NextFlowToolExecutor.ID.equals(getId())) {
+            privateLogger.info("Skip deleting scratch directory for tool '{}'.", getId());
+            return;
+        }
+        try {
+            FileUtils.deleteDirectory(scratchDir.toFile());
+        } catch (IOException e) {
+            String warningMessage = "Error deleting scratch folder " + scratchDir + " : " + e.getMessage();
+            privateLogger.warn(warningMessage, e);
+            erm.addWarning(warningMessage);
+        }
+    }
+
+    private void startMemoryMonitor() {
+        if (memoryUsageMonitor == null) {
+            memoryUsageMonitor = new MemoryUsageMonitor();
+            memoryUsageMonitor.start();
+        }
+    }
+
+    private void stopMemoryMonitor() {
+        if (memoryUsageMonitor != null) {
+            memoryUsageMonitor.stop();
+            memoryUsageMonitor = null;
+        }
+    }
+
+    private void privateCheck() throws Exception {
+        ToolParams toolParams = findToolParams();
+        if (toolParams != null) {
+            toolParams.updateParams(getParams());
+        }
+        check();
+    }
+
+    /**
+     * Check that the given parameters are correct.
+     * This method will be called before the {@link #run()}.
+     *
+     * @throws Exception if the parameters are not correct
+     */
+    protected void check() throws Exception {
+        if (getTool().scope() == Tool.Scope.STUDY) {
+            study = getStudyFqn();
+        }
+    }
+
+    /**
+     * Method to be implemented by subclasses with the actual execution of the tool.
+     * @throws Exception on error
+     */
+    protected abstract void run() throws Exception;
+
+    /**
+     * Method that may be overrided by subclasses to clean up resources.
+     */
+    protected void close() {
+    }
+
+    /**
+     * Method to be called by the Runtime shutdownHook in case of an unexpected system shutdown.
+     */
+    protected void onShutdown() {
+    }
+
+    /**
+     * @return the tool id
+     */
+    public final String getId() {
+        return this.getClass().getAnnotation(Tool.class).id();
+    }
+
+    protected final Tool getTool() {
+        return this.getClass().getAnnotation(Tool.class);
+    }
+
+    /**
+     * @return the tool id
+     */
+    protected final Enums.Resource getToolResource() {
+        return this.getClass().getAnnotation(Tool.class).resource();
+    }
+
+    /**
+     * Method called internally to obtain the list of steps.
+     *
+     * Will be executed after calling to the {@link #check()} method.
+     * @return the tool steps
+     */
+    protected List<String> getSteps() {
+        List<String> steps = new ArrayList<>();
+        steps.add(getId());
+        return steps;
+    }
+
+    protected List<ToolDependency> getDependencies() throws ToolException {
+        List<ToolDependency> dependencyList = new LinkedList<>();
+        dependencyList.add(new ToolDependency("opencga", GitRepositoryState.getInstance().getBuildVersion(),
+                GitRepositoryState.getInstance().getCommitId()));
+        ToolDependency cellbaseDependency = getCellbaseDependency();
+        if (cellbaseDependency != null) {
+            dependencyList.add(cellbaseDependency);
+        }
+        return dependencyList;
+    }
+
+    private ToolDependency getCellbaseDependency() throws ToolException {
+        String studyId = null;
+        String projectId = null;
+        if (StringUtils.isNotEmpty(params.getString(ParamConstants.PROJECT_PARAM))) {
+            projectId = params.getString(ParamConstants.PROJECT_PARAM);
+        } else if (StringUtils.isNotEmpty(params.getString(ParamConstants.STUDY_PARAM))) {
+            studyId = params.getString(ParamConstants.STUDY_PARAM);
+        } else {
+            return null;
+        }
+        try {
+            if (StringUtils.isNotEmpty(studyId)) {
+                Study study = catalogManager.getStudyManager().get(studyId, StudyManager.INCLUDE_STUDY_IDS, token).first();
+                CatalogFqn catalogFqn = CatalogFqn.extractFqnFromStudyFqn(study.getFqn());
+                projectId = catalogFqn.toProjectFqn();
+            }
+            Project project = catalogManager.getProjectManager().get(projectId, ProjectManager.INCLUDE_CELLBASE, token)
+                    .first();
+            if (project.getCellbase() != null) {
+                return new ToolDependency("cellbase:" + project.getCellbase().getDataRelease(), project.getCellbase().getVersion());
+            } else {
+                return null;
+            }
+        } catch (CatalogException e) {
+            throw new ToolException(e);
+        }
+    }
+
+    protected final String getCurrentStep() {
+        if (currentStep == null) {
+            return getSteps().get(0);
+        } else {
+            return currentStep;
+        }
+    }
+
+    /**
+     * @return Output directory of the job.
+     */
+    public final Path getOutDir() {
+        return outDir;
+    }
+
+    /**
+     * @return Temporary scratch directory. Files generated in this folder will be deleted.
+     */
+    public final Path getScratchDir() {
+        return scratchDir;
+    }
+
+    public final String getToken() {
+        return token;
+    }
+
+    public final Path getOpencgaHome() {
+        return Paths.get(opencgaHome);
+    }
+
+    public String getStudy() {
+        return study;
+    }
+
+    public OpenCgaTool setStudy(String study) {
+        this.study = study;
+        getParams().put(ParamConstants.STUDY_PARAM, study);
+        return this;
+    }
+
+    protected String getStudyFqn() throws CatalogException {
+        String study = StringUtils.isNotEmpty(this.study) ? this.study : getParams().getString(ParamConstants.STUDY_PARAM);
+        if (StringUtils.isEmpty(study)) {
+            return "";
+        }
+        return getCatalogManager().getStudyManager().get(study, StudyManager.INCLUDE_STUDY_IDS, getToken()).first().getFqn();
+    }
+
+    public final String getJobId() {
+        return jobId;
+    }
+
+    public final CatalogManager getCatalogManager() {
+        return catalogManager;
+    }
+
+    public final VariantStorageManager getVariantStorageManager() {
+        return variantStorageManager;
+    }
+
+    public final ObjectMap getParams() {
+        return params;
+    }
+
+    public final String getExpiringToken() throws CatalogException {
+        return catalogManager.getUserManager().refreshToken(token).first().getToken();
+    }
+
+    private ToolParams findToolParams() throws ToolException {
+        for (Field field : getClass().getDeclaredFields()) {
+            if (field.isAnnotationPresent(org.opencb.opencga.core.tools.annotations.ToolParams.class)
+                    && ToolParams.class.isAssignableFrom(field.getType())) {
+                try {
+                    field.setAccessible(true);
+                    ToolParams toolParams = (ToolParams) field.get(this);
+                    if (toolParams == null) {
+                        toolParams = (ToolParams) field.getType().newInstance();
+                        field.set(this, toolParams);
+                    }
+                    return toolParams;
+                } catch (IllegalAccessException | InstantiationException e) {
+                    throw new ToolException("Unexpected error reading ToolParams");
+                }
+            }
+        }
+        return null;
+    }
+
+    public final OpenCgaTool addSource(ToolExecutor.Source source) {
+        if (sourceTypes == null) {
+            sourceTypes = new ArrayList<>();
+        }
+        sourceTypes.add(source);
+        return this;
+    }
+
+    public final OpenCgaTool addFramework(ToolExecutor.Framework framework) {
+        if (availableFrameworks == null) {
+            availableFrameworks = new ArrayList<>();
+        }
+        availableFrameworks.add(framework);
+        return this;
+    }
+
+    @FunctionalInterface
+    protected interface StepRunnable {
+        void run() throws Exception;
+    }
+
+    protected final void step(StepRunnable step) throws ToolException {
+        step(getId(), step);
+    }
+
+    protected final void step(String stepId, StepRunnable step) throws ToolException {
+        if (checkStep(stepId)) {
+            try {
+                StopWatch stopWatch = StopWatch.createStarted();
+                privateLogger.info("");
+                privateLogger.info("------- Executing step '" + stepId + "' -------");
+                currentStep = stepId;
+                step.run();
+                privateLogger.info("------- Step '" + stepId + "' executed in " + TimeUtils.durationToString(stopWatch) + " -------");
+            } catch (ToolException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ToolException("Exception from step '" + stepId + "'", e);
+            }
+        } else {
+            privateLogger.info("------- Skip step " + stepId + " -------");
+        }
+    }
+
+    protected final void setManualSteps(List<ToolStep> steps) throws ToolException {
+        erm.setManualSteps(steps);
+    }
+
+    protected final boolean checkStep(String stepId) throws ToolException {
+        return erm.checkStep(stepId);
+    }
+
+    protected final void errorStep() throws ToolException {
+        erm.errorStep();
+    }
+
+    protected final void addEvent(Event.Type type, String message) throws ToolException {
+        erm.addEvent(type, message);
+    }
+
+    protected final void addInfo(String message) throws ToolException {
+        erm.addEvent(Event.Type.INFO, message);
+    }
+
+    protected final void addWarning(String warning) throws ToolException {
+        erm.addWarning(warning);
+    }
+
+    protected final void addError(Exception e) throws ToolException {
+        erm.addError(e);
+    }
+
+    protected final void addAttribute(String key, Object value) throws ToolException {
+        erm.addAttribute(key, value);
+    }
+
+    protected final void addDependencies(List<ToolDependency> dependencyList) throws ToolException {
+        erm.addDependencies(dependencyList);
+    }
+
+    protected final void addDependency(ToolDependency dependency) throws ToolException {
+        erm.addDependency(dependency);
+    }
+
+    protected final void moveFile(String study, Path source, Path destiny, String catalogDirectoryPath, boolean isResource, String token)
+            throws ToolException {
+        File file;
+        try {
+            file = catalogManager.getFileManager().moveAndRegister(study, source, destiny, catalogDirectoryPath, isResource, token).first();
+        } catch (Exception e) {
+            throw new ToolException("Error moving file from " + source + " to {uri: " + destiny + ", path: " + catalogDirectoryPath + "}",
+                    e);
+        }
+        // Add only if move is successful
+        addGeneratedFile(file);
+    }
+
+    protected final void addGeneratedFile(File file) throws ToolException {
+        erm.addExternalFile(file.getUri());
+    }
+
+    protected final OpenCgaToolExecutor getToolExecutor() throws ToolException {
+        return getToolExecutor(OpenCgaToolExecutor.class);
+    }
+
+    protected final <T extends OpenCgaToolExecutor> T getToolExecutor(Class<T> clazz) throws ToolException {
+        String executorId = executorParams == null ? null : executorParams.getString(EXECUTOR_ID);
+        if (StringUtils.isEmpty(executorId) && params != null) {
+            executorId = params.getString(EXECUTOR_ID);
+        }
+        return getToolExecutor(clazz, executorId);
+    }
+
+    protected final <T extends OpenCgaToolExecutor> T getToolExecutor(Class<T> clazz, String toolExecutorId) throws ToolException {
+        T toolExecutor = toolExecutorFactory.getToolExecutor(getId(), toolExecutorId, clazz, sourceTypes, availableFrameworks);
+        String executorId = toolExecutor.getId();
+        if (executorParams == null) {
+            executorParams = new ObjectMap();
+        }
+        executorParams.put(EXECUTOR_ID, executorId);
+
+        // Update executor ID
+        erm.setExecutorInfo(new ExecutorInfo(executorId,
+                toolExecutor.getClass(),
+                executorParams,
+                toolExecutor.getSource(),
+                toolExecutor.getFramework()));
+
+        toolExecutor.setUp(erm, executorParams, outDir, configuration);
+        return toolExecutor;
+    }
+
+    protected final void setUpStorageEngineExecutor(String study) throws ToolException {
+        setUpStorageEngineExecutor(null, study);
+    }
+
+    protected final void setUpStorageEngineExecutorByProjectId(String projectId) throws ToolException {
+        setUpStorageEngineExecutor(projectId, null);
+    }
+
+    private final void setUpStorageEngineExecutor(String projectId, String study) throws ToolException {
+        executorParams.put("opencgaHome", opencgaHome);
+        executorParams.put(ParamConstants.TOKEN, token);
+        try {
+            DataStore dataStore;
+            if (study == null) {
+                dataStore = variantStorageManager.getDataStoreByProjectId(projectId, token);
+            } else {
+                dataStore = variantStorageManager.getDataStore(study, token);
+            }
+
+            executorParams.put("storageEngineId", dataStore.getStorageEngine());
+            executorParams.put("dbName", dataStore.getDbName());
+        } catch (CatalogException e) {
+            throw new ToolException(e);
+        }
+    }
+
+    /**
+     * This method attempts to load general configuration from OpenCGA installation folder, if not exists then loads JAR configuration.yml.
+     *
+     * @throws IOException If any IO problem occurs
+     */
+    private void loadConfiguration() throws IOException {
+        this.configuration = ConfigurationUtils.loadConfiguration(opencgaHome);
+    }
+
+    /**
+     * This method attempts to load storage configuration from OpenCGA installation folder, if not exists then loads JAR storage-configuration.yml.
+     *
+     * @throws IOException If any IO problem occurs
+     */
+    private void loadStorageConfiguration() throws IOException {
+        this.storageConfiguration = ConfigurationUtils.loadStorageConfiguration(opencgaHome);
+    }
+
+    // TODO can this method be removed?
+//    protected final Analyst getAnalyst(String token) throws ToolException {
+//        try {
+//            String userId = catalogManager.getUserManager().getUserId(token);
+//            DataResult<User> userQueryResult = catalogManager.getUserManager().get(userId, new QueryOptions(QueryOptions.INCLUDE,
+//                    Arrays.asList(UserDBAdaptor.QueryParams.EMAIL.key(), UserDBAdaptor.QueryParams.ORGANIZATION.key())), token);
+//
+//            return new Analyst(userId, userQueryResult.first().getEmail(), userQueryResult.first().getOrganization());
+//        } catch (CatalogException e) {
+//            throw new ToolException(e.getMessage(), e);
+//        }
+//    }
+}
