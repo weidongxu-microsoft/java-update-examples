@@ -1,9 +1,8 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
 @FunctionalInterface
 public interface MessageTransformer {
-    IMessage transform(IMessage source) throws ServiceBusException;
+    ServiceBusMessage transform(ServiceBusMessage source);
 }

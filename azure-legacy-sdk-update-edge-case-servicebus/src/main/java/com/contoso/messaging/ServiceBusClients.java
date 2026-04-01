@@ -1,61 +1,74 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.ClientFactory;
-import com.microsoft.azure.servicebus.IMessageReceiver;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.ReceiveMode;
-import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
-
-import java.net.URI;
+import com.azure.messaging.servicebus.ServiceBusClientBuilder;
+import com.azure.messaging.servicebus.ServiceBusSenderClient;
+import com.azure.messaging.servicebus.ServiceBusReceiverClient;
+import com.azure.messaging.servicebus.models.ServiceBusReceiveMode;
 
 public final class ServiceBusClients {
 
     private ServiceBusClients() {
     }
 
-    public static ConnectionStringBuilder buildConnection(
-            String endpoint, String entityPath, String sasKeyName, String sasKey) {
-        return new ConnectionStringBuilder(endpoint, entityPath, sasKeyName, sasKey);
+    public static ServiceBusSenderClient createSender(String connectionString, String queueName) {
+        return new ServiceBusClientBuilder()
+            .connectionString(connectionString)
+            .sender()
+            .queueName(queueName)
+            .buildClient();
     }
 
-    public static ConnectionStringBuilder parseConnection(String connectionString) {
-        return new ConnectionStringBuilder(connectionString);
+    public static ServiceBusReceiverClient createReceiver(
+            String connectionString, String queueName, ServiceBusReceiveMode mode) {
+        return new ServiceBusClientBuilder()
+            .connectionString(connectionString)
+            .receiver()
+            .queueName(queueName)
+            .receiveMode(mode)
+            .buildClient();
     }
 
-    public static IMessageSender createSender(ConnectionStringBuilder builder)
-            throws InterruptedException, ServiceBusException {
-        return ClientFactory.createMessageSenderFromConnectionStringBuilder(builder);
+    public static String extractEntityPath(String connectionString) {
+        // Extract EntityPath from connection string
+        String[] parts = connectionString.split(";");
+        for (String part : parts) {
+            if (part.trim().startsWith("EntityPath=")) {
+                return part.trim().substring("EntityPath=".length());
+            }
+        }
+        return null;
     }
 
-    public static IMessageReceiver createReceiver(
-            ConnectionStringBuilder builder, ReceiveMode mode)
-            throws InterruptedException, ServiceBusException {
-        return ClientFactory.createMessageReceiverFromConnectionStringBuilder(builder, mode);
+    public static String extractEndpoint(String connectionString) {
+        // Extract Endpoint from connection string
+        String[] parts = connectionString.split(";");
+        for (String part : parts) {
+            if (part.trim().startsWith("Endpoint=")) {
+                return part.trim().substring("Endpoint=".length());
+            }
+        }
+        return null;
     }
 
-    public static String extractEntityPath(ConnectionStringBuilder builder) {
-        return builder.getEntityPath();
-    }
-
-    public static URI extractEndpoint(ConnectionStringBuilder builder) {
-        return builder.getEndpoint();
-    }
-
-    public static String extractSasKeyName(ConnectionStringBuilder builder) {
-        return builder.getSasKeyName();
-    }
-
-    public static String extractSasKey(ConnectionStringBuilder builder) {
-        return builder.getSasKey();
-    }
-
-    public static ConnectionStringBuilder withEntityPath(
-            ConnectionStringBuilder original, String newEntityPath) {
-        return new ConnectionStringBuilder(
-            original.getEndpoint().toString(),
-            newEntityPath,
-            original.getSasKeyName(),
-            original.getSasKey());
+    public static String withEntityPath(String connectionString, String newEntityPath) {
+        // Replace or add EntityPath in connection string
+        StringBuilder result = new StringBuilder();
+        String[] parts = connectionString.split(";");
+        boolean foundEntityPath = false;
+        
+        for (String part : parts) {
+            if (part.trim().startsWith("EntityPath=")) {
+                result.append("EntityPath=").append(newEntityPath).append(";");
+                foundEntityPath = true;
+            } else if (!part.trim().isEmpty()) {
+                result.append(part).append(";");
+            }
+        }
+        
+        if (!foundEntityPath) {
+            result.append("EntityPath=").append(newEntityPath);
+        }
+        
+        return result.toString().replaceAll(";+$", "");
     }
 }

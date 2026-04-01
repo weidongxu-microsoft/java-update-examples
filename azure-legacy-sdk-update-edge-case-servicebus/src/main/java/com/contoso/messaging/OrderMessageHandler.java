@@ -1,28 +1,26 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.ExceptionPhase;
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.IMessageHandler;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import com.azure.messaging.servicebus.ServiceBusSenderClient;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
-public class OrderMessageHandler implements IMessageHandler {
+public class OrderMessageHandler implements Consumer<ServiceBusReceivedMessage> {
 
-    private final IMessageSender forwardSender;
+    private final ServiceBusSenderClient forwardSender;
     private final ErrorClassifier errorClassifier;
     private final List<MessageTransformer> transformers;
-    private final List<IMessage> processedMessages;
+    private final List<ServiceBusMessage> processedMessages;
 
-    public OrderMessageHandler(IMessageSender forwardSender, ErrorClassifier errorClassifier) {
+    public OrderMessageHandler(ServiceBusSenderClient forwardSender, ErrorClassifier errorClassifier) {
         this.forwardSender = forwardSender;
         this.errorClassifier = errorClassifier;
         this.transformers = new ArrayList<>();
-        this.processedMessages = Collections.synchronizedList(new ArrayList<IMessage>());
+        this.processedMessages = Collections.synchronizedList(new ArrayList<ServiceBusMessage>());
     }
 
     public void addTransformer(MessageTransformer transformer) {
@@ -30,39 +28,49 @@ public class OrderMessageHandler implements IMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> onMessageAsync(IMessage message) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                IMessage current = message;
-                for (MessageTransformer transformer : transformers) {
-                    current = transformer.transform(current);
-                }
-                return current;
-            } catch (ServiceBusException e) {
-                throw new RuntimeException(e);
+    public void accept(ServiceBusReceivedMessage receivedMessage) {
+        try {
+            // Convert received message to regular message
+            ServiceBusMessage current = convertToMessage(receivedMessage);
+            
+            // Apply transformers
+            for (MessageTransformer transformer : transformers) {
+                current = transformer.transform(current);
             }
-        }).thenCompose(transformed -> {
-            processedMessages.add(transformed);
-            return forwardSender.sendAsync(transformed);
-        }).exceptionally(ex -> {
+            
+            processedMessages.add(current);
+            forwardSender.sendMessage(current);
+        } catch (Exception ex) {
             errorClassifier.classify(ex);
-            return null;
-        });
+        }
     }
 
-    @Override
-    public void notifyException(Throwable exception, ExceptionPhase phase) {
+    private ServiceBusMessage convertToMessage(ServiceBusReceivedMessage received) {
+        ServiceBusMessage message = new ServiceBusMessage(received.getBody());
+        message.setMessageId(received.getMessageId());
+        message.setSubject(received.getSubject());
+        message.setContentType(received.getContentType());
+        message.setCorrelationId(received.getCorrelationId());
+        message.setSessionId(received.getSessionId());
+        message.setReplyTo(received.getReplyTo());
+        message.setTimeToLive(received.getTimeToLive());
+        if (received.getApplicationProperties() != null) {
+            message.getApplicationProperties().putAll(received.getApplicationProperties());
+        }
+        return message;
+    }
+
+    public void handleError(Throwable exception) {
         ErrorClassifier.ErrorCategory category = errorClassifier.classify(exception);
-        if (phase == ExceptionPhase.RECEIVE
-                && category == ErrorClassifier.ErrorCategory.TRANSIENT) {
+        if (category == ErrorClassifier.ErrorCategory.TRANSIENT) {
             return;
         }
         if (category == ErrorClassifier.ErrorCategory.ENTITY_NOT_FOUND) {
-            System.err.println("Entity not found during " + phase.name());
+            System.err.println("Entity not found during message processing");
         }
     }
 
-    public List<IMessage> getProcessedMessages() {
+    public List<ServiceBusMessage> getProcessedMessages() {
         return Collections.unmodifiableList(processedMessages);
     }
 

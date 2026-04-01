@@ -1,9 +1,6 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
 import org.junit.Test;
-
-import java.net.URI;
 
 import static org.junit.Assert.*;
 
@@ -16,71 +13,42 @@ public class ServiceBusClientsTest {
         "EntityPath=orders-queue";
 
     @Test
-    public void testParseConnectionExtractsEntityPath() {
-        ConnectionStringBuilder builder = ServiceBusClients.parseConnection(CONNECTION_STRING);
-        assertEquals("orders-queue", ServiceBusClients.extractEntityPath(builder));
+    public void testExtractEntityPath() {
+        String entityPath = ServiceBusClients.extractEntityPath(CONNECTION_STRING);
+        assertEquals("orders-queue", entityPath);
     }
 
     @Test
-    public void testParseConnectionExtractsEndpoint() {
-        ConnectionStringBuilder builder = ServiceBusClients.parseConnection(CONNECTION_STRING);
-        URI endpoint = ServiceBusClients.extractEndpoint(builder);
+    public void testExtractEndpoint() {
+        String endpoint = ServiceBusClients.extractEndpoint(CONNECTION_STRING);
         assertNotNull(endpoint);
-        assertTrue(endpoint.toString().contains("contoso-orders"));
+        assertTrue(endpoint.contains("contoso-orders"));
     }
 
     @Test
-    public void testParseConnectionExtractsSasKeyName() {
-        ConnectionStringBuilder builder = ServiceBusClients.parseConnection(CONNECTION_STRING);
-        assertEquals("RootManageSharedAccessKey", ServiceBusClients.extractSasKeyName(builder));
+    public void testWithEntityPath() {
+        String modified = ServiceBusClients.withEntityPath(CONNECTION_STRING, "new-queue");
+        assertTrue(modified.contains("EntityPath=new-queue"));
+        assertTrue(modified.contains("SharedAccessKeyName=RootManageSharedAccessKey"));
+        assertTrue(modified.contains("SharedAccessKey=dGVzdGtleQ=="));
     }
 
     @Test
-    public void testParseConnectionExtractsSasKey() {
-        ConnectionStringBuilder builder = ServiceBusClients.parseConnection(CONNECTION_STRING);
-        assertEquals("dGVzdGtleQ==", ServiceBusClients.extractSasKey(builder));
+    public void testWithEntityPathAddsIfMissing() {
+        String connStrWithoutEntity = "Endpoint=sb://test.servicebus.windows.net/;" +
+            "SharedAccessKeyName=RootManageSharedAccessKey;" +
+            "SharedAccessKey=dGVzdGtleQ==";
+        
+        String modified = ServiceBusClients.withEntityPath(connStrWithoutEntity, "added-queue");
+        assertTrue(modified.contains("EntityPath=added-queue"));
     }
 
     @Test
-    public void testBuildConnection() {
-        ConnectionStringBuilder builder = ServiceBusClients.buildConnection(
-            "sb://test.servicebus.windows.net/",
-            "my-queue",
-            "send-key",
-            "c2VjcmV0");
-        assertEquals("my-queue", ServiceBusClients.extractEntityPath(builder));
-        assertEquals("send-key", ServiceBusClients.extractSasKeyName(builder));
-        assertEquals("c2VjcmV0", ServiceBusClients.extractSasKey(builder));
-    }
-
-    @Test
-    public void testWithEntityPathCreatesNewBuilder() {
-        ConnectionStringBuilder original = ServiceBusClients.parseConnection(CONNECTION_STRING);
-        ConnectionStringBuilder forked = ServiceBusClients.withEntityPath(original, "new-queue");
-
-        assertEquals("orders-queue", ServiceBusClients.extractEntityPath(original));
-        assertEquals("new-queue", ServiceBusClients.extractEntityPath(forked));
-        assertEquals(
-            ServiceBusClients.extractSasKeyName(original),
-            ServiceBusClients.extractSasKeyName(forked));
-        assertEquals(
-            ServiceBusClients.extractSasKey(original),
-            ServiceBusClients.extractSasKey(forked));
-    }
-
-    @Test
-    public void testConnectionStringBuilderRoundTrip() {
-        ConnectionStringBuilder builder = ServiceBusClients.buildConnection(
-            "sb://roundtrip.servicebus.windows.net/",
-            "test-entity",
-            "key-name",
-            "a2V5dmFsdWU=");
-
-        String connStr = builder.toString();
-        ConnectionStringBuilder parsed = ServiceBusClients.parseConnection(connStr);
-
-        assertEquals(
-            ServiceBusClients.extractEntityPath(builder),
-            ServiceBusClients.extractEntityPath(parsed));
+    public void testWithEntityPathReplacesExisting() {
+        String original = ServiceBusClients.withEntityPath(CONNECTION_STRING, "first-queue");
+        String modified = ServiceBusClients.withEntityPath(original, "second-queue");
+        
+        assertTrue(modified.contains("EntityPath=second-queue"));
+        assertFalse(modified.contains("EntityPath=first-queue"));
     }
 }
