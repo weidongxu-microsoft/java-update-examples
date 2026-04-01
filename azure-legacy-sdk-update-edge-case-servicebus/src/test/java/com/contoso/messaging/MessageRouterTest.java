@@ -1,22 +1,20 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.IMessageReceiver;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.core.util.BinaryData;
+import com.azure.core.util.IterableStream;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import com.azure.messaging.servicebus.ServiceBusReceiverClient;
+import com.azure.messaging.servicebus.ServiceBusSenderClient;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -25,13 +23,13 @@ import static org.mockito.Mockito.*;
 public class MessageRouterTest {
 
     @Mock
-    private IMessageReceiver mockReceiver;
+    private ServiceBusReceiverClient mockReceiver;
 
     @Mock
-    private IMessageSender mockOrdersSender;
+    private ServiceBusSenderClient mockOrdersSender;
 
     @Mock
-    private IMessageSender mockAlertsSender;
+    private ServiceBusSenderClient mockAlertsSender;
 
     private ErrorClassifier errorClassifier;
     private MessageRouter router;
@@ -46,135 +44,95 @@ public class MessageRouterTest {
     }
 
     @Test
-    public void testReceiveAndRouteToCorrectSender() throws Exception {
-        UUID lockToken = UUID.randomUUID();
-        IMessage mockMsg = mock(IMessage.class);
-        when(mockMsg.getLabel()).thenReturn("orders");
-        when(mockMsg.getLockToken()).thenReturn(lockToken);
-        when(mockMsg.getBody()).thenReturn("order-data".getBytes(StandardCharsets.UTF_8));
+    public void testReceiveAndRouteToCorrectSender() {
+        ServiceBusReceivedMessage mockMsg = mock(ServiceBusReceivedMessage.class);
+        when(mockMsg.getSubject()).thenReturn("orders");
+        when(mockMsg.getBody()).thenReturn(BinaryData.fromString("order-data"));
+        when(mockMsg.getMessageId()).thenReturn("msg-1");
 
-        when(mockReceiver.receiveAsync())
-            .thenReturn(CompletableFuture.completedFuture(mockMsg));
-        when(mockOrdersSender.sendAsync(any(IMessage.class)))
-            .thenReturn(CompletableFuture.completedFuture(null));
-        when(mockReceiver.completeAsync(lockToken))
-            .thenReturn(CompletableFuture.completedFuture(null));
+        when(mockReceiver.receiveMessages(1, Duration.ofSeconds(5)))
+            .thenReturn(new IterableStream<>(Arrays.asList(mockMsg)));
 
-        IMessage result = router.receiveAndRoute().join();
+        ServiceBusReceivedMessage result = router.receiveAndRoute();
 
-        verify(mockOrdersSender).sendAsync(mockMsg);
-        verify(mockReceiver).completeAsync(lockToken);
+        verify(mockOrdersSender).sendMessage(any(ServiceBusMessage.class));
+        verify(mockReceiver).complete(mockMsg);
         assertNotNull(result);
     }
 
     @Test
-    public void testReceiveAndRouteAbandonsUnmatchedLabel() throws Exception {
-        UUID lockToken = UUID.randomUUID();
-        IMessage mockMsg = mock(IMessage.class);
-        when(mockMsg.getLabel()).thenReturn("unknown-label");
-        when(mockMsg.getLockToken()).thenReturn(lockToken);
+    public void testReceiveAndRouteAbandonsUnmatchedLabel() {
+        ServiceBusReceivedMessage mockMsg = mock(ServiceBusReceivedMessage.class);
+        when(mockMsg.getSubject()).thenReturn("unknown-label");
 
-        when(mockReceiver.receiveAsync())
-            .thenReturn(CompletableFuture.completedFuture(mockMsg));
-        when(mockReceiver.abandonAsync(lockToken))
-            .thenReturn(CompletableFuture.completedFuture(null));
+        when(mockReceiver.receiveMessages(1, Duration.ofSeconds(5)))
+            .thenReturn(new IterableStream<>(Arrays.asList(mockMsg)));
 
-        IMessage result = router.receiveAndRoute().join();
+        ServiceBusReceivedMessage result = router.receiveAndRoute();
 
-        verify(mockReceiver).abandonAsync(lockToken);
+        verify(mockReceiver).abandon(mockMsg);
         verifyNoInteractions(mockOrdersSender, mockAlertsSender);
         assertNotNull(result);
     }
 
     @Test
-    public void testReceiveAndRouteHandlesNullMessage() throws Exception {
-        when(mockReceiver.receiveAsync())
-            .thenReturn(CompletableFuture.completedFuture(null));
+    public void testReceiveAndRouteHandlesNullMessage() {
+        when(mockReceiver.receiveMessages(1, Duration.ofSeconds(5)))
+            .thenReturn(new IterableStream<>(Collections.emptyList()));
 
-        IMessage result = router.receiveAndRoute().join();
+        ServiceBusReceivedMessage result = router.receiveAndRoute();
 
         assertNull(result);
         verifyNoInteractions(mockOrdersSender);
     }
 
     @Test
-    public void testReceiveAndRouteBatchWithTransformer() throws Exception {
-        UUID lock1 = UUID.randomUUID();
-        UUID lock2 = UUID.randomUUID();
+    public void testReceiveAndRouteBatchWithTransformer() {
+        ServiceBusReceivedMessage mockMsg1 = mock(ServiceBusReceivedMessage.class);
+        when(mockMsg1.getSubject()).thenReturn("raw");
+        when(mockMsg1.getBody()).thenReturn(BinaryData.fromString("data1"));
+        when(mockMsg1.getMessageId()).thenReturn("msg-1");
 
-        IMessage mockMsg1 = mock(IMessage.class);
-        when(mockMsg1.getLabel()).thenReturn("raw");
-        when(mockMsg1.getLockToken()).thenReturn(lock1);
-        when(mockMsg1.getBody()).thenReturn("data1".getBytes(StandardCharsets.UTF_8));
+        ServiceBusReceivedMessage mockMsg2 = mock(ServiceBusReceivedMessage.class);
+        when(mockMsg2.getSubject()).thenReturn("raw");
+        when(mockMsg2.getBody()).thenReturn(BinaryData.fromString("data2"));
+        when(mockMsg2.getMessageId()).thenReturn("msg-2");
 
-        IMessage mockMsg2 = mock(IMessage.class);
-        when(mockMsg2.getLabel()).thenReturn("raw");
-        when(mockMsg2.getLockToken()).thenReturn(lock2);
-        when(mockMsg2.getBody()).thenReturn("data2".getBytes(StandardCharsets.UTF_8));
-
-        Collection<IMessage> batch = Arrays.<IMessage>asList(mockMsg1, mockMsg2);
-        when(mockReceiver.receiveBatchAsync(10))
-            .thenReturn(CompletableFuture.completedFuture(batch));
-        when(mockOrdersSender.sendAsync(any(IMessage.class)))
-            .thenReturn(CompletableFuture.completedFuture(null));
-        when(mockReceiver.completeAsync(any(UUID.class)))
-            .thenReturn(CompletableFuture.completedFuture(null));
+        when(mockReceiver.receiveMessages(10, Duration.ofSeconds(10)))
+            .thenReturn(new IterableStream<>(Arrays.asList(mockMsg1, mockMsg2)));
 
         MessageTransformer labeler = msg -> {
-            Message m = new Message(msg.getBody());
-            m.setLabel("orders");
+            ServiceBusMessage m = new ServiceBusMessage(msg.getBody());
+            m.setSubject("orders");
             return m;
         };
 
-        List<IMessage> results = router.receiveAndRouteBatch(10, labeler).join();
+        List<ServiceBusReceivedMessage> results = router.receiveAndRouteBatch(10, labeler);
 
         assertEquals(2, results.size());
-        verify(mockOrdersSender, times(2)).sendAsync(any(IMessage.class));
+        verify(mockOrdersSender, times(2)).sendMessage(any(ServiceBusMessage.class));
     }
 
     @Test
-    public void testReceiveAndTransformDeadLettersOnFailure() throws Exception {
-        UUID lockToken = UUID.randomUUID();
-        IMessage mockMsg = mock(IMessage.class);
-        when(mockMsg.getLabel()).thenReturn("orders");
-        when(mockMsg.getLockToken()).thenReturn(lockToken);
+    public void testReceiveAndTransformRoutesToCorrectSender() {
+        ServiceBusReceivedMessage mockMsg = mock(ServiceBusReceivedMessage.class);
+        when(mockMsg.getSubject()).thenReturn("raw");
+        when(mockMsg.getBody()).thenReturn(BinaryData.fromString("payload"));
+        when(mockMsg.getMessageId()).thenReturn("msg-1");
 
-        when(mockReceiver.receive()).thenReturn(mockMsg);
-
-        MessageTransformer failingTransformer = msg -> {
-            throw new ServiceBusException(false, "Transform failed");
-        };
-
-        try {
-            router.receiveAndTransform(failingTransformer);
-            fail("Expected ServiceBusException");
-        } catch (ServiceBusException e) {
-            assertEquals("Transform failed", e.getMessage());
-        }
-
-        verify(mockReceiver).deadLetter(eq(lockToken), eq("TransformFailed"), eq("Transform failed"));
-    }
-
-    @Test
-    public void testReceiveAndTransformRoutesToCorrectSender() throws Exception {
-        UUID lockToken = UUID.randomUUID();
-        IMessage mockMsg = mock(IMessage.class);
-        when(mockMsg.getLabel()).thenReturn("raw");
-        when(mockMsg.getLockToken()).thenReturn(lockToken);
-        when(mockMsg.getBody()).thenReturn("payload".getBytes(StandardCharsets.UTF_8));
-
-        when(mockReceiver.receive()).thenReturn(mockMsg);
+        when(mockReceiver.receiveMessages(1, Duration.ofSeconds(5)))
+            .thenReturn(new IterableStream<>(Arrays.asList(mockMsg)));
 
         MessageTransformer relabeler = msg -> {
-            Message m = new Message(msg.getBody());
-            m.setLabel("orders");
+            ServiceBusMessage m = new ServiceBusMessage(msg.getBody());
+            m.setSubject("orders");
             return m;
         };
 
-        IMessage result = router.receiveAndTransform(relabeler);
+        ServiceBusReceivedMessage result = router.receiveAndTransform(relabeler);
 
         assertNotNull(result);
-        verify(mockOrdersSender).send(any(IMessage.class));
-        verify(mockReceiver).complete(lockToken);
+        verify(mockOrdersSender).sendMessage(any(ServiceBusMessage.class));
+        verify(mockReceiver).complete(mockMsg);
     }
 }

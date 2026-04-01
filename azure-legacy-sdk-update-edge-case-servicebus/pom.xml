@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <azure.servicebus.version>3.6.7</azure.servicebus.version>
+        <azure.servicebus.version>7.17.17</azure.servicebus.version>
         <jackson.version>2.13.5</jackson.version>
         <junit.version>4.13.2</junit.version>
         <mockito.version>4.11.0</mockito.version>
@@ -23,8 +23,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-servicebus</artifactId>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-messaging-servicebus</artifactId>
             <version>${azure.servicebus.version}</version>
         </dependency>
         <dependency>

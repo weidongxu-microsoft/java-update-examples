@@ -1,15 +1,15 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.core.util.BinaryData;
+import com.azure.messaging.servicebus.ServiceBusMessage;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-public class MessageCache<T extends IMessage> {
+public class MessageCache<T> {
 
     private final Map<String, T> cache;
     private final Function<T, String> keyExtractor;
@@ -36,26 +36,61 @@ public class MessageCache<T extends IMessage> {
         return cache.size();
     }
 
-    public T transform(String key, MessageTransformer transformer) throws ServiceBusException {
+    public ServiceBusMessage transform(String key, MessageTransformer transformer) {
         T original = cache.get(key);
         if (original == null) {
             return null;
         }
-        IMessage transformed = transformer.transform(original);
-        @SuppressWarnings("unchecked")
-        T result = (T) transformed;
-        cache.put(key, result);
-        return result;
+        if (original instanceof ServiceBusMessage) {
+            ServiceBusMessage transformed = transformer.transform((ServiceBusMessage) original);
+            @SuppressWarnings("unchecked")
+            T result = (T) transformed;
+            cache.put(key, result);
+            return transformed;
+        } else if (original instanceof ServiceBusReceivedMessage) {
+            // Convert received message to regular message for transformation
+            ServiceBusReceivedMessage received = (ServiceBusReceivedMessage) original;
+            ServiceBusMessage temp = convertToMessage(received);
+            ServiceBusMessage transformed = transformer.transform(temp);
+            // Can't store back as received message, so just return transformed
+            return transformed;
+        }
+        return null;
     }
 
-    public String getBodyAsText(T message) {
-        byte[] body = message.getBody();
-        return body != null ? new String(body, StandardCharsets.UTF_8) : null;
+    private ServiceBusMessage convertToMessage(ServiceBusReceivedMessage received) {
+        ServiceBusMessage message = new ServiceBusMessage(received.getBody());
+        message.setMessageId(received.getMessageId());
+        message.setSubject(received.getSubject());
+        message.setContentType(received.getContentType());
+        message.setCorrelationId(received.getCorrelationId());
+        message.setSessionId(received.getSessionId());
+        message.setReplyTo(received.getReplyTo());
+        message.setTimeToLive(received.getTimeToLive());
+        if (received.getApplicationProperties() != null) {
+            message.getApplicationProperties().putAll(received.getApplicationProperties());
+        }
+        return message;
     }
 
-    public String getLabelOrDefault(T message, String defaultLabel) {
-        String label = message.getLabel();
-        return label != null ? label : defaultLabel;
+    public String getBodyAsText(ServiceBusMessage message) {
+        BinaryData body = message.getBody();
+        return body != null ? body.toString() : null;
+    }
+
+    public String getBodyAsText(ServiceBusReceivedMessage message) {
+        BinaryData body = message.getBody();
+        return body != null ? body.toString() : null;
+    }
+
+    public String getSubjectOrDefault(ServiceBusMessage message, String defaultSubject) {
+        String subject = message.getSubject();
+        return subject != null ? subject : defaultSubject;
+    }
+
+    public String getSubjectOrDefault(ServiceBusReceivedMessage message, String defaultSubject) {
+        String subject = message.getSubject();
+        return subject != null ? subject : defaultSubject;
     }
 
     public void clear() {
