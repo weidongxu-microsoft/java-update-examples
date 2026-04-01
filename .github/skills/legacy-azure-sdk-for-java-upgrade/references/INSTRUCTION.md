@@ -82,6 +82,19 @@ dependencies {
 - Keep the text emitted by logging and stdout/stderr unchanged to avoid breaking downstream consumers of those streams.
 - Do not replace `resource.region()` with `resource.regionName()`; doing so changes the type from `Region` to `String` and can introduce subtle regressions.
 
+### com.microsoft.azure.servicebus.**
+
+#### Code Checklist
+
+- **Message type split**: The modern SDK uses TWO message types: `ServiceBusMessage` (for creating/sending) and `ServiceBusReceivedMessage` (for received messages). `ServiceBusReceivedMessage` does NOT extend `ServiceBusMessage` — they are separate class hierarchies. When legacy code uses `IMessage` generically (e.g. `T extends IMessage`), decide whether the context is sending or receiving and pick the appropriate type. If a generic needs to cover both, use `Object` or create an application-level interface.
+- **Exception enums**: `ServiceBusException.getReason()` returns `ServiceBusFailureReason` (e.g. `MESSAGING_ENTITY_NOT_FOUND`, `SERVICE_BUSY`, `MESSAGE_LOCK_LOST`). `ServiceBusErrorContext.getErrorSource()` returns `ServiceBusErrorSource` (e.g. `RECEIVE`, `COMPLETE`). These are different enums — do NOT confuse them. When migrating `ExceptionPhase`, map to `ServiceBusErrorSource`. When migrating exception subclass instanceof chains, map to `ServiceBusFailureReason`.
+- **Final classes**: `ServiceBusSenderClient`, `ServiceBusReceiverClient`, `ServiceBusReceivedMessage`, `ServiceBusProcessorClient`, AND `ServiceBusException` are ALL final classes. They CANNOT be mocked with Mockito. For testability:
+  - Create wrapper interfaces for sender/receiver and mock those instead.
+  - For `ServiceBusException`: construct it directly using `new ServiceBusException(new RuntimeException("message"), ServiceBusFailureReason.XXX)`. Do NOT try to mock it. The constructor accepts a `Throwable cause` and a `ServiceBusFailureReason reason`.
+  - For `ServiceBusReceivedMessage`: use Mockito's `mockConstruction` or create test helper methods that construct messages. If using mockito-inline 4.x+, you may be able to mock final classes by adding `mockito-inline` dependency. Alternatively, create a wrapper interface for received messages.
+- **ConnectionStringBuilder removal**: The modern SDK has no `ConnectionStringBuilder`. Use `ServiceBusClientBuilder.connectionString(str).sender().queueName(name).buildClient()`. If legacy code parses connection strings (extracting SAS keys, endpoints), create a utility class that parses the connection string manually.
+- **MessageBody/MessageBodyType removal**: The modern SDK has no `MessageBody` or `MessageBodyType`. Message bodies are always `BinaryData`. If legacy code switches on `MessageBodyType` (BINARY, VALUE, SEQUENCE), refactor to use `BinaryData` uniformly or create an application-level enum.
+
 #### Code Samples
 
 ##### Authentication with File
