@@ -36,12 +36,14 @@ This creates measurable evidence that the migration guide improves outcomes.
 
 Test whether a bare migration instruction defeats the agent. Each iteration is committed so context can be cleared between rounds.
 
-6. **Attempt migration WITHOUT the guide**: use only this generic instruction — _"Upgrade deprecated legacy Azure Java SDKs (`com.microsoft.azure`) used for this project to the modern ones (`com.azure`) with latest stable version."_
-7. **Evaluate**:
+> **CRITICAL — You MUST run all 50 iterations.** Do NOT skip ahead to Phase 3 early just because a few rounds succeeded. The purpose of this phase is exhaustive hardening. Even if the first 10 rounds all pass, rounds 11–50 may reveal patterns that finally defeat the agent. Only after completing all 50 rounds (or achieving a failure) may you proceed to Phase 3. Stopping early undermines the entire purpose of this skill.
+
+6. **Attempt migration WITHOUT the guide**: Launch a sub-agent (general-purpose or task agent) with only this generic instruction — _"Upgrade deprecated legacy Azure Java SDKs (`com.microsoft.azure`) used for this project to the modern ones (`com.azure`) with latest stable version."_ Do NOT include the migration guide, edge-case catalog, or any hints. The sub-agent must work from the generic instruction alone.
+7. **Evaluate**: After the sub-agent finishes, **independently verify** by running `mvn test-compile && mvn test` yourself (do not trust the sub-agent's claim):
    - `mvn test-compile` **fails** → edge case succeeded for the "without guide" bar. **Revert the migrated code** (`git checkout -- .`). Go to Phase 3.
    - Compiles but `mvn test` **fails** → edge case succeeded. **Revert the migrated code**. Go to Phase 3.
    - Everything passes → not hard enough. **Revert the migrated code**. Continue to step 8.
-8. **Harden & commit**: Analyze why migration succeeded. Add harder patterns from the catalog to the legacy code. Verify `mvn test-compile && mvn test` still pass. Then **commit** the hardened legacy code with a message summarizing this iteration:
+8. **Harden & commit**: Analyze _specifically_ why migration succeeded (inspect the diff with `git diff` before reverting). Add harder patterns from the catalog to the legacy code — focus on patterns the agent hasn't seen yet and patterns that compound with existing ones. Verify `mvn test-compile && mvn test` still pass with the hardened legacy code. Then **commit** the hardened legacy code with a message summarizing this iteration:
    ```
    edge-case iteration N: <service area>
 
@@ -51,7 +53,10 @@ Test whether a bare migration instruction defeats the agent. Each iteration is c
    Next: <what to try next, e.g. "add reflection + transitive dependency patterns">
    ```
 9. **Clear context**: After committing, clear the agent's conversation context. On the next iteration, the agent should read `git log --oneline` and the latest commit's full message (`git log -1 --format=%B`) to recover the history of previous iterations before proceeding.
-10. Repeat steps 5–9 up to **50 iterations**. If migration keeps succeeding after 50 rounds, accept the result and note it in the README.
+10. **Repeat steps 6–9 for exactly 50 iterations** (or until a migration attempt fails). Track the current iteration number explicitly (e.g. in commit messages and in a session SQL table). You MUST NOT proceed to Phase 3 until either:
+    - A migration attempt **fails** (compile error or test failure), OR
+    - You have completed **all 50 iterations** with the migration succeeding every time.
+    If all 50 rounds pass, accept the result and note it in the README.
 
 ### Phase 3 — Guided Migration Check
 
