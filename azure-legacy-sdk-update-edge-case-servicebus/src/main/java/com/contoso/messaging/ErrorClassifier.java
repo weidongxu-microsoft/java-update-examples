@@ -1,12 +1,7 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.primitives.AuthorizationFailedException;
-import com.microsoft.azure.servicebus.primitives.MessageLockLostException;
-import com.microsoft.azure.servicebus.primitives.MessagingEntityNotFoundException;
-import com.microsoft.azure.servicebus.primitives.QuotaExceededException;
-import com.microsoft.azure.servicebus.primitives.ServerBusyException;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
-import com.microsoft.azure.servicebus.primitives.SessionLockLostException;
+import com.azure.messaging.servicebus.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusFailureReason;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -37,21 +32,21 @@ public class ErrorClassifier {
         Throwable cause = unwrap(error);
         ErrorCategory category;
 
-        if (cause instanceof MessageLockLostException) {
-            category = ErrorCategory.LOCK_LOST;
-        } else if (cause instanceof SessionLockLostException) {
-            category = ErrorCategory.LOCK_LOST;
-        } else if (cause instanceof ServerBusyException) {
-            category = ErrorCategory.THROTTLED;
-        } else if (cause instanceof QuotaExceededException) {
-            category = ErrorCategory.QUOTA_EXCEEDED;
-        } else if (cause instanceof AuthorizationFailedException) {
-            category = ErrorCategory.AUTHORIZATION;
-        } else if (cause instanceof MessagingEntityNotFoundException) {
-            category = ErrorCategory.ENTITY_NOT_FOUND;
-        } else if (cause instanceof ServiceBusException) {
+        if (cause instanceof ServiceBusException) {
             ServiceBusException sbEx = (ServiceBusException) cause;
-            if (sbEx.getIsTransient()) {
+            ServiceBusFailureReason reason = sbEx.getReason();
+            if (reason == ServiceBusFailureReason.MESSAGE_LOCK_LOST
+                    || reason == ServiceBusFailureReason.SESSION_LOCK_LOST) {
+                category = ErrorCategory.LOCK_LOST;
+            } else if (reason == ServiceBusFailureReason.SERVICE_BUSY) {
+                category = ErrorCategory.THROTTLED;
+            } else if (reason == ServiceBusFailureReason.QUOTA_EXCEEDED) {
+                category = ErrorCategory.QUOTA_EXCEEDED;
+            } else if (reason == ServiceBusFailureReason.UNAUTHORIZED) {
+                category = ErrorCategory.AUTHORIZATION;
+            } else if (reason == ServiceBusFailureReason.MESSAGING_ENTITY_NOT_FOUND) {
+                category = ErrorCategory.ENTITY_NOT_FOUND;
+            } else if (sbEx.isTransient()) {
                 category = ErrorCategory.TRANSIENT;
             } else {
                 category = ErrorCategory.UNKNOWN;

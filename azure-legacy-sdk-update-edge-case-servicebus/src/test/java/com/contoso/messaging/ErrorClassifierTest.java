@@ -1,12 +1,10 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.primitives.AuthorizationFailedException;
-import com.microsoft.azure.servicebus.primitives.MessageLockLostException;
-import com.microsoft.azure.servicebus.primitives.MessagingEntityNotFoundException;
-import com.microsoft.azure.servicebus.primitives.QuotaExceededException;
-import com.microsoft.azure.servicebus.primitives.ServerBusyException;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
-import com.microsoft.azure.servicebus.primitives.SessionLockLostException;
+import com.azure.core.amqp.exception.AmqpErrorCondition;
+import com.azure.core.amqp.exception.AmqpException;
+import com.azure.messaging.servicebus.ServiceBusErrorSource;
+import com.azure.messaging.servicebus.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusFailureReason;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -25,7 +23,9 @@ public class ErrorClassifierTest {
 
     @Test
     public void testClassifiesTransientException() {
-        ServiceBusException transientEx = new ServiceBusException(true, "Temporarily unavailable");
+        ServiceBusException transientEx = new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.TIMEOUT_ERROR, "Temporarily unavailable", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(transientEx);
         assertEquals(ErrorClassifier.ErrorCategory.TRANSIENT, category);
         assertEquals(1, classifier.getErrorCount(ErrorClassifier.ErrorCategory.TRANSIENT));
@@ -33,64 +33,80 @@ public class ErrorClassifierTest {
 
     @Test
     public void testClassifiesEntityNotFoundException() {
-        MessagingEntityNotFoundException notFoundEx =
-            new MessagingEntityNotFoundException("orders-queue");
+        ServiceBusException notFoundEx = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.NOT_FOUND, "orders-queue", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(notFoundEx);
         assertEquals(ErrorClassifier.ErrorCategory.ENTITY_NOT_FOUND, category);
     }
 
     @Test
     public void testClassifiesServerBusyAsThrottled() {
-        ServerBusyException sbe = new ServerBusyException("Server is busy");
+        ServiceBusException sbe = new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.SERVER_BUSY_ERROR, "Server is busy", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(sbe);
         assertEquals(ErrorClassifier.ErrorCategory.THROTTLED, category);
     }
 
     @Test
     public void testServerBusyExceptionIsTransientButClassifiedAsThrottled() {
-        ServerBusyException sbe = new ServerBusyException("Throttled");
-        assertTrue(sbe.getIsTransient());
-        assertTrue(sbe instanceof ServiceBusException);
+        ServiceBusException sbe = new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.SERVER_BUSY_ERROR, "Throttled", null),
+            ServiceBusErrorSource.RECEIVE);
+        assertTrue(sbe.isTransient());
         assertEquals(ErrorClassifier.ErrorCategory.THROTTLED, classifier.classify(sbe));
     }
 
     @Test
     public void testClassifiesMessageLockLost() {
-        MessageLockLostException mlle = new MessageLockLostException("Lock expired");
+        ServiceBusException mlle = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.MESSAGE_LOCK_LOST, "Lock expired", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(mlle);
         assertEquals(ErrorClassifier.ErrorCategory.LOCK_LOST, category);
     }
 
     @Test
     public void testMessageLockLostIsNotTransient() {
-        MessageLockLostException mlle = new MessageLockLostException("Lock expired");
-        assertFalse(mlle.getIsTransient());
+        ServiceBusException mlle = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.MESSAGE_LOCK_LOST, "Lock expired", null),
+            ServiceBusErrorSource.RECEIVE);
+        assertFalse(mlle.isTransient());
     }
 
     @Test
     public void testClassifiesSessionLockLost() {
-        SessionLockLostException slle = new SessionLockLostException("Session lock lost");
+        ServiceBusException slle = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.SESSION_LOCK_LOST, "Session lock lost", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(slle);
         assertEquals(ErrorClassifier.ErrorCategory.LOCK_LOST, category);
     }
 
     @Test
     public void testClassifiesQuotaExceeded() {
-        QuotaExceededException qee = new QuotaExceededException("Quota hit");
+        ServiceBusException qee = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.RESOURCE_LIMIT_EXCEEDED, "Quota hit", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(qee);
         assertEquals(ErrorClassifier.ErrorCategory.QUOTA_EXCEEDED, category);
     }
 
     @Test
     public void testClassifiesAuthorizationFailed() {
-        AuthorizationFailedException afe = new AuthorizationFailedException("No access");
+        ServiceBusException afe = new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.UNAUTHORIZED_ACCESS, "No access", null),
+            ServiceBusErrorSource.RECEIVE);
         ErrorClassifier.ErrorCategory category = classifier.classify(afe);
         assertEquals(ErrorClassifier.ErrorCategory.AUTHORIZATION, category);
     }
 
     @Test
     public void testClassifiesWrappedException() {
-        ServiceBusException inner = new ServiceBusException(true, "Inner error");
+        ServiceBusException inner = new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.TIMEOUT_ERROR, "Inner error", null),
+            ServiceBusErrorSource.RECEIVE);
         RuntimeException wrapped = new RuntimeException("Outer", inner);
         ErrorClassifier.ErrorCategory category = classifier.classify(wrapped);
         assertEquals(ErrorClassifier.ErrorCategory.TRANSIENT, category);
@@ -98,7 +114,9 @@ public class ErrorClassifierTest {
 
     @Test
     public void testClassifiesWrappedSubclassException() {
-        ServerBusyException inner = new ServerBusyException("Busy");
+        ServiceBusException inner = new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.SERVER_BUSY_ERROR, "Busy", null),
+            ServiceBusErrorSource.RECEIVE);
         RuntimeException wrapped = new RuntimeException("Wrapper", inner);
         ErrorClassifier.ErrorCategory category = classifier.classify(wrapped);
         assertEquals(ErrorClassifier.ErrorCategory.THROTTLED, category);
@@ -113,9 +131,15 @@ public class ErrorClassifierTest {
 
     @Test
     public void testCountsMultipleErrors() {
-        classifier.classify(new ServiceBusException(true, "Error 1"));
-        classifier.classify(new ServiceBusException(true, "Error 2"));
-        classifier.classify(new ServerBusyException("Busy"));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.TIMEOUT_ERROR, "Error 1", null),
+            ServiceBusErrorSource.RECEIVE));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.TIMEOUT_ERROR, "Error 2", null),
+            ServiceBusErrorSource.RECEIVE));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.SERVER_BUSY_ERROR, "Busy", null),
+            ServiceBusErrorSource.RECEIVE));
 
         assertEquals(2, classifier.getErrorCount(ErrorClassifier.ErrorCategory.TRANSIENT));
         assertEquals(1, classifier.getErrorCount(ErrorClassifier.ErrorCategory.THROTTLED));
@@ -124,9 +148,15 @@ public class ErrorClassifierTest {
 
     @Test
     public void testSnapshotReturnsAllCategories() {
-        classifier.classify(new ServiceBusException(true, "Transient"));
-        classifier.classify(new MessagingEntityNotFoundException("test"));
-        classifier.classify(new MessageLockLostException("Lock lost"));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.TIMEOUT_ERROR, "Transient", null),
+            ServiceBusErrorSource.RECEIVE));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.NOT_FOUND, "test", null),
+            ServiceBusErrorSource.RECEIVE));
+        classifier.classify(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.MESSAGE_LOCK_LOST, "Lock lost", null),
+            ServiceBusErrorSource.RECEIVE));
 
         Map<ErrorClassifier.ErrorCategory, Long> snapshot = classifier.getSnapshot();
         assertEquals(Long.valueOf(1), snapshot.get(ErrorClassifier.ErrorCategory.TRANSIENT));
@@ -137,11 +167,23 @@ public class ErrorClassifierTest {
 
     @Test
     public void testExceptionHierarchyBehavioralQuirks() {
-        assertFalse(new MessagingEntityNotFoundException("x").getIsTransient());
-        assertTrue(new ServerBusyException("x").getIsTransient());
-        assertFalse(new MessageLockLostException("x").getIsTransient());
-        assertFalse(new SessionLockLostException("x").getIsTransient());
-        assertFalse(new QuotaExceededException("x").getIsTransient());
-        assertFalse(new AuthorizationFailedException("x").getIsTransient());
+        assertFalse(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.NOT_FOUND, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
+        assertTrue(new ServiceBusException(
+            new AmqpException(true, AmqpErrorCondition.SERVER_BUSY_ERROR, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
+        assertFalse(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.MESSAGE_LOCK_LOST, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
+        assertFalse(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.SESSION_LOCK_LOST, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
+        assertFalse(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.RESOURCE_LIMIT_EXCEEDED, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
+        assertFalse(new ServiceBusException(
+            new AmqpException(false, AmqpErrorCondition.UNAUTHORIZED_ACCESS, "x", null),
+            ServiceBusErrorSource.RECEIVE).isTransient());
     }
 }

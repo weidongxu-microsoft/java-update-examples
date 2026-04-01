@@ -1,9 +1,6 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -17,7 +14,7 @@ import static org.junit.Assert.*;
 public class QueueSessionManagerTest {
 
     @Mock
-    private com.microsoft.azure.servicebus.IMessageSender mockSender;
+    private MessageSender mockSender;
 
     private ErrorClassifier errorClassifier;
     private QueueSessionManager manager;
@@ -40,67 +37,65 @@ public class QueueSessionManagerTest {
     }
 
     @Test
-    public void testConnectionStringBuilderParsesEntityPath() {
-        ConnectionStringBuilder builder = new ConnectionStringBuilder(
+    public void testConnectionStringPropertiesParsesEntityPath() {
+        ConnectionStringProperties props = new ConnectionStringProperties(
             "Endpoint=sb://test.servicebus.windows.net/;" +
             "SharedAccessKeyName=RootManageSharedAccessKey;" +
             "SharedAccessKey=dGVzdGtleQ==;" +
             "EntityPath=test-queue");
-        assertEquals("test-queue", builder.getEntityPath());
+        assertEquals("test-queue", props.getEntityPath());
     }
 
     @Test
-    public void testMessageTransformerAsLambda() throws ServiceBusException {
+    public void testMessageTransformerAsLambda() throws Exception {
         MessageTransformer upper = msg -> {
-            String body = new String(msg.getBody(), StandardCharsets.UTF_8);
-            Message transformed = new Message(body.toUpperCase().getBytes(StandardCharsets.UTF_8));
-            transformed.setLabel(msg.getLabel());
+            String body = new String(msg.getBody().toBytes(), StandardCharsets.UTF_8);
+            ServiceBusMessage transformed = new ServiceBusMessage(body.toUpperCase().getBytes(StandardCharsets.UTF_8));
+            transformed.setSubject(msg.getSubject());
             transformed.setMessageId(msg.getMessageId());
             return transformed;
         };
 
-        Message input = new Message("hello".getBytes(StandardCharsets.UTF_8));
-        input.setLabel("test");
+        ServiceBusMessage input = new ServiceBusMessage("hello".getBytes(StandardCharsets.UTF_8));
+        input.setSubject("test");
         input.setMessageId("id-1");
 
-        IMessage result = upper.transform(input);
-        assertEquals("HELLO", new String(result.getBody(), StandardCharsets.UTF_8));
-        assertEquals("test", result.getLabel());
+        ServiceBusMessage result = upper.transform(input);
+        assertEquals("HELLO", new String(result.getBody().toBytes(), StandardCharsets.UTF_8));
+        assertEquals("test", result.getSubject());
     }
 
     @Test
-    public void testChainedTransformers() throws ServiceBusException {
+    public void testChainedTransformers() throws Exception {
         MessageTransformer addLabel = msg -> {
-            Message m = new Message(msg.getBody());
-            m.setLabel("processed");
+            ServiceBusMessage m = new ServiceBusMessage(msg.getBody());
+            m.setSubject("processed");
             return m;
         };
 
         MessageTransformer addProperty = msg -> {
-            Message m = new Message(msg.getBody());
-            m.setLabel(msg.getLabel());
-            HashMap<String, Object> props = new HashMap<>();
-            props.put("transformed", true);
-            m.setProperties(props);
+            ServiceBusMessage m = new ServiceBusMessage(msg.getBody());
+            m.setSubject(msg.getSubject());
+            m.getApplicationProperties().put("transformed", true);
             return m;
         };
 
-        Message input = new Message("data".getBytes(StandardCharsets.UTF_8));
-        IMessage step1 = addLabel.transform(input);
-        IMessage step2 = addProperty.transform(step1);
+        ServiceBusMessage input = new ServiceBusMessage("data".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage step1 = addLabel.transform(input);
+        ServiceBusMessage step2 = addProperty.transform(step1);
 
-        assertEquals("processed", step2.getLabel());
-        assertTrue((Boolean) step2.getProperties().get("transformed"));
+        assertEquals("processed", step2.getSubject());
+        assertTrue((Boolean) step2.getApplicationProperties().get("transformed"));
     }
 
     @Test
-    public void testConnectionStringBuilderEndpoint() {
-        ConnectionStringBuilder builder = new ConnectionStringBuilder(
+    public void testConnectionStringPropertiesEndpoint() {
+        ConnectionStringProperties props = new ConnectionStringProperties(
             "Endpoint=sb://contoso.servicebus.windows.net/;" +
             "SharedAccessKeyName=send-key;" +
             "SharedAccessKey=dGVzdGtleQ==;" +
             "EntityPath=orders");
-        assertEquals("orders", builder.getEntityPath());
-        assertNotNull(builder.getEndpoint());
+        assertEquals("orders", props.getEntityPath());
+        assertNotNull(props.getEndpoint());
     }
 }

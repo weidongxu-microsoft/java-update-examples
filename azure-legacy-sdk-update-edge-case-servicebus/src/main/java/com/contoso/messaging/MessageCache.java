@@ -1,15 +1,14 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-public class MessageCache<T extends IMessage> {
+public class MessageCache<T extends ServiceBusMessage> {
 
     private final Map<String, T> cache;
     private final Function<T, String> keyExtractor;
@@ -41,7 +40,7 @@ public class MessageCache<T extends IMessage> {
         if (original == null) {
             return null;
         }
-        IMessage transformed = transformer.transform(original);
+        ServiceBusMessage transformed = transformer.transform(original);
         @SuppressWarnings("unchecked")
         T result = (T) transformed;
         cache.put(key, result);
@@ -49,12 +48,15 @@ public class MessageCache<T extends IMessage> {
     }
 
     public String getBodyAsText(T message) {
-        byte[] body = message.getBody();
+        if (message.getBody() == null) {
+            return null;
+        }
+        byte[] body = message.getBody().toBytes();
         return body != null ? new String(body, StandardCharsets.UTF_8) : null;
     }
 
     public String getLabelOrDefault(T message, String defaultLabel) {
-        String label = message.getLabel();
+        String label = message.getSubject();
         return label != null ? label : defaultLabel;
     }
 

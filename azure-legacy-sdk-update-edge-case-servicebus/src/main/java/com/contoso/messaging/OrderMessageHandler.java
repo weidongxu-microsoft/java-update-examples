@@ -1,28 +1,25 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.ExceptionPhase;
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.IMessageHandler;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class OrderMessageHandler implements IMessageHandler {
+public class OrderMessageHandler implements MessageHandler {
 
-    private final IMessageSender forwardSender;
+    private final MessageSender forwardSender;
     private final ErrorClassifier errorClassifier;
     private final List<MessageTransformer> transformers;
-    private final List<IMessage> processedMessages;
+    private final List<ServiceBusMessage> processedMessages;
 
-    public OrderMessageHandler(IMessageSender forwardSender, ErrorClassifier errorClassifier) {
+    public OrderMessageHandler(MessageSender forwardSender, ErrorClassifier errorClassifier) {
         this.forwardSender = forwardSender;
         this.errorClassifier = errorClassifier;
         this.transformers = new ArrayList<>();
-        this.processedMessages = Collections.synchronizedList(new ArrayList<IMessage>());
+        this.processedMessages = Collections.synchronizedList(new ArrayList<ServiceBusMessage>());
     }
 
     public void addTransformer(MessageTransformer transformer) {
@@ -30,10 +27,10 @@ public class OrderMessageHandler implements IMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> onMessageAsync(IMessage message) {
+    public CompletableFuture<Void> onMessageAsync(ServiceBusMessage message) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                IMessage current = message;
+                ServiceBusMessage current = message;
                 for (MessageTransformer transformer : transformers) {
                     current = transformer.transform(current);
                 }
@@ -51,9 +48,9 @@ public class OrderMessageHandler implements IMessageHandler {
     }
 
     @Override
-    public void notifyException(Throwable exception, ExceptionPhase phase) {
+    public void notifyException(Throwable exception, ErrorPhase phase) {
         ErrorClassifier.ErrorCategory category = errorClassifier.classify(exception);
-        if (phase == ExceptionPhase.RECEIVE
+        if (phase == ErrorPhase.RECEIVE
                 && category == ErrorClassifier.ErrorCategory.TRANSIENT) {
             return;
         }
@@ -62,7 +59,7 @@ public class OrderMessageHandler implements IMessageHandler {
         }
     }
 
-    public List<IMessage> getProcessedMessages() {
+    public List<ServiceBusMessage> getProcessedMessages() {
         return Collections.unmodifiableList(processedMessages);
     }
 

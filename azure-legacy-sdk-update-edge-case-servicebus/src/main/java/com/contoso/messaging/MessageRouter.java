@@ -1,50 +1,47 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.IMessageReceiver;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MessageRouter {
 
-    private final IMessageReceiver receiver;
-    private final Map<String, IMessageSender> routeTable;
+    private final MessageReceiver receiver;
+    private final Map<String, MessageSender> routeTable;
     private final ErrorClassifier errorClassifier;
 
-    public MessageRouter(IMessageReceiver receiver, ErrorClassifier errorClassifier) {
+    public MessageRouter(MessageReceiver receiver, ErrorClassifier errorClassifier) {
         this.receiver = receiver;
         this.routeTable = new ConcurrentHashMap<>();
         this.errorClassifier = errorClassifier;
     }
 
-    public void addRoute(String label, IMessageSender sender) {
+    public void addRoute(String label, MessageSender sender) {
         routeTable.put(label, sender);
     }
 
-    public CompletableFuture<IMessage> receiveAndRoute() {
+    public CompletableFuture<ServiceBusMessage> receiveAndRoute() {
         return receiver.receiveAsync()
             .thenCompose(msg -> {
                 if (msg == null) {
-                    return CompletableFuture.completedFuture((IMessage) null);
+                    return CompletableFuture.completedFuture((ServiceBusMessage) null);
                 }
-                String label = msg.getLabel();
-                IMessageSender target = routeTable.get(label);
+                String label = msg.getSubject();
+                MessageSender target = routeTable.get(label);
+                ServiceBusMessage sendMsg = toSendMessage(msg);
                 if (target == null) {
-                    return receiver.abandonAsync(msg.getLockToken())
-                        .thenApply(v -> msg);
+                    return receiver.abandonAsync(msg)
+                        .thenApply(v -> sendMsg);
                 }
-                return target.sendAsync(msg)
-                    .thenCompose(v -> receiver.completeAsync(msg.getLockToken()))
-                    .thenApply(v -> msg);
+                return target.sendAsync(sendMsg)
+                    .thenCompose(v -> receiver.completeAsync(msg))
+                    .thenApply(v -> sendMsg);
             })
             .exceptionally(ex -> {
                 errorClassifier.classify(ex);
@@ -52,32 +49,32 @@ public class MessageRouter {
             });
     }
 
-    public CompletableFuture<List<IMessage>> receiveAndRouteBatch(
+    public CompletableFuture<List<ServiceBusMessage>> receiveAndRouteBatch(
             int maxMessages, MessageTransformer transformer) {
         return receiver.receiveBatchAsync(maxMessages)
             .thenCompose(messages -> {
                 if (messages == null || messages.isEmpty()) {
-                    return CompletableFuture.completedFuture(Collections.<IMessage>emptyList());
+                    return CompletableFuture.completedFuture(Collections.<ServiceBusMessage>emptyList());
                 }
-                List<CompletableFuture<IMessage>> futures = new ArrayList<>();
-                for (final IMessage msg : messages) {
-                    CompletableFuture<IMessage> pipeline = CompletableFuture
+                List<CompletableFuture<ServiceBusMessage>> futures = new ArrayList<>();
+                for (final ServiceBusReceivedMessage msg : messages) {
+                    CompletableFuture<ServiceBusMessage> pipeline = CompletableFuture
                         .supplyAsync(() -> {
                             try {
-                                return transformer.transform(msg);
-                            } catch (ServiceBusException e) {
+                                return transformer.transform(toSendMessage(msg));
+                            } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
                         })
                         .thenCompose(transformed -> {
-                            String label = transformed.getLabel();
-                            IMessageSender target = routeTable.get(label);
+                            String label = transformed.getSubject();
+                            MessageSender target = routeTable.get(label);
                             if (target != null) {
                                 return target.sendAsync(transformed)
-                                    .thenCompose(v -> receiver.completeAsync(msg.getLockToken()))
+                                    .thenCompose(v -> receiver.completeAsync(msg))
                                     .thenApply(v -> transformed);
                             }
-                            return receiver.abandonAsync(msg.getLockToken())
+                            return receiver.abandonAsync(msg)
                                 .thenApply(v -> transformed);
                         });
                     futures.add(pipeline);
@@ -85,8 +82,8 @@ public class MessageRouter {
                 return CompletableFuture
                     .allOf(futures.toArray(new CompletableFuture[0]))
                     .thenApply(v -> {
-                        List<IMessage> results = new ArrayList<>();
-                        for (CompletableFuture<IMessage> f : futures) {
+                        List<ServiceBusMessage> results = new ArrayList<>();
+                        for (CompletableFuture<ServiceBusMessage> f : futures) {
                             results.add(f.join());
                         }
                         return results;
@@ -98,26 +95,54 @@ public class MessageRouter {
             });
     }
 
-    public IMessage receiveAndTransform(MessageTransformer transformer)
-            throws ServiceBusException, InterruptedException {
-        IMessage message = receiver.receive();
+    public ServiceBusMessage receiveAndTransform(MessageTransformer transformer)
+            throws Exception {
+        ServiceBusReceivedMessage message = receiver.receive();
         if (message == null) {
             return null;
         }
         try {
-            IMessage transformed = transformer.transform(message);
-            String label = transformed.getLabel();
-            IMessageSender target = routeTable.get(label);
+            ServiceBusMessage sendMsg = toSendMessage(message);
+            ServiceBusMessage transformed = transformer.transform(sendMsg);
+            String label = transformed.getSubject();
+            MessageSender target = routeTable.get(label);
             if (target != null) {
                 target.send(transformed);
-                receiver.complete(message.getLockToken());
+                receiver.complete(message);
             } else {
-                receiver.abandon(message.getLockToken());
+                receiver.abandon(message);
             }
             return transformed;
-        } catch (ServiceBusException e) {
-            receiver.deadLetter(message.getLockToken(), "TransformFailed", e.getMessage());
+        } catch (Exception e) {
+            receiver.deadLetter(message, "TransformFailed", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * Converts a ServiceBusReceivedMessage to a ServiceBusMessage for sending.
+     */
+    public static ServiceBusMessage toSendMessage(ServiceBusReceivedMessage received) {
+        ServiceBusMessage msg = new ServiceBusMessage(received.getBody());
+        if (received.getMessageId() != null) {
+            msg.setMessageId(received.getMessageId());
+        }
+        msg.setSubject(received.getSubject());
+        msg.setContentType(received.getContentType());
+        msg.setCorrelationId(received.getCorrelationId());
+        if (received.getSessionId() != null) {
+            msg.setSessionId(received.getSessionId());
+        }
+        if (received.getReplyTo() != null) {
+            msg.setReplyTo(received.getReplyTo());
+        }
+        if (received.getTimeToLive() != null) {
+            msg.setTimeToLive(received.getTimeToLive());
+        }
+        Map<String, Object> props = received.getApplicationProperties();
+        if (props != null && !props.isEmpty()) {
+            msg.getApplicationProperties().putAll(props);
+        }
+        return msg;
     }
 }

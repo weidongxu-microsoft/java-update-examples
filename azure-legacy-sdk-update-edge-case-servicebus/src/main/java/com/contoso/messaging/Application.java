@@ -1,9 +1,6 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.ClientFactory;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -19,29 +16,28 @@ public class Application {
     public static void main(String[] args) throws Exception {
         ErrorClassifier errorClassifier = new ErrorClassifier();
 
-        ConnectionStringBuilder inboundBuilder = new ConnectionStringBuilder(
+        ConnectionStringProperties inboundProps = new ConnectionStringProperties(
             CONNECTION_STRING + ";EntityPath=orders-inbound");
-        ConnectionStringBuilder outboundBuilder = new ConnectionStringBuilder(
+        ConnectionStringProperties outboundProps = new ConnectionStringProperties(
             CONNECTION_STRING + ";EntityPath=orders-outbound");
 
-        IMessageSender forwardSender = ClientFactory
-            .createMessageSenderFromConnectionStringBuilder(outboundBuilder);
+        MessageSender forwardSender = ServiceBusClients.createSender(outboundProps);
 
         MessageTransformer enricher = message -> {
-            Message enriched = new Message(message.getBody());
+            ServiceBusMessage enriched = new ServiceBusMessage(message.getBody());
             enriched.setMessageId(message.getMessageId());
-            enriched.setLabel(message.getLabel());
-            Map<String, Object> props = message.getProperties() != null
-                ? new HashMap<>(message.getProperties())
+            enriched.setSubject(message.getSubject());
+            Map<String, Object> props = message.getApplicationProperties() != null
+                ? new HashMap<>(message.getApplicationProperties())
                 : new HashMap<String, Object>();
             props.put("processedBy", "order-router");
             props.put("processedAt", System.currentTimeMillis());
-            enriched.setProperties(props);
+            enriched.getApplicationProperties().putAll(props);
             return enriched;
         };
 
         QueueSessionManager manager = new QueueSessionManager(errorClassifier);
-        manager.createWithTransformer(inboundBuilder, enricher, forwardSender);
+        manager.createWithTransformer(inboundProps, enricher, forwardSender);
 
         System.out.println("Order processor started. Press ENTER to stop.");
         System.in.read();

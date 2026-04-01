@@ -1,5 +1,6 @@
 package com.contoso.messaging;
 
+import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -9,18 +10,12 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.MessageBody;
-import com.microsoft.azure.servicebus.MessageBodyType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 public class MessageSerializer {
@@ -30,36 +25,36 @@ public class MessageSerializer {
     public MessageSerializer() {
         this.mapper = new ObjectMapper();
         SimpleModule module = new SimpleModule("ServiceBusModule");
-        module.addSerializer(IMessage.class, new IMessageJsonSerializer());
-        module.addDeserializer(IMessage.class, new IMessageJsonDeserializer());
+        module.addSerializer(ServiceBusMessage.class, new ServiceBusMessageJsonSerializer());
+        module.addDeserializer(ServiceBusMessage.class, new ServiceBusMessageJsonDeserializer());
         mapper.registerModule(module);
     }
 
-    public String serialize(IMessage message) throws IOException {
+    public String serialize(ServiceBusMessage message) throws IOException {
         return mapper.writeValueAsString(message);
     }
 
-    public IMessage deserialize(String json) throws IOException {
-        return mapper.readValue(json, IMessage.class);
+    public ServiceBusMessage deserialize(String json) throws IOException {
+        return mapper.readValue(json, ServiceBusMessage.class);
     }
 
     public ObjectMapper getMapper() {
         return mapper;
     }
 
-    static class IMessageJsonSerializer extends JsonSerializer<IMessage> {
+    static class ServiceBusMessageJsonSerializer extends JsonSerializer<ServiceBusMessage> {
         @Override
-        public void serialize(IMessage value, JsonGenerator gen, SerializerProvider prov)
+        public void serialize(ServiceBusMessage value, JsonGenerator gen, SerializerProvider prov)
                 throws IOException {
             gen.writeStartObject();
             gen.writeStringField("messageId", value.getMessageId());
 
-            MessageBody msgBody = value.getMessageBody();
+            MessageBody msgBody = MessageInspector.getMessageBody(value);
             if (msgBody != null) {
                 gen.writeStringField("bodyType", msgBody.getBodyType().name());
                 switch (msgBody.getBodyType()) {
                     case BINARY:
-                        List<byte[]> binaryData = msgBody.getBinaryData();
+                        java.util.List<byte[]> binaryData = msgBody.getBinaryData();
                         if (binaryData != null && !binaryData.isEmpty()) {
                             gen.writeStringField("body",
                                 new String(binaryData.get(0), StandardCharsets.UTF_8));
@@ -78,7 +73,7 @@ public class MessageSerializer {
             } else {
                 gen.writeStringField("body", "");
             }
-            gen.writeStringField("label", value.getLabel());
+            gen.writeStringField("label", value.getSubject());
             gen.writeStringField("contentType", value.getContentType());
             gen.writeStringField("correlationId", value.getCorrelationId());
             gen.writeStringField("sessionId", value.getSessionId());
@@ -88,11 +83,14 @@ public class MessageSerializer {
                 gen.writeNumberField("timeToLiveSeconds", value.getTimeToLive().getSeconds());
             }
 
-            Map<String, Object> properties = value.getProperties();
+            Map<String, Object> properties = value.getApplicationProperties();
             if (properties != null && !properties.isEmpty()) {
+                // Filter out internal body type property
                 gen.writeObjectFieldStart("properties");
                 for (Map.Entry<String, Object> entry : properties.entrySet()) {
-                    gen.writeObjectField(entry.getKey(), entry.getValue());
+                    if (!"x-body-type".equals(entry.getKey())) {
+                        gen.writeObjectField(entry.getKey(), entry.getValue());
+                    }
                 }
                 gen.writeEndObject();
             }
@@ -100,9 +98,9 @@ public class MessageSerializer {
         }
     }
 
-    static class IMessageJsonDeserializer extends JsonDeserializer<IMessage> {
+    static class ServiceBusMessageJsonDeserializer extends JsonDeserializer<ServiceBusMessage> {
         @Override
-        public IMessage deserialize(JsonParser p, DeserializationContext ctxt)
+        public ServiceBusMessage deserialize(JsonParser p, DeserializationContext ctxt)
                 throws IOException {
             JsonNode node = p.getCodec().readTree(p);
 
@@ -113,17 +111,20 @@ public class MessageSerializer {
                 bodyType = MessageBodyType.valueOf(node.get("bodyType").asText());
             }
 
-            Message message;
+            ServiceBusMessage message;
             switch (bodyType) {
                 case VALUE:
-                    message = new Message(MessageBody.fromValueData(body));
+                    MessageBody valueBody = MessageBody.fromValueData(body);
+                    message = MessageInspector.createMessage(valueBody);
                     break;
                 case SEQUENCE:
-                    message = new Message(MessageBody.fromSequenceData(
-                        Collections.singletonList(Collections.<Object>singletonList(body))));
+                    MessageBody seqBody = MessageBody.fromSequenceData(
+                        java.util.Collections.singletonList(
+                            java.util.Collections.<Object>singletonList(body)));
+                    message = MessageInspector.createMessage(seqBody);
                     break;
                 default:
-                    message = new Message(body.getBytes(StandardCharsets.UTF_8));
+                    message = new ServiceBusMessage(body.getBytes(StandardCharsets.UTF_8));
                     break;
             }
 
@@ -131,7 +132,7 @@ public class MessageSerializer {
                 message.setMessageId(node.get("messageId").asText());
             }
             if (node.has("label") && !node.get("label").isNull()) {
-                message.setLabel(node.get("label").asText());
+                message.setSubject(node.get("label").asText());
             }
             if (node.has("contentType") && !node.get("contentType").isNull()) {
                 message.setContentType(node.get("contentType").asText());
@@ -150,24 +151,22 @@ public class MessageSerializer {
             }
             if (node.has("properties")) {
                 JsonNode propsNode = node.get("properties");
-                HashMap<String, Object> props = new HashMap<>();
                 Iterator<Map.Entry<String, JsonNode>> fields = propsNode.fields();
                 while (fields.hasNext()) {
                     Map.Entry<String, JsonNode> entry = fields.next();
                     JsonNode val = entry.getValue();
                     if (val.isTextual()) {
-                        props.put(entry.getKey(), val.asText());
+                        message.getApplicationProperties().put(entry.getKey(), val.asText());
                     } else if (val.isInt()) {
-                        props.put(entry.getKey(), val.asInt());
+                        message.getApplicationProperties().put(entry.getKey(), val.asInt());
                     } else if (val.isLong()) {
-                        props.put(entry.getKey(), val.asLong());
+                        message.getApplicationProperties().put(entry.getKey(), val.asLong());
                     } else if (val.isDouble()) {
-                        props.put(entry.getKey(), val.asDouble());
+                        message.getApplicationProperties().put(entry.getKey(), val.asDouble());
                     } else if (val.isBoolean()) {
-                        props.put(entry.getKey(), val.asBoolean());
+                        message.getApplicationProperties().put(entry.getKey(), val.asBoolean());
                     }
                 }
-                message.setProperties(props);
             }
 
             return message;
