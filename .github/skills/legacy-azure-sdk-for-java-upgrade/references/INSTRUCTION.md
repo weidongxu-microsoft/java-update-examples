@@ -178,6 +178,48 @@ AzureResourceManager.configure()
     .authenticate(credential, profile);
 ```
 
+##### BatchAccount
+azure-resourcemanager-batch is no longer a premium/handwritten library. In BatchAccount, `withNewStorageAccount` should be replaced by `.withAutoStorage(new AutoStorageBaseProperties().withStorageAccountId(storageAccount.id()))`, while the `storageAccount` needs to be created separately.
+Legacy code:
+```java
+BatchAccount batchAccount = azure.batchAccounts().define(batchAccountName)
+    .withRegion(region)
+    .withNewResourceGroup(rgName)
+    .defineNewApplication(applicationName)
+        .defineNewApplicationPackage(applicationPackageName)
+        .withAllowUpdates(true)
+        .withDisplayName(applicationDisplayName)
+        .attach()
+    .withNewStorageAccount(storageAccountName)
+    .create();
+```
+Migrated:
+```java
+StorageAccount storageAccount = storageManager.storageAccounts()
+    .define(storageAccountName)
+    .withRegion(REGION)
+    .withExistingResourceGroup(resourceGroup)
+    .create();
+BatchAccount account = batchManager.batchAccounts()
+    .define(batchAccountName)
+    .withRegion(REGION)
+    .withExistingResourceGroup(resourceGroup)
+    .withAutoStorage(new AutoStorageBaseProperties().withStorageAccountId(storageAccount.id()))
+    .create();
+// create application with batch account
+application = batchManager.applications()
+    .define(applicationName)
+    .withExistingBatchAccount(resourceGroup, account.name())
+    .withDisplayName(applicationDisplayName)
+    .withAllowUpdates(true)
+    .create();
+applicationPackage = batchManager.applicationPackages()
+    .define(applicationPackageName)
+    .withExistingApplication(resourceGroup, batchAccountName, applicationName)
+    .create();
+```
+
+
 ## Validation
 
 **Make sure**
