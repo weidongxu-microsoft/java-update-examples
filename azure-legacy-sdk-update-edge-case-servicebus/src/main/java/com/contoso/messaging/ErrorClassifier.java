@@ -1,7 +1,12 @@
 package com.contoso.messaging;
 
+import com.microsoft.azure.servicebus.primitives.AuthorizationFailedException;
+import com.microsoft.azure.servicebus.primitives.MessageLockLostException;
 import com.microsoft.azure.servicebus.primitives.MessagingEntityNotFoundException;
+import com.microsoft.azure.servicebus.primitives.QuotaExceededException;
+import com.microsoft.azure.servicebus.primitives.ServerBusyException;
 import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.microsoft.azure.servicebus.primitives.SessionLockLostException;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -14,7 +19,8 @@ public class ErrorClassifier {
         ENTITY_NOT_FOUND,
         AUTHORIZATION,
         QUOTA_EXCEEDED,
-        MESSAGE_SIZE_EXCEEDED,
+        LOCK_LOST,
+        THROTTLED,
         UNKNOWN
     }
 
@@ -31,23 +37,24 @@ public class ErrorClassifier {
         Throwable cause = unwrap(error);
         ErrorCategory category;
 
-        if (cause instanceof MessagingEntityNotFoundException) {
+        if (cause instanceof MessageLockLostException) {
+            category = ErrorCategory.LOCK_LOST;
+        } else if (cause instanceof SessionLockLostException) {
+            category = ErrorCategory.LOCK_LOST;
+        } else if (cause instanceof ServerBusyException) {
+            category = ErrorCategory.THROTTLED;
+        } else if (cause instanceof QuotaExceededException) {
+            category = ErrorCategory.QUOTA_EXCEEDED;
+        } else if (cause instanceof AuthorizationFailedException) {
+            category = ErrorCategory.AUTHORIZATION;
+        } else if (cause instanceof MessagingEntityNotFoundException) {
             category = ErrorCategory.ENTITY_NOT_FOUND;
         } else if (cause instanceof ServiceBusException) {
             ServiceBusException sbEx = (ServiceBusException) cause;
             if (sbEx.getIsTransient()) {
                 category = ErrorCategory.TRANSIENT;
             } else {
-                String message = sbEx.getMessage();
-                if (message != null && message.contains("Unauthorized")) {
-                    category = ErrorCategory.AUTHORIZATION;
-                } else if (message != null && message.contains("QuotaExceeded")) {
-                    category = ErrorCategory.QUOTA_EXCEEDED;
-                } else if (message != null && message.contains("MessageSizeExceeded")) {
-                    category = ErrorCategory.MESSAGE_SIZE_EXCEEDED;
-                } else {
-                    category = ErrorCategory.UNKNOWN;
-                }
+                category = ErrorCategory.UNKNOWN;
             }
         } else {
             category = ErrorCategory.UNKNOWN;

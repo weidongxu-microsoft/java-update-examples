@@ -116,13 +116,13 @@ public class OrderMessageHandlerTest {
     public void testOnMessageHandlesSendFailure() throws Exception {
         CompletableFuture<Void> failedFuture = new CompletableFuture<>();
         failedFuture.completeExceptionally(
-            new ServiceBusException(true, "Transient send failure"));
+            new com.microsoft.azure.servicebus.primitives.ServerBusyException("Server throttled"));
         when(mockSender.sendAsync(any(IMessage.class))).thenReturn(failedFuture);
 
         Message input = new Message("data".getBytes(StandardCharsets.UTF_8));
         handler.onMessageAsync(input).join();
 
-        assertEquals(1, errorClassifier.getErrorCount(ErrorClassifier.ErrorCategory.TRANSIENT));
+        assertEquals(1, errorClassifier.getErrorCount(ErrorClassifier.ErrorCategory.THROTTLED));
     }
 
     @Test
@@ -138,5 +138,13 @@ public class OrderMessageHandlerTest {
             new com.microsoft.azure.servicebus.primitives.MessagingEntityNotFoundException("Queue not found");
         handler.notifyException(notFoundEx, ExceptionPhase.RECEIVE);
         assertEquals(1, errorClassifier.getErrorCount(ErrorClassifier.ErrorCategory.ENTITY_NOT_FOUND));
+    }
+
+    @Test
+    public void testNotifyExceptionClassifiesLockLost() {
+        com.microsoft.azure.servicebus.primitives.MessageLockLostException lockEx =
+            new com.microsoft.azure.servicebus.primitives.MessageLockLostException("Lock expired");
+        handler.notifyException(lockEx, ExceptionPhase.RECEIVE);
+        assertEquals(1, errorClassifier.getErrorCount(ErrorClassifier.ErrorCategory.LOCK_LOST));
     }
 }

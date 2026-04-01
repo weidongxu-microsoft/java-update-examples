@@ -11,12 +11,16 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.microsoft.azure.servicebus.IMessage;
 import com.microsoft.azure.servicebus.Message;
+import com.microsoft.azure.servicebus.MessageBody;
+import com.microsoft.azure.servicebus.MessageBodyType;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class MessageSerializer {
@@ -49,9 +53,31 @@ public class MessageSerializer {
                 throws IOException {
             gen.writeStartObject();
             gen.writeStringField("messageId", value.getMessageId());
-            byte[] body = value.getBody();
-            gen.writeStringField("body",
-                body != null ? new String(body, StandardCharsets.UTF_8) : "");
+
+            MessageBody msgBody = value.getMessageBody();
+            if (msgBody != null) {
+                gen.writeStringField("bodyType", msgBody.getBodyType().name());
+                switch (msgBody.getBodyType()) {
+                    case BINARY:
+                        List<byte[]> binaryData = msgBody.getBinaryData();
+                        if (binaryData != null && !binaryData.isEmpty()) {
+                            gen.writeStringField("body",
+                                new String(binaryData.get(0), StandardCharsets.UTF_8));
+                        } else {
+                            gen.writeStringField("body", "");
+                        }
+                        break;
+                    case VALUE:
+                        Object valData = msgBody.getValueData();
+                        gen.writeStringField("body", valData != null ? valData.toString() : "");
+                        break;
+                    default:
+                        gen.writeStringField("body", "");
+                        break;
+                }
+            } else {
+                gen.writeStringField("body", "");
+            }
             gen.writeStringField("label", value.getLabel());
             gen.writeStringField("contentType", value.getContentType());
             gen.writeStringField("correlationId", value.getCorrelationId());
@@ -81,7 +107,25 @@ public class MessageSerializer {
             JsonNode node = p.getCodec().readTree(p);
 
             String body = node.has("body") ? node.get("body").asText() : "";
-            Message message = new Message(body.getBytes(StandardCharsets.UTF_8));
+
+            MessageBodyType bodyType = MessageBodyType.BINARY;
+            if (node.has("bodyType") && !node.get("bodyType").isNull()) {
+                bodyType = MessageBodyType.valueOf(node.get("bodyType").asText());
+            }
+
+            Message message;
+            switch (bodyType) {
+                case VALUE:
+                    message = new Message(MessageBody.fromValueData(body));
+                    break;
+                case SEQUENCE:
+                    message = new Message(MessageBody.fromSequenceData(
+                        Collections.singletonList(Collections.<Object>singletonList(body))));
+                    break;
+                default:
+                    message = new Message(body.getBytes(StandardCharsets.UTF_8));
+                    break;
+            }
 
             if (node.has("messageId") && !node.get("messageId").isNull()) {
                 message.setMessageId(node.get("messageId").asText());
