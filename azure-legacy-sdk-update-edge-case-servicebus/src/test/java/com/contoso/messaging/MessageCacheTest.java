@@ -1,19 +1,17 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 
 import static org.junit.Assert.*;
 
 public class MessageCacheTest {
 
-    private MessageCache<Message> cache;
+    private MessageCache<ServiceBusMessage> cache;
 
     @Before
     public void setUp() {
@@ -22,55 +20,55 @@ public class MessageCacheTest {
 
     @Test
     public void testGetOrStoreAndRetrieve() {
-        Message msg = new Message("payload".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage msg = new ServiceBusMessage("payload".getBytes(StandardCharsets.UTF_8));
         msg.setMessageId("cache-1");
-        msg.setLabel("orders");
+        msg.setSubject("orders");
 
-        Message stored = cache.getOrStore(msg);
+        ServiceBusMessage stored = cache.getOrStore(msg);
         assertSame(msg, stored);
         assertEquals(1, cache.size());
 
-        Message retrieved = cache.get("cache-1");
+        ServiceBusMessage retrieved = cache.get("cache-1");
         assertSame(msg, retrieved);
     }
 
     @Test
     public void testGetOrStoreReturnsCachedOnDuplicate() {
-        Message first = new Message("first".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage first = new ServiceBusMessage("first".getBytes(StandardCharsets.UTF_8));
         first.setMessageId("dup-id");
-        first.setLabel("first-label");
+        first.setSubject("first-label");
 
-        Message second = new Message("second".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage second = new ServiceBusMessage("second".getBytes(StandardCharsets.UTF_8));
         second.setMessageId("dup-id");
-        second.setLabel("second-label");
+        second.setSubject("second-label");
 
         cache.getOrStore(first);
-        Message result = cache.getOrStore(second);
+        ServiceBusMessage result = cache.getOrStore(second);
 
         assertSame(first, result);
-        assertEquals("first-label", result.getLabel());
+        assertEquals("first-label", result.getSubject());
     }
 
     @Test
     public void testTransformUpdatesCachedMessage() throws ServiceBusException {
-        Message msg = new Message("original".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage msg = new ServiceBusMessage("original".getBytes(StandardCharsets.UTF_8));
         msg.setMessageId("transform-test");
-        msg.setLabel("raw");
+        msg.setSubject("raw");
         cache.getOrStore(msg);
 
         MessageTransformer enricher = source -> {
-            Message enriched = new Message(source.getBody());
+            ServiceBusMessage enriched = new ServiceBusMessage(source.getBody());
             enriched.setMessageId(source.getMessageId());
-            enriched.setLabel("enriched-" + source.getLabel());
+            enriched.setSubject("enriched-" + source.getSubject());
             return enriched;
         };
 
-        Message transformed = cache.transform("transform-test", enricher);
+        ServiceBusMessage transformed = cache.transform("transform-test", enricher);
         assertNotNull(transformed);
-        assertEquals("enriched-raw", transformed.getLabel());
+        assertEquals("enriched-raw", transformed.getSubject());
 
-        Message retrieved = cache.get("transform-test");
-        assertEquals("enriched-raw", retrieved.getLabel());
+        ServiceBusMessage retrieved = cache.get("transform-test");
+        assertEquals("enriched-raw", retrieved.getSubject());
     }
 
     @Test
@@ -81,24 +79,24 @@ public class MessageCacheTest {
 
     @Test
     public void testGetBodyAsText() {
-        Message msg = new Message("hello world".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage msg = new ServiceBusMessage("hello world".getBytes(StandardCharsets.UTF_8));
         String text = cache.getBodyAsText(msg);
         assertEquals("hello world", text);
     }
 
     @Test
     public void testGetLabelOrDefault() {
-        Message withLabel = new Message("data".getBytes(StandardCharsets.UTF_8));
-        withLabel.setLabel("orders");
+        ServiceBusMessage withLabel = new ServiceBusMessage("data".getBytes(StandardCharsets.UTF_8));
+        withLabel.setSubject("orders");
         assertEquals("orders", cache.getLabelOrDefault(withLabel, "default"));
 
-        Message noLabel = new Message("data".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage noLabel = new ServiceBusMessage("data".getBytes(StandardCharsets.UTF_8));
         assertEquals("default", cache.getLabelOrDefault(noLabel, "default"));
     }
 
     @Test
     public void testContains() {
-        Message msg = new Message("data".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage msg = new ServiceBusMessage("data".getBytes(StandardCharsets.UTF_8));
         msg.setMessageId("check-id");
         cache.getOrStore(msg);
 
@@ -108,7 +106,7 @@ public class MessageCacheTest {
 
     @Test
     public void testClear() {
-        Message msg = new Message("data".getBytes(StandardCharsets.UTF_8));
+        ServiceBusMessage msg = new ServiceBusMessage("data".getBytes(StandardCharsets.UTF_8));
         msg.setMessageId("clear-test");
         cache.getOrStore(msg);
 
@@ -118,21 +116,21 @@ public class MessageCacheTest {
     }
 
     @Test
-    public void testCacheWithIMessageInterface() {
-        MessageCache<IMessage> interfaceCache = new MessageCache<>(IMessage::getMessageId);
-        Message msg = new Message("typed".getBytes(StandardCharsets.UTF_8));
+    public void testCacheWithServiceBusMessageType() {
+        MessageCache<ServiceBusMessage> msgCache = new MessageCache<>(ServiceBusMessage::getMessageId);
+        ServiceBusMessage msg = new ServiceBusMessage("typed".getBytes(StandardCharsets.UTF_8));
         msg.setMessageId("interface-test");
 
-        IMessage stored = interfaceCache.getOrStore(msg);
+        ServiceBusMessage stored = msgCache.getOrStore(msg);
         assertNotNull(stored);
         assertEquals("interface-test", stored.getMessageId());
     }
 
     @Test
     public void testCustomKeyExtractor() {
-        MessageCache<Message> labelCache = new MessageCache<>(msg -> msg.getLabel());
-        Message msg1 = new Message("data1".getBytes(StandardCharsets.UTF_8));
-        msg1.setLabel("unique-label");
+        MessageCache<ServiceBusMessage> labelCache = new MessageCache<>(msg -> msg.getSubject());
+        ServiceBusMessage msg1 = new ServiceBusMessage("data1".getBytes(StandardCharsets.UTF_8));
+        msg1.setSubject("unique-label");
 
         labelCache.getOrStore(msg1);
         assertTrue(labelCache.contains("unique-label"));

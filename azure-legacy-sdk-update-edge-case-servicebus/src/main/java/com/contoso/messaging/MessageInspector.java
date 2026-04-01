@@ -1,11 +1,8 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.Message;
-import com.microsoft.azure.servicebus.MessageBody;
-import com.microsoft.azure.servicebus.MessageBodyType;
+import com.azure.core.util.BinaryData;
+import com.azure.messaging.servicebus.ServiceBusMessage;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,16 +11,18 @@ import java.util.Map;
 
 public class MessageInspector {
 
-    public MessageBodyType getBodyType(IMessage message) {
-        MessageBody body = message.getMessageBody();
+    private static final String BODY_TYPE_PROPERTY = "x-body-type";
+
+    public MessageBodyType getBodyType(ServiceBusMessage message) {
+        MessageBody body = getMessageBody(message);
         if (body == null) {
             return null;
         }
         return body.getBodyType();
     }
 
-    public String extractTextContent(IMessage message) {
-        MessageBody body = message.getMessageBody();
+    public String extractTextContent(ServiceBusMessage message) {
+        MessageBody body = getMessageBody(message);
         if (body == null) {
             return null;
         }
@@ -58,60 +57,117 @@ public class MessageInspector {
         }
     }
 
-    public Map<String, Object> getInternalState(IMessage message) {
+    public Map<String, Object> getInternalState(ServiceBusMessage message) {
         Map<String, Object> state = new HashMap<>();
         state.put("messageId", message.getMessageId());
-        state.put("label", message.getLabel());
+        state.put("label", message.getSubject());
         state.put("bodyType", getBodyType(message));
         state.put("contentType", message.getContentType());
-        state.put("deliveryCount", message.getDeliveryCount());
-        state.put("sequenceNumber", message.getSequenceNumber());
 
-        try {
-            Field bodyField = Message.class.getDeclaredField("messageBody");
-            bodyField.setAccessible(true);
-            MessageBody internalBody = (MessageBody) bodyField.get(message);
-            if (internalBody != null) {
-                state.put("internalBodyType", internalBody.getBodyType().name());
-            }
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            state.put("reflectionError", e.getMessage());
+        MessageBody body = getMessageBody(message);
+        if (body != null) {
+            state.put("internalBodyType", body.getBodyType().name());
         }
 
         return state;
     }
 
-    public IMessage cloneWithBodyType(IMessage source, MessageBodyType targetType) {
+    public ServiceBusMessage cloneWithBodyType(ServiceBusMessage source, MessageBodyType targetType) {
         String content = extractTextContent(source);
         if (content == null) {
             content = "";
         }
 
-        MessageBody newBody;
+        ServiceBusMessage clone;
         switch (targetType) {
             case BINARY:
-                newBody = MessageBody.fromBinaryData(
-                    Collections.singletonList(content.getBytes(StandardCharsets.UTF_8)));
+                clone = new ServiceBusMessage(content.getBytes(StandardCharsets.UTF_8));
                 break;
             case VALUE:
-                newBody = MessageBody.fromValueData(content);
+                clone = new ServiceBusMessage(content.getBytes(StandardCharsets.UTF_8));
                 break;
             case SEQUENCE:
-                newBody = MessageBody.fromSequenceData(
-                    Collections.singletonList(Collections.<Object>singletonList(content)));
+                clone = new ServiceBusMessage(content.getBytes(StandardCharsets.UTF_8));
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported body type: " + targetType);
         }
 
-        Message clone = new Message(newBody);
         clone.setMessageId(source.getMessageId());
-        clone.setLabel(source.getLabel());
+        clone.setSubject(source.getSubject());
         clone.setContentType(source.getContentType());
         clone.setCorrelationId(source.getCorrelationId());
-        if (source.getProperties() != null) {
-            clone.setProperties(new HashMap<>(source.getProperties()));
+        if (source.getApplicationProperties() != null) {
+            clone.getApplicationProperties().putAll(source.getApplicationProperties());
         }
+        // Set the body type metadata
+        clone.getApplicationProperties().put(BODY_TYPE_PROPERTY, targetType.name());
+
         return clone;
+    }
+
+    /**
+     * Creates a ServiceBusMessage from a MessageBody, storing body type metadata
+     * in application properties.
+     */
+    public static ServiceBusMessage createMessage(MessageBody body) {
+        ServiceBusMessage message;
+        switch (body.getBodyType()) {
+            case BINARY:
+                List<byte[]> binaryData = body.getBinaryData();
+                byte[] data = (binaryData != null && !binaryData.isEmpty())
+                    ? binaryData.get(0) : new byte[0];
+                message = new ServiceBusMessage(data);
+                break;
+            case VALUE:
+                Object valueData = body.getValueData();
+                String valStr = valueData != null ? valueData.toString() : "";
+                message = new ServiceBusMessage(valStr.getBytes(StandardCharsets.UTF_8));
+                break;
+            case SEQUENCE:
+                List<List<Object>> seqData = body.getSequenceData();
+                StringBuilder sb = new StringBuilder();
+                if (seqData != null) {
+                    for (List<Object> seq : seqData) {
+                        for (Object item : seq) {
+                            if (sb.length() > 0) sb.append(",");
+                            sb.append(item);
+                        }
+                    }
+                }
+                message = new ServiceBusMessage(sb.toString().getBytes(StandardCharsets.UTF_8));
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported body type: " + body.getBodyType());
+        }
+        message.getApplicationProperties().put(BODY_TYPE_PROPERTY, body.getBodyType().name());
+        return message;
+    }
+
+    /**
+     * Extracts a MessageBody from a ServiceBusMessage based on body type metadata.
+     */
+    public static MessageBody getMessageBody(ServiceBusMessage message) {
+        if (message.getBody() == null) {
+            return null;
+        }
+        String bodyTypeName = (String) message.getApplicationProperties().get(BODY_TYPE_PROPERTY);
+        MessageBodyType bodyType = bodyTypeName != null
+            ? MessageBodyType.valueOf(bodyTypeName) : MessageBodyType.BINARY;
+
+        byte[] bodyBytes = message.getBody().toBytes();
+
+        switch (bodyType) {
+            case BINARY:
+                return MessageBody.fromBinaryData(Collections.singletonList(bodyBytes));
+            case VALUE:
+                return MessageBody.fromValueData(new String(bodyBytes, StandardCharsets.UTF_8));
+            case SEQUENCE:
+                String seqStr = new String(bodyBytes, StandardCharsets.UTF_8);
+                return MessageBody.fromSequenceData(
+                    Collections.singletonList(Collections.<Object>singletonList(seqStr)));
+            default:
+                return MessageBody.fromBinaryData(Collections.singletonList(bodyBytes));
+        }
     }
 }

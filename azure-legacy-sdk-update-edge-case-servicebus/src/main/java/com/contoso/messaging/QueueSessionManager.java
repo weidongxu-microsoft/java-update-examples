@@ -1,13 +1,9 @@
 package com.contoso.messaging;
 
-import com.microsoft.azure.servicebus.IMessageHandler;
-import com.microsoft.azure.servicebus.IMessageSender;
-import com.microsoft.azure.servicebus.IQueueClient;
-import com.microsoft.azure.servicebus.MessageHandlerOptions;
-import com.microsoft.azure.servicebus.QueueClient;
-import com.microsoft.azure.servicebus.ReceiveMode;
-import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
-import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+import com.azure.messaging.servicebus.ServiceBusClientBuilder;
+import com.azure.messaging.servicebus.ServiceBusErrorSource;
+import com.azure.messaging.servicebus.ServiceBusMessage;
+import com.azure.messaging.servicebus.ServiceBusProcessorClient;
 
 import java.time.Duration;
 import java.util.Map;
@@ -15,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class QueueSessionManager {
 
-    private final Map<String, IQueueClient> activeQueues;
+    private final Map<String, ServiceBusProcessorClient> activeQueues;
     private final ErrorClassifier errorClassifier;
 
     public QueueSessionManager(ErrorClassifier errorClassifier) {
@@ -23,37 +19,62 @@ public class QueueSessionManager {
         this.errorClassifier = errorClassifier;
     }
 
-    public IQueueClient createAndRegister(
-            ConnectionStringBuilder connectionStringBuilder,
-            IMessageHandler handler,
+    public ServiceBusProcessorClient createAndRegister(
+            ConnectionStringProperties connectionProperties,
+            MessageHandler handler,
             int maxConcurrentCalls,
-            Duration maxAutoRenewDuration) throws InterruptedException, ServiceBusException {
-        QueueClient client = new QueueClient(connectionStringBuilder, ReceiveMode.PEEKLOCK);
-        MessageHandlerOptions options = new MessageHandlerOptions(
-            maxConcurrentCalls, true, maxAutoRenewDuration);
-        client.registerMessageHandler(handler, options);
-        activeQueues.put(connectionStringBuilder.getEntityPath(), client);
+            Duration maxAutoRenewDuration) {
+        ServiceBusProcessorClient client = new ServiceBusClientBuilder()
+            .connectionString(connectionProperties.toConnectionString())
+            .processor()
+            .queueName(connectionProperties.getEntityPath())
+            .maxConcurrentCalls(maxConcurrentCalls)
+            .maxAutoLockRenewDuration(maxAutoRenewDuration)
+            .processMessage(context -> {
+                ServiceBusMessage sendMsg = MessageRouter.toSendMessage(context.getMessage());
+                handler.onMessageAsync(sendMsg).join();
+            })
+            .processError(context -> {
+                ErrorPhase phase = ErrorPhase.UNKNOWN;
+                ServiceBusErrorSource errorSource = context.getErrorSource();
+                if (errorSource == ServiceBusErrorSource.RECEIVE) {
+                    phase = ErrorPhase.RECEIVE;
+                } else if (errorSource == ServiceBusErrorSource.COMPLETE) {
+                    phase = ErrorPhase.COMPLETE;
+                } else if (errorSource == ServiceBusErrorSource.ABANDON) {
+                    phase = ErrorPhase.ABANDON;
+                } else if (errorSource == ServiceBusErrorSource.RENEW_LOCK) {
+                    phase = ErrorPhase.RENEW_LOCK;
+                } else if (errorSource == ServiceBusErrorSource.ACCEPT_SESSION) {
+                    phase = ErrorPhase.ACCEPT_SESSION;
+                }
+                handler.notifyException(context.getException(), phase);
+            })
+            .buildProcessorClient();
+
+        client.start();
+        activeQueues.put(connectionProperties.getEntityPath(), client);
         return client;
     }
 
-    public IQueueClient createWithTransformer(
-            ConnectionStringBuilder connectionStringBuilder,
+    public ServiceBusProcessorClient createWithTransformer(
+            ConnectionStringProperties connectionProperties,
             MessageTransformer transformer,
-            IMessageSender forwardSender) throws InterruptedException, ServiceBusException {
+            MessageSender forwardSender) {
         OrderMessageHandler handler = new OrderMessageHandler(forwardSender, errorClassifier);
         handler.addTransformer(transformer);
-        return createAndRegister(connectionStringBuilder, handler, 1, Duration.ofMinutes(5));
+        return createAndRegister(connectionProperties, handler, 1, Duration.ofMinutes(5));
     }
 
-    public IQueueClient getQueue(String entityPath) {
+    public ServiceBusProcessorClient getQueue(String entityPath) {
         return activeQueues.get(entityPath);
     }
 
-    public void closeAll() throws ServiceBusException {
-        for (Map.Entry<String, IQueueClient> entry : activeQueues.entrySet()) {
+    public void closeAll() {
+        for (Map.Entry<String, ServiceBusProcessorClient> entry : activeQueues.entrySet()) {
             try {
                 entry.getValue().close();
-            } catch (ServiceBusException e) {
+            } catch (Exception e) {
                 errorClassifier.classify(e);
             }
         }
