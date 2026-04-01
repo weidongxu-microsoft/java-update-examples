@@ -27,3 +27,5 @@ target
 
 build_failure.log
 analysis-output-*/
+
+/benchmark_*
