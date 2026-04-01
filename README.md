@@ -41,6 +41,7 @@
 
 - **azure-legacy-sdk-update-storage-blob-spring-boot** – Spring Boot web app ("Cloud File Manager") with REST API for Azure Blob Storage CRUD operations. Uses Track 1 `azure-storage:8.6.6`. Includes modern file-manager UI, unit tests, and azd deployment configuration. Purpose-built for live demo of legacy SDK upgrade.
 - **azure-legacy-sdk-update-secure-data-pipeline** – Encrypted document storage pipeline using Azure Key Vault for encryption key management and Azure Blob Storage for persistence. Legacy Azure SDKs: `com.microsoft.azure:azure-storage:8.6.6`, `com.microsoft.azure:azure-keyvault:1.2.6`. Uses Maven, JDK 8, has 47 JUnit 4 + Mockito tests.
+- **azure-legacy-sdk-update-edge-case-servicebus** – Order processing system using Azure Service Bus v3 SDK (`azure-servicebus:3.6.7`) with edge-case patterns that resist automated migration: `IMessageHandler` subclassing, 6 exception subclass `instanceof` chains, `MessageBody`/`MessageBodyType` usage, `ConnectionStringBuilder` deep integration, generics bounded on `IMessage`, Jackson custom serializer, `CompletableFuture` pipelines, and reflection into SDK internals. 67 tests. Migration fails without guide (Mockito can't mock final modern SDK classes); succeeds with guide.
 
 ## Example from public repository
 
