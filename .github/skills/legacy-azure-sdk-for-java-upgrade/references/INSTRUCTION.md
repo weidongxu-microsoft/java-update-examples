@@ -120,6 +120,28 @@ If Jackson is not included in the project, add a compatible version of `jackson-
 
 Handle `IOException` and other checked exceptions according to the project's standards.
 
+##### OKHttp Interceptors
+Legacy OKHttp `Interceptor` implementation classes should be migrated to `HttpPipelinePolicy` implementation classes.
+1. Legacy code:
+```java
+RestClient.Builder builder = new RestClient.Builder()
+    ...
+    .withNetworkInterceptor(new ResourceGroupTaggingInterceptor())
+    ...;
+
+Azure.Authenticated azureAuthed = Azure.authenticate(builder.build(), subscriptionId, credentials.domain());
+Azure azure = azureAuthed.withSubscription(subscriptionId);
+```
+
+2. Migrated code:
+```java
+AzureResourceManager azureResourceManager = AzureResourceManager.configure()
+    .withPolicy(new ResourceGroupTaggingPolicy())
+    .authenticate(credential, profile)
+    .withDefaultSubscription();
+```
+
+
 ##### ProviderRegistrationInterceptor
 If legacy client(XXManager) initializes with `ProviderRegistrationInterceptor`, check whether this client is one of the premium ones:
 - Azure
