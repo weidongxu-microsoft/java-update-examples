@@ -1,6 +1,9 @@
-package com.microsoft.azure.eventprocessorhost;
+package com.microsoft.azure.eventprocessorhosts;
 
 import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventprocessorhost.CloseReason;
+import com.microsoft.azure.eventprocessorhost.IEventProcessor;
+import com.microsoft.azure.eventprocessorhost.PartitionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

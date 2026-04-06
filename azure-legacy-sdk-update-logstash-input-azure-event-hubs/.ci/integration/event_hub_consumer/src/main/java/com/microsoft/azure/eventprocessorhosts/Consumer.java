@@ -1,9 +1,16 @@
-package com.microsoft.azure.eventprocessorhost;
+package com.microsoft.azure.eventprocessorhosts;
 // ^^ need to be in this package to get access to the hostcontext needed for the in-memory checkpointer
 
 import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
+import com.microsoft.azure.eventprocessorhost.EventProcessorHost;
+import com.microsoft.azure.eventprocessorhost.EventProcessorOptions;
+import com.microsoft.azure.eventprocessorhost.InMemoryCheckpointManager;
+import com.microsoft.azure.eventprocessorhost.InMemoryLeaseManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
 
 /**
  * Uses EPH, but only the in-memory version... so this only works as a single standalone consumer using the $Default consumer group.
@@ -38,8 +45,23 @@ public class Consumer {
                     inMemoryCheckpointManager,
                     inMemoryLeaseManager);
 
-            inMemoryCheckpointManager.initialize(host.getHostContext());
-            inMemoryLeaseManager.initialize(host.getHostContext());
+            Method getHostContext = EventProcessorHost.class.getDeclaredMethod("getHostContext");
+            getHostContext.setAccessible(true);
+
+            Method checkpointManagerInit = Arrays.stream(InMemoryCheckpointManager.class.getDeclaredMethods())
+                    .filter(method -> method.getName().equals("initialize"))
+                    .findAny().get();
+            checkpointManagerInit.setAccessible(true);
+            Method leaseManagerInit = Arrays.stream(InMemoryLeaseManager.class.getDeclaredMethods())
+                    .filter(method -> method.getName().equals("initialize"))
+                    .findAny().get();
+            leaseManagerInit.setAccessible(true);
+
+            Object hostContext = getHostContext.invoke(host);
+
+            checkpointManagerInit.invoke(inMemoryCheckpointManager, hostContext);
+            leaseManagerInit.invoke(inMemoryLeaseManager, hostContext);
+
             LOGGER.debug("Registering host named {}", host.getHostName());
             EventProcessorOptions options = new EventProcessorOptions();
             options.setExceptionNotification(new ErrorNotificationHandler());
