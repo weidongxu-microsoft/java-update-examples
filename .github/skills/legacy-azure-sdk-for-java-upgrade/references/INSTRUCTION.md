@@ -241,6 +241,40 @@ applicationPackage = batchManager.applicationPackages()
     .create();
 ```
 
+### com.microsoft.azure.eventprocessorhost
+#### Code Samples
+##### EventProcessorHost
+Modern EventProcessorClient doesn't provide default implementation of `InMemoryCheckpointManager` or `InMemoryLeaseManager`.
+If it's used in legacy code, you should replace them with [SampleCheckpointStore](https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/src/samples/java/com/azure/messaging/eventhubs/SampleCheckpointStore.java) with name `InMemoryCheckpointStore`.
+
+Legacy code:
+```java
+InMemoryCheckpointManager inMemoryCheckpointManager = new InMemoryCheckpointManager();
+InMemoryLeaseManager inMemoryLeaseManager = new InMemoryLeaseManager();
+EventProcessorHost host = new EventProcessorHost(
+    EventProcessorHost.createHostName("logstash"),
+    eventHubName,
+    "$Default",
+    args[0],
+    inMemoryCheckpointManager,
+    inMemoryLeaseManager);
+```
+
+Modern code:
+```java
+// Use
+InMemoryCheckpointStore checkpointStore = new InMemoryCheckpointStore();
+
+EventProcessorClient processor = new EventProcessorClientBuilder()
+    .connectionString(args[0])
+    .consumerGroup("$Default")
+    .checkpointStore(checkpointStore)
+    .processEvent(eventContext -> onEvent(eventContext))
+    .processError(context -> onError(context))
+    .processPartitionInitialization(initializationContext -> onOpen(initializationContext))
+    .processPartitionClose(closeContext -> onClose(closeContext))
+    .buildEventProcessorClient();
+```
 
 ## Validation
 
