@@ -21,11 +21,11 @@ Follow these steps:
 - Project is Maven or Gradle.
 - Java code is on JDK 8 or above.
 
-### Migrate pom.xml
+### Migrate dependencies
 
 It is recommended to use azure-sdk-bom (version higher than 1.3.0).
 
-Help with looking up the latest stable version on https://repo1.maven.org/maven2/ and proceed with migration. `azure-resourcemanager-xx` should have groupId `com.azure.resourcemanager` instead of `com.azure`.
+Help with looking up the latest stable version on https://repo1.maven.org/maven2/com/azure/azure-sdk-bom/ and proceed with migration.
 
 Example of pom.xml
 ```xml
@@ -34,7 +34,7 @@ Example of pom.xml
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.3.3</version>
+                <version>{bom_version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -55,7 +55,7 @@ Example of pom.xml
 Example of build.gradle
 ```groovy
 dependencies {
-    implementation enforcedPlatform('com.azure:azure-sdk-bom:1.3.3')
+    implementation enforcedPlatform('com.azure:azure-sdk-bom:{bom_version}')
 
     implementation 'com.azure:azure-identity'
     implementation 'com.azure.resourcemanager:azure-resourcemanager'
@@ -282,7 +282,7 @@ EventProcessorClient processor = new EventProcessorClientBuilder()
 - Migrated project pass compilation.
 - All tests pass. Don't silently skip tests.
 - No legacy SDK dependencies/references exist.
-- If azure-sdk-bom is used, ensure no explicit version dependencies for Azure libraries that are in azure-sdk-bom.
+- If azure-sdk-bom is used, ensure **NO** explicit version dependencies for Azure libraries that are in azure-sdk-bom.
   E.g. Instead of `implementation 'com.azure.resourcemanager:azure-resourcemanager:2.60.0'`, we should use `implementation 'com.azure.resourcemanager:azure-resourcemanager'`.
   For Azure libraries in azure-sdk-bom, check https://repo1.maven.org/maven2/com/azure/azure-sdk-bom/{bom_version}/azure-sdk-bom-{bom_version}.pom (bom_version be version used during migration)
 - For each migration guide you recorded during migration:
