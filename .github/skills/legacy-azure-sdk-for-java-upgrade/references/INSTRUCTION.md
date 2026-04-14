@@ -66,7 +66,7 @@ dependencies {
 
 - Make a list of source code/maven/gradle files that contains legacy SDK packages. Migrate each of them.
 - Determine legacy SDK artifacts according to previous files, find suitable migration guides in [Package-Specific Migration Guides](#package-specific-migration-guides) and follow the guides whenever possible. Record which migration guide URL you used for each legacy package (e.g., in your plan or commit messages), so you can validate against them later.
-- Do not change the Java `package ...;` declaration at the top of each source file; update import statements and type usages as needed.
+- **Do not change the Java `package ...;` declaration at the top of each source file, and do not rename or move the source file's directory path to match a new SDK package structure.** Keep every `.java` file in its original directory; only update `import` statements and type usages inside the file body. For example, if a file lives in `src/main/java/com/microsoft/azure/eventprocessorhosts/Consumer.java` with `package com.microsoft.azure.eventprocessorhosts;`, it must stay in that exact directory and keep that exact package declaration — even though the modern SDK uses `com.azure.messaging.eventhubs`.
 - Do not upgrade JDK version, if it is already JDK 8 or above.
 - If there is test in the project, Java code there also need to be updated.
 
