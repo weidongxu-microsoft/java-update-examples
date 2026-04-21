@@ -6,6 +6,7 @@ This project demonstrates how to send and receive events using Azure Event Hubs 
 
 - **Send Events**: Send individual messages, batches, and messages to specific partitions
 - **Receive Events**: Receive events using Event Processor Host (EPH) with checkpointing
+- **In-memory Consumer**: Run the logstash integration-style standalone consumer without Azure Storage
 - **Configuration**: Flexible configuration via environment variables or code
 - **Unit Tests**: Comprehensive test coverage using JUnit 4 and Mockito
 
@@ -13,15 +14,19 @@ This project demonstrates how to send and receive events using Azure Event Hubs 
 
 ```
 src/
-├── main/java/com/microsoft/azure/eventhubs/
-│   ├── EventHubsApplication.java     - Main application entry point
-│   ├── EventHubSender.java           - Handles sending events to Event Hub
-│   ├── EventHubReceiver.java         - Handles receiving events via EPH
-│   └── EventHubConfiguration.java    - Configuration management
-└── test/java/com/microsoft/azure/eventhubs/
-    ├── EventHubSenderTest.java       - Unit tests for sender
-    ├── EventHubReceiverTest.java     - Unit tests for receiver
-    └── EventHubConfigurationTest.java - Unit tests for configuration
+├── main/java/com/azure/eventhubs/client/
+│   ├── EventHubsApplication.java              - Main application entry point
+│   ├── EventHubSender.java                    - Handles sending events to Event Hub
+│   ├── EventHubReceiver.java                  - Handles receiving events via EPH with Azure Storage
+│   └── EventHubConfiguration.java             - Configuration management
+├── main/java/com/microsoft/azure/eventprocessorhosts/
+│   ├── Consumer.java                          - Standalone in-memory consumer ported from logstash integration
+│   ├── EventProcessor.java                    - Event batch processor for the standalone consumer
+│   └── ErrorNotificationHandler.java          - Shared EPH error logging callback
+└── test/java/com/azure/eventhubs/client/
+    ├── EventHubSenderTest.java                - Unit tests for sender
+    ├── EventHubReceiverTest.java              - Unit tests for receiver
+    └── EventHubConfigurationTest.java         - Unit tests for configuration
 ```
 
 ## Dependencies
@@ -29,6 +34,7 @@ src/
 - `azure-eventhubs` v3.3.0 - Core Event Hubs client library
 - `azure-eventhubs-eph` v3.3.0 - Event Processor Host for scalable event processing
 - `azure-storage` v8.6.6 - Storage for EPH checkpointing
+- Existing `azure-eventhubs` and `azure-eventhubs-eph` dependencies also cover the integrated in-memory consumer
 - JUnit 4.13.2 and Mockito 4.11.0 for testing
 
 ## Configuration
@@ -107,6 +113,17 @@ receiver.startReceiving();
 // ... process events ...
 
 receiver.stopReceiving();
+```
+
+### Running the integrated in-memory consumer
+
+This project also includes the Java consumer originally used by the logstash integration test. It uses
+`InMemoryCheckpointManager` and `InMemoryLeaseManager`, so it does not require Azure Storage.
+
+```bash
+mvn -Dexec.mainClass=com.microsoft.azure.eventprocessorhosts.Consumer \
+  -Dexec.args="Endpoint=sb://namespace.servicebus.windows.net/;SharedAccessKeyName=name;SharedAccessKey=key;EntityPath=hub" \
+  exec:java
 ```
 
 ## Key Concepts
