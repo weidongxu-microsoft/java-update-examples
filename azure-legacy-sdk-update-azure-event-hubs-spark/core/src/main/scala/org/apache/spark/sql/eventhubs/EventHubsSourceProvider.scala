@@ -211,7 +211,7 @@ private[sql] object EventHubsSourceProvider extends Serializable {
               Map(
                 "sequenceNumber" -> ed.getSequenceNumber.asInstanceOf[AnyRef],
                 "enqueuedTime" -> ed.getEnqueuedTime.asInstanceOf[AnyRef]
-              ).asScala
+              )
                 .map { p =>
                   p._2 match {
                     case s: String => UTF8String.fromString(p._1) -> UTF8String.fromString(s)

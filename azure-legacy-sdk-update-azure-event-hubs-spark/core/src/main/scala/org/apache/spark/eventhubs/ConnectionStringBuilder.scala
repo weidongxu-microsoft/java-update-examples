@@ -23,8 +23,6 @@ import java.time.format.DateTimeParseException
 import java.util.Locale
 import java.util.regex.Pattern
 
-import com.azure.messaging.eventhubs.ConnectionStringProperties
-
 /**
  * [[ConnectionStringBuilder]] can be used to construct a connection string which can establish communication with EventHub instances.
  * In addition to constructing a connection string, the [[ConnectionStringBuilder]] can be used to modify an existing connection string.
@@ -222,7 +220,8 @@ class ConnectionStringBuilder private () {
    */
   def getOperationTimeout: Duration = {
     if (this.operationTimeout == null) {
-      MessagingFactory.DefaultOperationTimeout
+      // Track 2: Default operation timeout of 60 seconds
+      Duration.ofSeconds(60)
     } else {
       this.operationTimeout
     }
@@ -271,22 +270,22 @@ class ConnectionStringBuilder private () {
       connStrBuilder.append(
         s"$EndpointConfigName$KeyValueSeparator${this.endpoint.toString}$KeyValuePairDelimiter")
     }
-    if (!StringUtil.isNullOrWhiteSpace(this.eventHubName)) {
+    if (this.eventHubName != null && !this.eventHubName.trim.isEmpty) {
       connStrBuilder.append(
         s"$EntityPathConfigName$KeyValueSeparator${this.eventHubName}$KeyValuePairDelimiter"
       )
     }
-    if (!StringUtil.isNullOrWhiteSpace(this.sharedAccessKeyName)) {
+    if (this.sharedAccessKeyName != null && !this.sharedAccessKeyName.trim.isEmpty) {
       connStrBuilder.append(
         s"$SharedAccessKeyNameConfigName$KeyValueSeparator${this.sharedAccessKeyName}$KeyValuePairDelimiter"
       )
     }
-    if (!StringUtil.isNullOrWhiteSpace(this.sharedAccessKey)) {
+    if (this.sharedAccessKey != null && !this.sharedAccessKey.trim.isEmpty) {
       connStrBuilder.append(
         s"$SharedAccessKeyConfigName$KeyValueSeparator${this.sharedAccessKey}$KeyValuePairDelimiter"
       )
     }
-    if (!StringUtil.isNullOrWhiteSpace(this.sharedAccessSignature)) {
+    if (this.sharedAccessSignature != null && !this.sharedAccessSignature.trim.isEmpty) {
       connStrBuilder.append(
         s"$SharedAccessSignatureConfigName$KeyValueSeparator${this.sharedAccessSignature}$KeyValuePairDelimiter"
       )
@@ -301,7 +300,7 @@ class ConnectionStringBuilder private () {
   }
 
   private def parseConnectionString(connectionString: String): Unit = {
-    if (StringUtil.isNullOrWhiteSpace(connectionString)) {
+    if (connectionString == null || connectionString.trim.isEmpty) {
       throw new IllegalConnectionStringFormatException("connectionString cannot be empty")
     }
 
@@ -319,7 +318,7 @@ class ConnectionStringBuilder private () {
       throw new IllegalConnectionStringFormatException("Connection String cannot be parsed.")
     }
 
-    if (!StringUtil.isNullOrWhiteSpace(values(0))) {
+    if (values(0) != null && !values(0).trim.isEmpty) {
       throw new IllegalConnectionStringFormatException(
         String.format(Locale.US, "Cannot parse part of ConnectionString: %s", values(0)))
     }

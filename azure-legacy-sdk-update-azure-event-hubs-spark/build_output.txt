@@ -1,0 +1,79 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.microsoft.azure:azure-eventhubs-spark_2.11:jar:2.3.22
+[WARNING] 'artifactId' contains an expression but should be a constant. @ com.microsoft.azure:azure-eventhubs-spark_${scala.binary.version}:2.3.22, C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\core\pom.xml, line 29, column 15
+[WARNING] 'artifactId' contains an expression but should be a constant. @ com.microsoft.azure:azure-eventhubs-spark-parent_${scala.binary.version}:2.3.22, C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\pom.xml, line 27, column 17
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.microsoft.azure:azure-eventhubs-spark-parent_2.11:pom:2.3.22
+[WARNING] 'artifactId' contains an expression but should be a constant. @ com.microsoft.azure:azure-eventhubs-spark-parent_${scala.binary.version}:2.3.22, C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\pom.xml, line 27, column 17
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] EventHubs+Spark Parent POM                                         [pom]
+[INFO] azure-eventhubs-spark_2.11                                         [jar]
+[INFO] 
+[INFO] -------< com.microsoft.azure:azure-eventhubs-spark-parent_2.11 >--------
+[INFO] Building EventHubs+Spark Parent POM 2.3.22                         [1/2]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ azure-eventhubs-spark-parent_2.11 ---
+[INFO] Deleting C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\target
+[INFO] 
+[INFO] --- scala:3.2.2:compile (scala-compile-first) @ azure-eventhubs-spark-parent_2.11 ---
+[WARNING]  Expected all dependencies to require Scala version: 2.11.0
+[WARNING]  org.apache.spark:spark-core_2.11:2.3.3 requires scala version: 2.11.8
+[WARNING] Multiple versions of scala libraries detected!
+[INFO] No sources to compile
+[INFO] 
+[INFO] -----------< com.microsoft.azure:azure-eventhubs-spark_2.11 >-----------
+[INFO] Building azure-eventhubs-spark_2.11 2.3.22                         [2/2]
+[INFO]   from core\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ azure-eventhubs-spark_2.11 ---
+[INFO] Deleting C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\core\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ azure-eventhubs-spark_2.11 ---
+[WARNING] Using platform encoding (GBK actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] Copying 2 resources from src\main\resources to target\scala-2.11\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ azure-eventhubs-spark_2.11 ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- scala:3.2.2:compile (scala-compile-first) @ azure-eventhubs-spark_2.11 ---
+[WARNING]  Expected all dependencies to require Scala version: 2.11.0
+[WARNING]  org.scala-lang:scala-reflect:2.11.8 requires scala version: 2.11.8
+[WARNING] Multiple versions of scala libraries detected!
+[INFO] Using incremental compilation
+[INFO] Compiling 38 Scala sources to C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\core\target\scala-2.11\classes...
+[ERROR] C:\github\java-update-examples\azure-legacy-sdk-update-azure-event-hubs-spark\core\src\main\scala\org\apache\spark\eventhubs\EventHubsUtils.scala:169: identifier expected but '}' found.
+[ERROR]   }
+[ERROR]   ^
+[ERROR] one error found
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for EventHubs+Spark Parent POM 2.3.22:
+[INFO] 
+[INFO] EventHubs+Spark Parent POM ......................... SUCCESS [  7.565 s]
+[INFO] azure-eventhubs-spark_2.11 ......................... FAILURE [  4.383 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  12.082 s
+[INFO] Finished at: 2026-05-09T15:37:48+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal net.alchim31.maven:scala-maven-plugin:3.2.2:compile (scala-compile-first) on project azure-eventhubs-spark_2.11: Execution scala-compile-first of goal net.alchim31.maven:scala-maven-plugin:3.2.2:compile failed.: CompileFailed -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/PluginExecutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :azure-eventhubs-spark_2.11

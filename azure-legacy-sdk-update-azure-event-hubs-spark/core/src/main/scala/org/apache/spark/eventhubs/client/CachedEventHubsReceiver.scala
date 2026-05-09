@@ -93,6 +93,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
 
   // Track 2: Use EventHubsConsumerClient from the pool
   private lazy val consumerClient: EventHubsConsumerClient = ClientConnectionPool.getConsumerClient(ehConf)
+  private lazy val consumerClient: AnyRef = ClientConnectionPool.getConsumerClient(ehConf)
 
   // Track 2: Receive state for the partition
   private var lastReceivedSeqNo: SequenceNumber = -1
