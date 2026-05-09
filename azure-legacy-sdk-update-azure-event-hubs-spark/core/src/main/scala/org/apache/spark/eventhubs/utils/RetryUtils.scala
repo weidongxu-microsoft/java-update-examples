@@ -111,38 +111,53 @@ private[spark] object RetryUtils extends Logging {
                           maxRetry: Int = RetryCount,
                           delay: Int = 10,
                           replaceTransientErrors: Future[T] = null): Future[T] = {
+    def isTransientError(exception: Throwable): Boolean = exception match {
+      case ae: com.azure.core.amqp.exception.AmqpException =>
+        // Track 2: Check error condition codes for transient errors
+        val errorCondition = ae.getErrorCondition match {
+          case ec if ec != null => ec.toString.toLowerCase
+          case _ => ""
+        }
+        errorCondition.contains("server-busy") ||
+          errorCondition.contains("operation-timeout") ||
+          errorCondition.contains("timeout") ||
+          errorCondition.contains("link-stolen")
+      case ioe: java.util.concurrent.TimeoutException => true
+      case _ => false
+    }
+
     def retryHelper(fn: => Future[T], retryCount: Int): Future[T] = {
       val taskId = EventHubsUtils.getTaskId
       fn.recoverWith {
-        case eh: EventHubException if eh.getIsTransient =>
+        case ex: Throwable if isTransientError(ex) =>
           if (retryCount >= maxRetry) {
-            logInfo(s"(TID $taskId) failure: $opName")
-            throw eh
+            logInfo(s"(TID $taskId) failure: $opName after $retryCount retries")
+            throw ex
           }
           if (replaceTransientErrors != null) {
             logInfo(s"(TID $taskId) ignoring transient failure in $opName")
             replaceTransientErrors
           } else {
-            logInfo(s"(TID $taskId) retrying $opName after $delay ms")
+            logInfo(s"(TID $taskId) retrying $opName after $delay ms (attempt ${retryCount + 1}/$maxRetry)")
             after(delay.milliseconds)(retryHelper(fn, retryCount + 1))
           }
         case t: Throwable =>
-          t.getCause match {
-            case eh: EventHubException if eh.getIsTransient =>
-              if (retryCount >= maxRetry) {
-                logInfo(s"(TID $taskId) failure: $opName")
-                throw eh
-              }
-              if (replaceTransientErrors != null) {
-                logInfo(s"(TID $taskId) ignoring transient failure in $opName")
-                replaceTransientErrors
-              } else {
-                logInfo(s"(TID $taskId) retrying $opName after $delay ms")
-                after(delay.milliseconds)(retryHelper(fn, retryCount + 1))
-              }
-            case _ =>
-              logInfo(s"(TID $taskId) failure: $opName")
+          // Check if the cause is a transient error
+          if (isTransientError(t.getCause)) {
+            if (retryCount >= maxRetry) {
+              logInfo(s"(TID $taskId) failure: $opName after $retryCount retries")
               throw t
+            }
+            if (replaceTransientErrors != null) {
+              logInfo(s"(TID $taskId) ignoring transient failure in $opName")
+              replaceTransientErrors
+            } else {
+              logInfo(s"(TID $taskId) retrying $opName after $delay ms (attempt ${retryCount + 1}/$maxRetry)")
+              after(delay.milliseconds)(retryHelper(fn, retryCount + 1))
+            }
+          } else {
+            logInfo(s"(TID $taskId) non-transient failure: $opName - ${t.getMessage}")
+            throw t
           }
       }
     }

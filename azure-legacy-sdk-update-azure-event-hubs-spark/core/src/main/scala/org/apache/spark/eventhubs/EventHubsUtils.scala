@@ -129,6 +129,45 @@ object EventHubsUtils extends Logging {
     new JavaRDD(createRDD(jsc.sc, ehConf, offsetRanges))
   }
 
+  /**
+   * Track 2: Creates a receiver for a specific partition using EventHubsConsumerClient.
+   * Returns an iterator of EventData for the specified partition.
+   *
+   * @param consumerClient the EventHubsConsumerClient
+   * @param consumerGroup the consumer group
+   * @param partitionId the partition ID
+   * @param eventPosition the starting event position
+   * @return CompletableFuture with Iterable of EventData
+   */
+  def createReceiverInner(
+      consumerClient: EventHubsConsumerClient,
+      consumerGroup: String,
+      partitionId: String,
+      eventPosition: ehep): CompletableFuture[java.lang.Iterable[EventData]] = {
+    val taskId = EventHubsUtils.getTaskId
+    logInfo(
+      s"(TID $taskId) creating receiver for Event Hub partition $partitionId, consumer group $consumerGroup")
+
+    // Track 2: Get events from partition starting at the specified position
+    val future = new CompletableFuture[java.lang.Iterable[EventData]]()
+    try {
+      // Receive a batch of events from the partition
+      val eventsIterator = consumerClient.receiveFromPartition(partitionId, eventPosition)
+        .blockFirst()
+      
+      if (eventsIterator != null) {
+        future.complete(eventsIterator)
+      } else {
+        future.complete(java.util.Collections.emptyList[EventData]())
+      }
+    } catch {
+      case e: Exception =>
+        logError(s"(TID $taskId) error creating receiver for partition $partitionId", e)
+        future.completeExceptionally(e)
+    }
+    future
+  }
+
   def createReceiverInner(
       client: EventHubClient,
       useExclusiveReceiver: Boolean,

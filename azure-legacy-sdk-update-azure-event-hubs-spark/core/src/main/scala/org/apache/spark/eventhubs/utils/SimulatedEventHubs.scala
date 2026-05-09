@@ -160,7 +160,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
     for (p <- partitions.keySet.toSeq.sorted) {
       str += s"""
         Partition: $p
-        ${partitions(p).getEvents.map(_.getBytes.map(_.toChar).mkString)})
+        ${partitions(p).getEvents.map(_.getBody.map(_.toChar).mkString)}
       """
       str += "\n"
     }
@@ -206,7 +206,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
      */
     private[utils] def send(event: EventData, properties: Option[Map[String, Object]]): Unit = {
       // Need to add a Seq No to the EventData to properly simulate the service.
-      val e = EventHubsTestUtils.createEventData(event.getBytes, data.size.toLong, properties)
+      val e = EventHubsTestUtils.createEventData(event.getBody, data.size.toLong, properties)
       synchronized(data = data :+ e)
     }
 
@@ -236,7 +236,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       if (data.isEmpty) {
         0L
       } else {
-        data.map(_.getSystemProperties.getSequenceNumber).min
+        data.map(_.getSequenceNumber).min
       }
     }
 
@@ -251,7 +251,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       } else {
         // The sequence number will start from 0L onwards
         // In the case there is 1 single message, this will be 1L + 0L
-        1L + data.map(_.getSystemProperties.getSequenceNumber).max
+        1L + data.map(_.getSequenceNumber).max
       }
     }
   }

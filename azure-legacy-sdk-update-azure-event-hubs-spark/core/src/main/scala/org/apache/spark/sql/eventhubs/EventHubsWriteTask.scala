@@ -148,9 +148,9 @@ private[eventhubs] abstract class EventHubsRowWriter(inputSchema: Seq[Attribute]
       s"Both a partitionKey (${partitionKey.get}) and partition (${partitionId.get}) have been detected. Both can not be set."
     )
 
-    val event = EventData.create(body)
+    val event = new EventData(body)
     sender.send(event, partitionId, partitionKey, properties)
-    event.getBytes.length
+    event.getBody.length
   }
 
   private def createProjection = {

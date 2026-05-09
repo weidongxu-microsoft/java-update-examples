@@ -56,10 +56,10 @@ case class EventHubsForeachWriter(ehConf: EventHubsConf)
   }
 
   def process(body: String): Unit = {
-    val event = EventData.create(s"$body".getBytes("UTF-8"))
+    val event = new EventData(s"$body".getBytes("UTF-8"))
     client.send(event)
     totalMessageCount += 1
-    totalMessageSizeInBytes += event.getBytes.length
+    totalMessageSizeInBytes += event.getBody.length
   }
 
   def close(errorOrNull: Throwable): Unit = {

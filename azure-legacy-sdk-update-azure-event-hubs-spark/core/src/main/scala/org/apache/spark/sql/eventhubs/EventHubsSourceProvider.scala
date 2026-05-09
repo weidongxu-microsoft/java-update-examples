@@ -169,14 +169,17 @@ private[sql] object EventHubsSourceProvider extends Serializable {
       {
         iter.map { ed =>
           InternalRow(
-            ed.getBytes,
+            ed.getBody,
             UTF8String.fromString(p.toString),
-            UTF8String.fromString(ed.getSystemProperties.getOffset),
-            ed.getSystemProperties.getSequenceNumber,
+            // Track 2: No offset property, use sequence number as offset
+            UTF8String.fromString(ed.getSequenceNumber.toString),
+            ed.getSequenceNumber,
             DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(ed.getSystemProperties.getEnqueuedTime.toEpochMilli)),
-            UTF8String.fromString(ed.getSystemProperties.getPublisher),
-            UTF8String.fromString(ed.getSystemProperties.getPartitionKey),
+              new java.sql.Timestamp(ed.getEnqueuedTime.toEpochMilli)),
+            // Track 2: Publisher not directly available, use empty string
+            UTF8String.fromString(""),
+            // Track 2: Use getPartitionKey() directly if available
+            UTF8String.fromString(Option(ed.getPartitionKey).getOrElse("")),
             ArrayBasedMapData(ed.getProperties.asScala
               .mapValues {
                 case b: Binary =>
@@ -204,10 +207,18 @@ private[sql] object EventHubsSourceProvider extends Serializable {
                 }
               }),
             ArrayBasedMapData(
-              // Don't duplicate offset, enqueued time, and seqNo
-              (ed.getSystemProperties.asScala -- Seq(OffsetAnnotation,
-                                                     SequenceNumberAnnotation,
-                                                     EnqueuedTimeAnnotation))
+              // Track 2: Include basic system properties as map
+              Map(
+                "sequenceNumber" -> ed.getSequenceNumber.asInstanceOf[AnyRef],
+                "enqueuedTime" -> ed.getEnqueuedTime.asInstanceOf[AnyRef]
+              ).asScala
+                .map { p =>
+                  p._2 match {
+                    case s: String => UTF8String.fromString(p._1) -> UTF8String.fromString(s)
+                    case default =>
+                      UTF8String.fromString(p._1) -> UTF8String.fromString(Serialization.write(p._2))
+                  }
+                }
                 .mapValues {
                   case b: Binary =>
                     val buf = b.asByteBuffer()
