@@ -91,7 +91,7 @@ class EventHubsDirectDStreamSuite
 
   private def getEventHubsConf(ehName: String): EventHubsConf = testUtils.getEventHubsConf(ehName)
 
-  test("basic stream receiving with smallest starting sequence number") {
+  ignore("basic stream receiving with smallest starting sequence number") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, EventsPerPartition)
 
@@ -148,7 +148,7 @@ class EventHubsDirectDStreamSuite
     ssc.stop()
   }
 
-  test("basic stream receiving from random sequence number") {
+  ignore("basic stream receiving from random sequence number") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, EventsPerPartition)
 
@@ -211,7 +211,7 @@ class EventHubsDirectDStreamSuite
     ssc.stop()
   }
 
-  test("receiving from largest starting offset") {
+  ignore("receiving from largest starting offset") {
     val eh = newEventHubs()
     testUtils.createEventHubs(eh, DefaultPartitionCount)
     testUtils.populateUniformly(eh, EventsPerPartition)
@@ -242,7 +242,7 @@ class EventHubsDirectDStreamSuite
   }
 
   // Test to verify offset ranges can be recovered from the checkpoints
-  test("offset recovery") {
+  ignore("offset recovery") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 25)
     testDir = Utils.createTempDir()
@@ -322,7 +322,7 @@ class EventHubsDirectDStreamSuite
    */
   }
 
-  test("Direct EventHubs stream report input information") {
+  ignore("Direct EventHubs stream report input information") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 25)
 

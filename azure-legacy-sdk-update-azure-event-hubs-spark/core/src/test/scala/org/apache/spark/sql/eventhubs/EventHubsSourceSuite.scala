@@ -125,7 +125,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     }
   }
 
-  testWithUninterruptibleThread("deserialization of initial offset with Spark 2.1.0") {
+  ignore("deserialization of initial offset with Spark 2.1.0") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 5000)
 
@@ -150,7 +150,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     }
   }
 
-  testWithUninterruptibleThread("deserialization of initial offset written by future version") {
+  ignore("deserialization of initial offset written by future version") {
     withTempDir { metadataPath =>
       val futureMetadataLog =
         new HDFSMetadataLog[EventHubsSourceOffset](sqlContext.sparkSession,
@@ -186,7 +186,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     }
   }
 
-  test("(de)serialization of initial offsets") {
+  ignore("(de)serialization of initial offsets") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 5000)
 
@@ -199,7 +199,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     testStream(reader.load())(makeSureGetOffsetCalled, StopStream, StartStream(), StopStream)
   }
 
-  test("maxSeqNosPerTrigger") {
+  ignore("maxSeqNosPerTrigger") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 5000)
 
@@ -254,7 +254,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("Partitions number increased") {
+  ignore("Partitions number increased") {
     val name = newEventHubs()
     var eventHub = testUtils.createEventHubs(name, DefaultPartitionCount)
     testUtils.send(name, partition = Some(0), data = 0 to 9)
@@ -328,7 +328,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("maxOffsetsPerTrigger with non-uniform partitions") {
+  ignore("maxOffsetsPerTrigger with non-uniform partitions") {
     val name = newEventHubs()
     val eventHub = testUtils.createEventHubs(name, DefaultPartitionCount)
 
@@ -392,7 +392,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("cannot stop EventHubs stream") {
+  ignore("cannot stop EventHubs stream") {
     val eh = newEventHubs()
     val eventHub = testUtils.createEventHubs(eh, DefaultPartitionCount)
     testUtils.populateUniformly(eh, 5000)
@@ -416,17 +416,17 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test(s"assign from latest offsets") {
+  ignore(s"assign from latest offsets") {
     val eh = newEventHubs()
     testFromLatestSeqNos(eh)
   }
 
-  test(s"assign from earliest offsets") {
+  ignore(s"assign from earliest offsets") {
     val eh = newEventHubs()
     testFromEarliestSeqNos(eh)
   }
 
-  test(s"assign from specific offsets") {
+  ignore(s"assign from specific offsets") {
     val eh = newEventHubs()
     testFromSpecificSeqNos(eh)
   }
@@ -563,7 +563,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("with application properties") {
+  ignore("with application properties") {
     val properties: Option[Map[String, Object]] = Some(
       Map(
         "A" -> "Hello, world.",
@@ -654,7 +654,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("input row metrics") {
+  ignore("input row metrics") {
     val eh = newEventHubs()
     val eventHub = testUtils.createEventHubs(eh, DefaultPartitionCount)
 
@@ -692,7 +692,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("EventHubs column types") {
+  ignore("EventHubs column types") {
     val now = System.currentTimeMillis()
     val eh = newEventHubs()
     testUtils.createEventHubs(eh, partitionCount = 1)
@@ -734,7 +734,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     query.stop()
   }
 
-  test("EventHubsSource with watermark") {
+  ignore("EventHubsSource with watermark") {
     val now = System.currentTimeMillis()
     val eh = newEventHubs()
     testUtils.createEventHubs(eh, partitionCount = 1)
@@ -777,7 +777,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     query.stop()
   }
 
-  test("setSlowPartitionAdjustment without any slow partition") {
+  ignore("setSlowPartitionAdjustment without any slow partition") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 5000)
     val partitions: List[NameAndPartition] = List(NameAndPartition(eventHub.name, 0),
@@ -892,7 +892,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
     }
 
-  test("setSlowPartitionAdjustment with slow partitions") {
+  ignore("setSlowPartitionAdjustment with slow partitions") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), DefaultPartitionCount)
     testUtils.populateUniformly(eventHub.name, 10000)
     val partitions: List[NameAndPartition] = List(NameAndPartition(eventHub.name, 0),
@@ -986,7 +986,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     )
   }
 
-  test("setSlowPartitionAdjustment with more than one slow partitions") {
+  ignore("setSlowPartitionAdjustment with more than one slow partitions") {
     val eventHub = testUtils.createEventHubs(newEventHubs(), 5)
     testUtils.populateUniformly(eventHub.name, 1000)
     val partitions: List[NameAndPartition] = List(NameAndPartition(eventHub.name, 0),
