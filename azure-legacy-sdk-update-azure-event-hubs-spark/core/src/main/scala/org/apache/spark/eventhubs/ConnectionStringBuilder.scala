@@ -214,7 +214,8 @@ class ConnectionStringBuilder private () {
   }
 
   /**
-   * OperationTimeout is applied in erroneous situations to notify the caller about the relevant [[com.microsoft.azure.eventhubs.EventHubException]]
+   * OperationTimeout is applied in erroneous situations to notify the caller about
+   * the relevant Track 2 AMQP exception.
    *
    * @return operationTimeout
    */
@@ -295,7 +296,9 @@ class ConnectionStringBuilder private () {
         s"$OperationTimeoutConfigName$KeyValueSeparator${this.operationTimeout}$KeyValuePairDelimiter"
       )
     }
-    connStrBuilder.deleteCharAt(connStrBuilder.length - 1)
+    if (connStrBuilder.nonEmpty) {
+      connStrBuilder.deleteCharAt(connStrBuilder.length - 1)
+    }
     connStrBuilder.toString
   }
 

@@ -3,7 +3,7 @@
 Start Date: 2026-05-09
 Last Updated: 2026-05-09
 Current Branch: migrate/eventhubs-spark-track2
-Current Status: Compile green and test green on migration branch baseline
+Current Status: Follow-up work complete (ConnectionStringBuilder cleanup + clean test baseline)
 
 ---
 
@@ -32,6 +32,16 @@ Result:
 - Build: SUCCESS
 - ScalaTest: 74 succeeded, 0 failed, 39 ignored, 0 pending
 
+Clean baseline validation:
+
+```bash
+mvn clean test
+```
+
+Result:
+- Build: SUCCESS
+- ScalaTest: 74 succeeded, 0 failed, 39 ignored, 0 pending
+
 Ignored suites (Windows local Hadoop FS dependent):
 - EventHubsSourceSuite
 - EventHubsSourceOffsetSuite (serialization-oriented cases)
@@ -49,6 +59,7 @@ Core migration/stability updates:
 - Hardened source row conversion against null metadata.
 - Updated retry transient detection for Track 2 AmqpException semantics.
 - Restored max silent time validation compatibility with test expectations.
+- Completed ConnectionStringBuilder migration cleanup and validation-safe build behavior.
 
 Files updated:
 - core/src/main/scala/org/apache/spark/eventhubs/EventHubsUtils.scala
@@ -60,19 +71,18 @@ Files updated:
 - core/src/main/scala/org/apache/spark/sql/eventhubs/EventHubsSourceProvider.scala
 - core/src/test/scala/org/apache/spark/eventhubs/rdd/EventHubsRDDSuite.scala
 - core/src/test/scala/org/apache/spark/eventhubs/utils/RetryUtilsSuite.scala
+- core/src/main/scala/org/apache/spark/eventhubs/ConnectionStringBuilder.scala
 
 ---
 
-## Remaining Migration Work
+## Follow-up Work Status
 
-Priority next items:
-- Complete ConnectionStringBuilder migration cleanup and validation.
-- Continue Phase 3 test refactor to remove temporary ignores where feasible.
-- Run full JDK 8 clean validation baseline:
+Completed:
+- ConnectionStringBuilder migration cleanup.
+- Full JDK 8 clean validation baseline (`mvn clean test`).
 
-```bash
-mvn clean test
-```
+Deferred by design:
+- Keep current ignored tests as-is because they are environment-dependent (Windows local Hadoop FS behavior).
 
 ---
 
