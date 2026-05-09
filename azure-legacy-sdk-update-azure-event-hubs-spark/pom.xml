@@ -123,6 +123,18 @@
         <url>https://github.com/Azure/azure-event-hubs-spark/tree/master</url>
     </scm>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-sdk-bom</artifactId>
+                <version>1.2.11</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -136,10 +148,15 @@
             <version>${spark.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Track 2: Azure Messaging Event Hubs client library -->
         <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-eventhubs</artifactId>
-            <version>3.3.0</version>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-messaging-eventhubs</artifactId>
+        </dependency>
+        <!-- Track 2: Azure Identity for credential management -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -171,11 +188,6 @@
             <artifactId>scalatest_${scala.binary.version}</artifactId>
             <scope>test</scope>
             <version>3.0.3</version>
-        </dependency>
-        <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>msal4j</artifactId>
-            <version>1.7.0</version>
         </dependency>
     </dependencies>
 
