@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.eventhubs
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{ EventHubsConf, EventHubsUtils }
 import org.apache.spark.eventhubs.client.Client
 import org.apache.spark.eventhubs.utils.MetricPlugin
@@ -148,9 +148,9 @@ private[eventhubs] abstract class EventHubsRowWriter(inputSchema: Seq[Attribute]
       s"Both a partitionKey (${partitionKey.get}) and partition (${partitionId.get}) have been detected. Both can not be set."
     )
 
-    val event = EventData.create(body)
+    val event = new EventData(body)
     sender.send(event, partitionId, partitionKey, properties)
-    event.getBytes.length
+    event.getBody.length
   }
 
   private def createProjection = {

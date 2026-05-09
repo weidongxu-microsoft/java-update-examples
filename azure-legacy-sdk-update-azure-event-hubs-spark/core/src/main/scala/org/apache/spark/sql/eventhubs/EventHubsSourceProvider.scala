@@ -168,16 +168,21 @@ private[sql] object EventHubsSourceProvider extends Serializable {
     rdd.mapPartitionsWithIndex { (p, iter) =>
       {
         iter.map { ed =>
+          val seqNo = EventHubsUtils.getEventSequenceNumber(ed)
+          val enqueuedAtMs = EventHubsUtils.getEventEnqueuedTimeMillis(ed)
+          val appProperties = Option(ed.getProperties).map(_.asScala.toMap).getOrElse(Map.empty)
+
           InternalRow(
-            ed.getBytes,
+            ed.getBody,
             UTF8String.fromString(p.toString),
-            UTF8String.fromString(ed.getSystemProperties.getOffset),
-            ed.getSystemProperties.getSequenceNumber,
-            DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(ed.getSystemProperties.getEnqueuedTime.toEpochMilli)),
-            UTF8String.fromString(ed.getSystemProperties.getPublisher),
-            UTF8String.fromString(ed.getSystemProperties.getPartitionKey),
-            ArrayBasedMapData(ed.getProperties.asScala
+            UTF8String.fromString(seqNo.toString),
+            seqNo,
+            DateTimeUtils.fromJavaTimestamp(new java.sql.Timestamp(enqueuedAtMs)),
+            // Track 2: Publisher not directly available, use empty string
+            UTF8String.fromString(""),
+            // Track 2: Use getPartitionKey() directly if available
+            UTF8String.fromString(Option(ed.getPartitionKey).getOrElse("")),
+            ArrayBasedMapData(appProperties
               .mapValues {
                 case b: Binary =>
                   val buf = b.asByteBuffer()
@@ -204,25 +209,13 @@ private[sql] object EventHubsSourceProvider extends Serializable {
                 }
               }),
             ArrayBasedMapData(
-              // Don't duplicate offset, enqueued time, and seqNo
-              (ed.getSystemProperties.asScala -- Seq(OffsetAnnotation,
-                                                     SequenceNumberAnnotation,
-                                                     EnqueuedTimeAnnotation))
-                .mapValues {
-                  case b: Binary =>
-                    val buf = b.asByteBuffer()
-                    val arr = new Array[Byte](buf.remaining)
-                    buf.get(arr)
-                    arr.asInstanceOf[AnyRef]
-                  case default => default
-                }
+              // Track 2: Include basic system properties as map
+              Map(
+                "sequenceNumber" -> Long.box(seqNo),
+                "enqueuedTime" -> Long.box(enqueuedAtMs)
+              )
                 .map { p =>
-                  p._2 match {
-                    case s: String => UTF8String.fromString(p._1) -> UTF8String.fromString(s)
-                    case default =>
-                      UTF8String.fromString(p._1) -> UTF8String.fromString(
-                        Serialization.write(p._2))
-                  }
+                  UTF8String.fromString(p._1) -> UTF8String.fromString(Serialization.write(p._2))
                 })
           )
         }

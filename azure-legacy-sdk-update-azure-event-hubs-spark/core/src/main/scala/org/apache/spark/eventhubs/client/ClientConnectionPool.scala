@@ -19,105 +19,119 @@ package org.apache.spark.eventhubs.client
 
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, ScheduledExecutorService }
+import java.util.concurrent.{ Executors, ScheduledExecutorService }
 
-import com.microsoft.azure.eventhubs.{ EventHubClient, EventHubClientOptions, RetryPolicy }
+import com.azure.messaging.eventhubs.{ EventHubClientBuilder, EventHubConsumerClient, EventHubProducerClient }
 import org.apache.spark.eventhubs._
-import org.apache.spark.eventhubs.utils.RetryUtils.retryJava
 import org.apache.spark.internal.Logging
-
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
- * A connection pool for EventHubClients. A connection pool is created per connection string.
- * If a connection isn't available in the pool, then a new one is created.
- * If a connection is idle in the pool for 5 minutes, it will be closed.
+ * A connection pool for Track 2 EventHubs clients. In Track 2, we maintain separate
+ * consumer and producer clients per connection string rather than pooling a single
+ * EventHubClient.
  *
  * @param ehConf The Event Hubs configurations corresponding to this specific connection pool.
  */
 private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
 
-  private[this] val pool = new ConcurrentLinkedQueue[EventHubClient]()
-  private[this] val count = new AtomicInteger(0)
+  private[this] var producerClient: EventHubProducerClient = _
+  private[this] var consumerClient: EventHubConsumerClient = _
+  private[this] val clientLock = new Object()
 
   /**
-   * First, the connection pool is checked for available clients. If there
-   * is a client available, that is given to the borrower. If the connection
-   * pool is empty, then a new client is created and given to the borrower.
-   *
-   * @return the borrowed [[EventHubClient]]
+   * Creates or retrieves the producer client for this connection pool.
+   * Track 2: Returns EventHubsProducerClient for sending events.
    */
-  private def borrowClient: EventHubClient = {
-    var client = pool.poll()
-    val consumerGroup = ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)
-    if (client == null) {
-      logInfo(
-        s"No clients left to borrow. NamespaceUri: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}, " +
-          s"ConsumerGroup name: $consumerGroup. Creating client ${count.incrementAndGet()}")
-      val connStr = ConnectionStringBuilder(ehConf.connectionString)
-      connStr.setOperationTimeout(ehConf.receiverTimeout.getOrElse(DefaultReceiverTimeout))
-      EventHubsClient.userAgent =
-        s"SparkConnector-$SparkConnectorVersion-[${ehConf.name}]-[$consumerGroup]"
-      while (client == null) {
-        if (ehConf.useAadAuth) {
-          val ehClientOption: EventHubClientOptions = new EventHubClientOptions()
-            .setMaximumSilentTime(ehConf.maxSilentTime.getOrElse(DefaultMaxSilentTime))
-            .setOperationTimeout(ehConf.receiverTimeout.getOrElse(DefaultReceiverTimeout))
-            .setRetryPolicy(RetryPolicy.getDefault)
-          client = Await.result(
-            retryJava(
-              EventHubClient
-                .createWithAzureActiveDirectory(connStr.getEndpoint,
-                                                ehConf.name,
-                                                ehConf.aadAuthCallback().get,
-                                                ehConf.aadAuthCallback().get.authority,
-                                                ClientThreadPool.get(ehConf),
-                                                ehClientOption),
-              "createWithAzureActiveDirectory"
-            ),
-            ehConf.internalOperationTimeout
-          )
-        } else {
-          client = Await.result(
-            retryJava(
-              EventHubClient.createFromConnectionString(
-                connStr.toString,
-                RetryPolicy.getDefault,
-                ClientThreadPool.get(ehConf),
-                null,
-                ehConf.maxSilentTime.getOrElse(DefaultMaxSilentTime)),
-              "createFromConnectionString"
-            ),
-            ehConf.internalOperationTimeout
-          )
-        }
+  private def getOrCreateProducerClient: EventHubProducerClient = {
+    clientLock.synchronized {
+      if (producerClient == null) {
+        logInfo(
+          s"Creating producer client. Namespace: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}")
+        producerClient = createProducerClient()
+      } else {
+        logInfo(
+          s"Reusing existing producer client. Namespace: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}")
       }
-    } else {
-      logInfo(
-        s"Borrowing client. Namespace: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}, ConsumerGroup name: " +
-          s"$consumerGroup")
+      producerClient
     }
-    logInfo(s"Available clients: {${pool.size}}. Total clients: ${count.get}")
-    client
   }
 
   /**
-   * Returns the borrowed client to the connection pool.
-   *
-   * @param client the [[EventHubClient]] being returned
+   * Creates or retrieves the consumer client for this connection pool.
+   * Track 2: Returns EventHubsConsumerClient for receiving events from all partitions.
    */
-  private def returnClient(client: EventHubClient): Unit = {
-    pool.offer(client)
-    logInfo(
-      s"Client returned. Namespace: ${ehConf.namespaceUri},EventHub name: ${ehConf.name}. Total clients: ${count.get}. " +
-        s"Available clients: ${pool.size}")
+  private def getOrCreateConsumerClient: EventHubConsumerClient = {
+    clientLock.synchronized {
+      if (consumerClient == null) {
+        val consumerGroup = ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)
+        logInfo(
+          s"Creating consumer client. Namespace: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}, " +
+            s"ConsumerGroup: $consumerGroup")
+        consumerClient = createConsumerClient()
+      } else {
+        logInfo(
+          s"Reusing existing consumer client. Namespace: ${ehConf.namespaceUri}, EventHub name: ${ehConf.name}")
+      }
+      consumerClient
+    }
+  }
+
+  /**
+   * Creates a new EventHubsProducerClient using Track 2 builder pattern.
+   */
+  private def createProducerClient(): EventHubProducerClient = {
+    new EventHubClientBuilder()
+      .connectionString(ehConf.connectionString)
+      .eventHubName(ehConf.name)
+      .buildProducerClient()
+  }
+
+  /**
+   * Creates a new EventHubsConsumerClient using Track 2 builder pattern.
+   */
+  private def createConsumerClient(): EventHubConsumerClient = {
+    val consumerGroup = ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)
+    new EventHubClientBuilder()
+      .connectionString(ehConf.connectionString)
+      .eventHubName(ehConf.name)
+      .consumerGroup(consumerGroup)
+      .buildConsumerClient()
+  }
+
+  /**
+   * Closes all client resources when the pool is no longer needed.
+   */
+  def close(): Unit = {
+    clientLock.synchronized {
+      try {
+        if (producerClient != null) {
+          logInfo(s"Closing producer client for ${ehConf.name}")
+          producerClient.close()
+        }
+      } catch {
+        case e: Exception =>
+          logWarning(s"Error closing producer client: ${e.getMessage}")
+      }
+      try {
+        if (consumerClient != null) {
+          logInfo(s"Closing consumer client for ${ehConf.name}")
+          consumerClient.close()
+        }
+      } catch {
+        case e: Exception =>
+          logWarning(s"Error closing consumer client: ${e.getMessage}")
+      }
+      producerClient = null
+      consumerClient = null
+    }
   }
 }
 
 /**
- * The connection pool singleton that is created per JVM. This holds a map
- * of Event Hubs connection strings to their specific connection pool instances.
+ * The connection pool singleton that is created per JVM.
+ * Track 2: Manages separate producer and consumer clients.
  */
 object ClientConnectionPool extends Logging {
 
@@ -133,76 +147,78 @@ object ClientConnectionPool extends Logging {
     pools.get(key).isDefined
   }
 
-  private def ensureInitialized(key: String): Unit = {
-    if (!isInitialized(key)) {
-      val message = notInitializedMessage(key)
-      throw new IllegalStateException(message)
-    }
-  }
-
   private def key(ehConf: EventHubsConf): String = {
     ehConf.connectionString.toLowerCase
   }
 
-  private def get(key: String): ClientConnectionPool = pools.synchronized {
-    pools.getOrElse(key, {
-      val message = notInitializedMessage(key)
-      throw new IllegalStateException(message)
-    })
+  private def getOrCreatePool(ehConf: EventHubsConf): ClientConnectionPool = pools.synchronized {
+    val poolKey = key(ehConf)
+    pools.getOrElseUpdate(poolKey, new ClientConnectionPool(ehConf))
   }
 
   /**
-   * Looks up the connection pool instance associated with the connection
-   * string in the provided [[EventHubsConf]] and retrieves an [[EventHubClient]]
-   * for the borrower.
-   *
-   * @param ehConf the [[EventHubsConf]] used to lookup the connection pool
-   * @return the borrowed [[EventHubsClient]]
+   * Gets or creates a producer client for the given Event Hubs configuration.
+   * Track 2: Returns EventHubsProducerClient for sending events.
    */
-  def borrowClient(ehConf: EventHubsConf): EventHubClient = {
-    pools.synchronized {
-      if (!isInitialized(key(ehConf))) {
-        pools.update(key(ehConf), new ClientConnectionPool(ehConf))
+  def getProducerClient(ehConf: EventHubsConf): EventHubProducerClient = {
+    val pool = getOrCreatePool(ehConf)
+    pool.getOrCreateProducerClient
+  }
+
+  /**
+   * Gets or creates a consumer client for the given Event Hubs configuration.
+   * Track 2: Returns EventHubsConsumerClient for receiving events.
+   */
+  def getConsumerClient(ehConf: EventHubsConf): EventHubConsumerClient = {
+    val pool = getOrCreatePool(ehConf)
+    pool.getOrCreateConsumerClient
+  }
+
+  /**
+   * Closes all clients in all pools. Should be called when the application shuts down.
+   */
+  def closeAllPools(): Unit = pools.synchronized {
+    pools.values.foreach { pool =>
+      try {
+        pool.close()
+      } catch {
+        case e: Exception =>
+          logWarning(s"Error closing pool: ${e.getMessage}")
       }
     }
-
-    val pool = get(key(ehConf))
-    pool.borrowClient
-  }
-
-  /**
-   * Looks up the connection pool instance associated with the connection
-   * string the the provided [[EventHubsConf]] and returns the borrowed
-   * [[EventHubsClient]] to the pool.
-   *
-   * @param ehConf the [[EventHubsConf]] use to lookup the connection pool
-   * @param client the [[EventHubsClient]] being returned
-   */
-  def returnClient(ehConf: EventHubsConf, client: EventHubClient): Unit = {
-    ensureInitialized(key(ehConf))
-    val pool = get(key(ehConf))
-    pool.returnClient(client)
+    pools.clear()
   }
 }
 
 /**
- * Cache for [[ScheduledExecutorService]]s.
+ * Cache for [[java.util.concurrent.ScheduledExecutorService]]s.
  */
 object ClientThreadPool {
   type MutableMap[A, B] = scala.collection.mutable.HashMap[A, B]
 
-  private[this] val pools = new MutableMap[String, ScheduledExecutorService]()
+  private[this] val pools = new MutableMap[String, java.util.concurrent.ScheduledExecutorService]()
 
   private def key(ehConf: EventHubsConf): String = {
     ehConf.connectionString.toLowerCase
   }
 
-  def get(ehConf: EventHubsConf): ScheduledExecutorService = {
+  def getOrCreateService(ehConf: EventHubsConf): java.util.concurrent.ScheduledExecutorService = {
     pools.synchronized {
-      val keyName = key(ehConf)
-      pools.getOrElseUpdate(
-        keyName,
-        Executors.newScheduledThreadPool(ehConf.threadPoolSize.getOrElse(DefaultThreadPoolSize)))
+      val serviceKey = key(ehConf)
+      pools.getOrElseUpdate(serviceKey, java.util.concurrent.Executors.newScheduledThreadPool(4))
     }
+  }
+
+  def closeAllServices(): Unit = pools.synchronized {
+    pools.values.foreach { service =>
+      try {
+        if (!service.isShutdown) {
+          service.shutdown()
+        }
+      } catch {
+        case _: Exception => // ignore
+      }
+    }
+    pools.clear()
   }
 }

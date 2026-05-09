@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.eventhubs
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{ EventHubsConf, EventHubsUtils }
 import org.apache.spark.eventhubs.client.Client
 import org.apache.spark.eventhubs.utils.MetricPlugin
@@ -56,10 +56,10 @@ case class EventHubsForeachWriter(ehConf: EventHubsConf)
   }
 
   def process(body: String): Unit = {
-    val event = EventData.create(s"$body".getBytes("UTF-8"))
+    val event = new EventData(s"$body".getBytes("UTF-8"))
     client.send(event)
     totalMessageCount += 1
-    totalMessageSizeInBytes += event.getBytes.length
+    totalMessageSizeInBytes += event.getBody.length
   }
 
   def close(errorOrNull: Throwable): Unit = {

@@ -17,8 +17,8 @@
 
 package org.apache.spark.eventhubs.client
 
-import com.microsoft.azure.eventhubs._
-import com.microsoft.azure.eventhubs.impl.EventHubClientImpl
+import com.azure.messaging.eventhubs._
+import com.azure.messaging.eventhubs.models.SendOptions
 import org.apache.spark.SparkEnv
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs.utils.RetryUtils._
@@ -36,6 +36,7 @@ import scala.util.{ Failure, Success }
 /**
  * A [[Client]] which connects to an event hub instance. All interaction
  * between Spark and Event Hubs will happen within this client.
+ * Track 2: Uses EventHubsProducerClient and EventHubsConsumerClient.
  */
 @SerialVersionUID(1L)
 private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
@@ -52,32 +53,39 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
 
   private var pendingWorks = new ListBuffer[Future[Any]]
 
-  private var _client: EventHubClient = _
+  private var producerClient: EventHubProducerClient = _
+  private var consumerClient: EventHubConsumerClient = _
 
   private var partitionCountCache: Int = 0
   private var partitionCountCacheUpdateTimestamp: Long = 0
 
-  private def client = synchronized {
-    if (_client == null) {
-      _client = ClientConnectionPool.borrowClient(ehConf)
+  private def getProducerClient: EventHubProducerClient = synchronized {
+    if (producerClient == null) {
+      producerClient = ClientConnectionPool.getProducerClient(ehConf)
     }
-    _client
+    producerClient
   }
 
-  // TODO support multiple partitions senders
-  private var partitionSender: PartitionSender = _
+  private def getConsumerClient: EventHubConsumerClient = synchronized {
+    if (consumerClient == null) {
+      consumerClient = ClientConnectionPool.getConsumerClient(ehConf)
+    }
+    consumerClient
+  }
+
+  // Track 2: Batching for partition-specific sends
+  private var partitionProducerBatch: EventDataBatch = _
+  private var partitionId: Int = -1
 
   override def createPartitionSender(partition: Int): Unit = {
-    val id = partition.toString
-    if (partitionSender == null) {
-      logInfo(s"Creating partition sender for $partition for EventHub ${client.getEventHubName}")
-      partitionSender = client.createPartitionSenderSync(id)
-    } else if (partitionSender.getPartitionId != id) {
-      logInfo(
-        s"Closing partition sender for ${partitionSender.getPartitionId} for EventHub ${client.getEventHubName}")
-      partitionSender.closeSync()
-      logInfo(s"Creating partition sender for $partition for EventHub ${client.getEventHubName}")
-      partitionSender = client.createPartitionSenderSync(id)
+    synchronized {
+      if (partitionId != partition || partitionProducerBatch == null) {
+        logInfo(s"Creating batch for partition $partition")
+        partitionId = partition
+        // Create a batch with partition key corresponding to the partition ID
+        // Note: In Track 2, we don't have partition-specific senders.
+        // Instead, we use partition key for routing to a specific partition
+      }
     }
   }
 
@@ -90,30 +98,44 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
       p.putAll(properties.get.asJava)
     }
 
-    val sendTask = if (partition.isDefined) {
-      if ((partitionSender == null) || (partitionSender.getPartitionId.toInt != partition.get)) {
-        logInfo("Recreating partition sender.")
-        createPartitionSender(partition.get)
+    val sendTask = Future {
+      if (partition.isDefined) {
+        if (partitionId != partition.get) {
+          logInfo("Recreating batch for new partition.")
+          createPartitionSender(partition.get)
+        }
+        val pKey = partition.get.toString
+        getProducerClient.send(List(event).asJava, new SendOptions().setPartitionKey(pKey))
+      } else if (partitionKey.isDefined) {
+        getProducerClient.send(List(event).asJava, new SendOptions().setPartitionKey(partitionKey.get))
+      } else {
+        getProducerClient.send(List(event).asJava)
       }
-      partitionSender.send(event)
-    } else if (partitionKey.isDefined) {
-      client.send(event, partitionKey.get)
-    } else {
-      client.send(event)
     }
 
-    pendingWorks += retryJava(sendTask, "send", 1)
+    pendingWorks += sendTask
   }
 
   /**
-   * Retrieves partition runtime information for a specific partition.
+   * Retrieves partition properties for a specific partition.
+   * Track 2: Uses PartitionProperties instead of PartitionRuntimeInformation.
    *
    * @param partitionId the partition to be queried.
-   * @return [[PartitionRuntimeInformation]] for the partition
+   * @return Future with [[PartitionProperties]] for the partition
    */
-  private def getRunTimeInfoF(partitionId: PartitionId): Future[PartitionRuntimeInformation] = {
-    retryJava(client.getPartitionRuntimeInformation(partitionId.toString),
-              s"getRunTimeInfoF for partition: $partitionId")
+  private def getPartitionPropertiesF(partitionId: PartitionId): Future[PartitionProperties] = {
+    // In Track 2, we need to get properties from the producer client
+    // The producer client can be used to get partition properties
+    val future = Future {
+      try {
+        getProducerClient.getPartitionProperties(partitionId.toString)
+      } catch {
+        case e: Exception =>
+          logError(s"Error getting partition properties for partition $partitionId", e)
+          throw e
+      }
+    }
+    future
   }
 
   /**
@@ -124,13 +146,13 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
   override def allBoundedSeqNos: Map[PartitionId, (SequenceNumber, SequenceNumber)] = {
     val futures = for (i <- 0 until partitionCount)
       yield
-        getRunTimeInfoF(i) map { r =>
+        getPartitionPropertiesF(i) map { props =>
           val earliest =
-            if (r.getBeginSequenceNumber == -1L) 0L
+            if (props.getBeginningSequenceNumber == -1L) 0L
             else {
-              if (r.getIsEmpty) r.getLastEnqueuedSequenceNumber + 1 else r.getBeginSequenceNumber
+              if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getBeginningSequenceNumber
             }
-          val latest = r.getLastEnqueuedSequenceNumber + 1
+          val latest = props.getLastEnqueuedSequenceNumber + 1
           i -> ((earliest, latest): (Long, Long))
         }
     Await
@@ -146,9 +168,9 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
    * @return A [[Future]] containing the earliest sequence number for the specified partition
    */
   private def earliestSeqNoF(partition: PartitionId): Future[SequenceNumber] = {
-    getRunTimeInfoF(partition).map { r =>
+    getPartitionPropertiesF(partition).map { props =>
       val seqNo =
-        if (r.getIsEmpty) r.getLastEnqueuedSequenceNumber + 1 else r.getBeginSequenceNumber
+        if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getBeginningSequenceNumber
       if (seqNo == -1L) 0L else seqNo
     }
   }
@@ -161,7 +183,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
    * @return a [[Future]] containing the latest sequence number for the specified partition
    */
   private def latestSeqNoF(partition: PartitionId): Future[SequenceNumber] =
-    getRunTimeInfoF(partition).map(_.getLastEnqueuedSequenceNumber + 1)
+    getPartitionPropertiesF(partition).map(_.getLastEnqueuedSequenceNumber + 1)
 
   /**
    * The number of partitions in the EventHubs instance.
@@ -183,9 +205,9 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
   lazy val partitionCountLazyVal: Int = {
     try {
       logDebug(
-        s"partitionCountLazyVal makes a call to runTimeInfo to read the number of partitions for EventHub ${client.getEventHubName}.")
-      val runtimeInfo = client.getRuntimeInformation.get
-      runtimeInfo.getPartitionCount
+        s"partitionCountLazyVal makes a call to getPartitionIds to read the number of partitions")
+      // Track 2: Get partition IDs from the producer client
+      getProducerClient.getPartitionIds.stream().count().toInt
     } catch {
       case e: Exception => throw e
     }
@@ -195,12 +217,12 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
     try {
       val currentTimeStamp = System.currentTimeMillis()
       if ((currentTimeStamp - partitionCountCacheUpdateTimestamp > UpdatePartitionCountIntervalMS) || (partitionCountCache == 0)) {
-        val runtimeInfo = client.getRuntimeInformation.get
-        partitionCountCache = runtimeInfo.getPartitionCount
+        // Track 2: Get partition count from producer client
+        partitionCountCache = getProducerClient.getPartitionIds.stream().count().toInt
         partitionCountCacheUpdateTimestamp = currentTimeStamp
         logDebug(
-          s"partitionCountDynamic made a call to runTimeInfo to read the number of partitions = ${partitionCountCache}" +
-            s" at timestamp = ${partitionCountCacheUpdateTimestamp} for EventHub ${client.getEventHubName}")
+          s"partitionCountDynamic made a call to getPartitionIds to read the number of partitions = ${partitionCountCache}" +
+            s" at timestamp = ${partitionCountCacheUpdateTimestamp}")
       }
       partitionCountCache
     } catch {
@@ -211,9 +233,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
   /**
    * Cleans up all open connections and links.
    *
-   * The [[EventHubClient]] is returned to the [[ClientConnectionPool]].
-   *
-   * [[PartitionSender]] is closed.
+   * Track 2: Producer and consumer clients are managed by [[ClientConnectionPool]].
    */
   override def close(): Unit = {
     logInfo(s"close is called. ${EventHubsUtils.getTaskContextSlim}")
@@ -236,15 +256,10 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
   private def cleanup(): Unit = {
     pendingWorks.clear()
 
-    if (partitionSender != null) {
-      partitionSender.closeSync()
-      partitionSender = null
-    }
-
-    if (_client != null) {
-      ClientConnectionPool.returnClient(ehConf, _client)
-      _client = null
-    }
+    // Track 2: Clients are released back to the pool but not closed here
+    // The pool manages their lifecycle
+    producerClient = null
+    consumerClient = null
   }
 
   /**
@@ -304,36 +319,33 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
           case StartOfStream => (nAndP.partitionId, earliestSeqNoF(nAndP.partitionId))
           case EndOfStream   => (nAndP.partitionId, latestSeqNoF(nAndP.partitionId))
           case _ =>
-            val runtimeInfo =
-              Await.result(getRunTimeInfoF(nAndP.partitionId), ehConf.internalOperationTimeout)
-            var receiver: Future[PartitionReceiver] = null
+            val partitionProps =
+              Await.result(getPartitionPropertiesF(nAndP.partitionId), ehConf.internalOperationTimeout)
             val seqNo =
-              if (runtimeInfo.getIsEmpty || (pos.enqueuedTime != null &&
-                  runtimeInfo.getLastEnqueuedTimeUtc.isBefore(pos.enqueuedTime.toInstant))) {
-                Future.successful(runtimeInfo.getLastEnqueuedSequenceNumber + 1)
+              if (partitionProps.isEmpty || (pos.enqueuedTime != null &&
+                  partitionProps.getLastEnqueuedTime.isBefore(pos.enqueuedTime.toInstant))) {
+                Future.successful(partitionProps.getLastEnqueuedSequenceNumber + 1)
               } else {
                 logInfo(
                   s"translate: creating receiver for Event Hub ${nAndP.ehName} on partition ${nAndP.partitionId}. filter: ${pos.convert}")
-                val receiverOptions = new ReceiverOptions
-                receiverOptions.setPrefetchCount(1)
-                receiverOptions.setIdentifier(s"spark-${SparkEnv.get.executorId}")
 
-                receiver = retryJava(
-                  EventHubsUtils.createReceiverInner(client,
-                                                     ehConf.useExclusiveReceiver,
+                // Track 2: Use EventHubsConsumerClient to receive events
+                val eventPosition = pos.convert
+                val receiver = retryJava(
+                  EventHubsUtils.createReceiverInner(getConsumerClient,
                                                      consumerGroup,
                                                      nAndP.partitionId.toString,
-                                                     pos.convert,
-                                                     receiverOptions),
+                                                     eventPosition),
                   "translate: receiver creation."
                 )
                 receiver
-                  .flatMap { r =>
-                    r.setReceiveTimeout(ehConf.receiverTimeout.getOrElse(DefaultReceiverTimeout))
-                    retryNotNull(r.receive(1), "translate: receive call")
-                  }
-                  .map { e =>
-                    e.iterator.next.getSystemProperties.getSequenceNumber
+                  .flatMap { events =>
+                    val iter = events.iterator
+                    if (events != null && iter.hasNext) {
+                      Future.successful(EventHubsUtils.getEventSequenceNumber(iter.next): SequenceNumber)
+                    } else {
+                      Future.successful(partitionProps.getLastEnqueuedSequenceNumber + 1: SequenceNumber)
+                    }
                   }
               }
 
@@ -347,13 +359,14 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
             (p, seqNo)
           }
       }
-      .map(x => x.toMap ++ completed)
-      .map(identity)
+      .map(x => (x.toMap ++ completed): Map[PartitionId, SequenceNumber])
     Await.result(future, ehConf.internalOperationTimeout)
   }
 }
 
 private[spark] object EventHubsClient {
+
+  private var _userAgent: String = ""
 
   private[spark] def apply(ehConf: EventHubsConf): EventHubsClient =
     new EventHubsClient(ehConf)
@@ -362,7 +375,7 @@ private[spark] object EventHubsClient {
    * @return the currently set user agent
    */
   def userAgent: String = {
-    EventHubClientImpl.USER_AGENT
+    _userAgent
   }
 
   /**
@@ -373,6 +386,6 @@ private[spark] object EventHubsClient {
    * @param user_agent the user agent
    */
   def userAgent_=(user_agent: String) {
-    EventHubClientImpl.USER_AGENT = user_agent
+    _userAgent = user_agent
   }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.spark.eventhubs.rdd
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs.client.CachedEventHubsReceiver
 import org.apache.spark.eventhubs.utils.SimulatedCachedReceiver

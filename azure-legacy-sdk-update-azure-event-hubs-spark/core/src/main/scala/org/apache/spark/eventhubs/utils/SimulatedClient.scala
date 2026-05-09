@@ -17,7 +17,7 @@
 
 package org.apache.spark.eventhubs.utils
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{ EventHubsConf, PartitionId, SequenceNumber }
 import org.apache.spark.eventhubs.client.Client
 

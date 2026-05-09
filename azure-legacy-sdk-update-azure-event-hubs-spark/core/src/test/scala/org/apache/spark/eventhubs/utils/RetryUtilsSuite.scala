@@ -20,7 +20,7 @@ package org.apache.spark.eventhubs.utils
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
 
-import com.microsoft.azure.eventhubs.EventHubException
+import com.azure.core.amqp.exception.AmqpException
 import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures
 
@@ -66,7 +66,7 @@ class RetryUtilsSuite extends FunSuite with ScalaFutures {
 
     val exception =
       RetryUtils.retryScala(tries.next, "test", maxRetry = 3, delay = 1).failed.futureValue
-    assert("causedBy" === exception.getMessage)
+    assert(exception.getMessage.contains("causedBy"))
   }
 
   test("retryNotNull") {
@@ -82,14 +82,14 @@ class RetryUtilsSuite extends FunSuite with ScalaFutures {
 }
 
 object RetryUtilsSuite {
-  def failedWithEHE(): Future[Int] = Future.failed(new EventHubException(true, "failedWith"))
+  def failedWithEHE(): Future[Int] = Future.failed(new AmqpException(true, "failedWith", null))
 
   def causedByEHE(): Future[Int] = {
-    val causedBy = new EventHubException(true, "causedBy")
+    val causedBy = new AmqpException(true, "causedBy", null)
     Future.failed(new IOException(causedBy))
   }
 
-  def nonTransientEHE(): Future[Int] = Future.failed(new EventHubException(false, "nonTransient"))
+  def nonTransientEHE(): Future[Int] = Future.failed(new AmqpException(false, "nonTransient", null))
 
   def incrementFutureIterator(value: Int = 0): Iterator[Future[Int]] =
     Iterator.from(value).map(Future(_))

@@ -19,7 +19,6 @@ package org.apache.spark
 
 import java.time.Duration
 
-import com.microsoft.azure.eventhubs.{ EventHubClient, EventHubClientOptions, PartitionReceiver }
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
 
@@ -37,14 +36,19 @@ package object eventhubs {
   val DefaultEndingPosition: EventPosition = EventPosition.fromEndOfStream
   val DefaultMaxRatePerPartition: Rate = 1000
   val DefaultReceiverTimeout: Duration = Duration.ofSeconds(60)
-  val DefaultMaxSilentTime: Duration = EventHubClientOptions.SILENT_OFF
-  val MinSilentTime: Duration = EventHubClientOptions.SILENT_MINIMUM
+  // Track 2: No direct equivalent to EventHubClientOptions.SILENT_OFF
+  // Using Duration.ZERO to represent no idle timeout
+  val DefaultMaxSilentTime: Duration = Duration.ZERO
+  val MinSilentTime: Duration = Duration.ofSeconds(30)
   val DefaultOperationTimeout: Duration = Duration.ofSeconds(300)
   val DefaultMaxAcceptableBatchReceiveTime: Duration = Duration.ofSeconds(30)
-  val DefaultConsumerGroup: String = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME
-  val PrefetchCountMinimum: Int = PartitionReceiver.MINIMUM_PREFETCH_COUNT
-  val PrefetchCountMaximum: Int = PartitionReceiver.MAXIMUM_PREFETCH_COUNT
-  val DefaultPrefetchCount: Int = PartitionReceiver.DEFAULT_PREFETCH_COUNT
+  // Track 2: Default consumer group is "$Default"
+  val DefaultConsumerGroup: String = "$Default"
+  // Track 2: Prefetch count configuration is handled differently
+  // These constants are for compatibility with existing code
+  val PrefetchCountMinimum: Int = 10
+  val PrefetchCountMaximum: Int = 1000
+  val DefaultPrefetchCount: Int = 100
   val DefaultFailOnDataLoss = "true"
   val DefaultUseSimulatedClient = "false"
   val DefaultPartitionPreferredLocationStrategy = "Hash"

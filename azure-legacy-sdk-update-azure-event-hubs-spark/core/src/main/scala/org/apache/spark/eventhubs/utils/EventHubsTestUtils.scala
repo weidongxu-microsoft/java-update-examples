@@ -19,13 +19,7 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.EventData
-import com.microsoft.azure.eventhubs.impl.AmqpConstants.{
-  ENQUEUED_TIME_UTC,
-  OFFSET,
-  SEQUENCE_NUMBER
-}
-import com.microsoft.azure.eventhubs.impl.EventDataImpl
+import com.azure.messaging.eventhubs.EventData
 import org.apache.qpid.proton.amqp.Binary
 import org.apache.qpid.proton.amqp.messaging.{ ApplicationProperties, Data, MessageAnnotations }
 import org.apache.qpid.proton.message.Message
@@ -195,25 +189,18 @@ private[spark] object EventHubsTestUtils {
   def createEventData(event: Array[Byte],
                       seqNo: Long,
                       properties: Option[Map[String, Object]]): EventData = {
-    val constructor = classOf[EventDataImpl].getDeclaredConstructor(classOf[Message])
-    constructor.setAccessible(true)
+    // Track 2: Create EventData directly
+    val eventData = new EventData(event)
 
-    val s = seqNo.toLong.asInstanceOf[AnyRef]
-    // This value is not accurate. However, "offet" is never used in testing.
-    // Placing dummy value here because one is required in order for EventData
-    // to serialize/de-serialize properly during tests.
-    val o = s.toString.asInstanceOf[AnyRef]
-    val t = new Date(System.currentTimeMillis()).asInstanceOf[AnyRef]
-
-    val msgAnnotations = new MessageAnnotations(
-      Map(SEQUENCE_NUMBER -> s, OFFSET -> o, ENQUEUED_TIME_UTC -> t).asJava)
-
-    val body = new Data(new Binary(event))
-    val msg = Factory.create(null, null, msgAnnotations, null, null, body, null)
+    EventHubsUtils.registerSimulatedEventMetadata(eventData, seqNo, System.currentTimeMillis())
+    
+    // Track 2: Set application properties
     if (properties.isDefined) {
-      val appProperties = new ApplicationProperties(properties.get.asJava)
-      msg.setApplicationProperties(appProperties)
+      properties.get.foreach { case (key, value) =>
+        eventData.getProperties.put(key, value)
+      }
     }
-    constructor.newInstance(msg).asInstanceOf[EventData]
+    
+    eventData
   }
 }

@@ -20,18 +20,14 @@ package org.apache.spark.eventhubs
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CompletableFuture
 import java.util.Base64
+import java.util.ArrayList
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-import com.microsoft.azure.eventhubs.{
-  EventData,
-  EventHubClient,
-  PartitionReceiver,
-  ReceiverOptions,
-  EventPosition => ehep
-}
+import com.azure.messaging.eventhubs.{ EventData, EventHubConsumerClient }
+import com.azure.messaging.eventhubs.models.{ EventPosition => Track2EventPosition }
 
 import org.apache.spark.api.java.{ JavaRDD, JavaSparkContext }
 import org.apache.spark.eventhubs.client.EventHubsClient
@@ -44,10 +40,17 @@ import org.apache.spark.{ SparkContext, SparkEnv, TaskContext }
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.util.RpcUtils
 
+import scala.util.Try
+
 /**
  * Helper to create Direct DStreams which consume events from Event Hubs.
  */
 object EventHubsUtils extends Logging {
+
+  private val simulatedSequenceNumbers =
+    java.util.Collections.synchronizedMap(new java.util.WeakHashMap[EventData, java.lang.Long]())
+  private val simulatedEnqueuedTimes =
+    java.util.Collections.synchronizedMap(new java.util.WeakHashMap[EventData, java.lang.Long]())
 
   var partitionPerformanceReceiverRef: RpcEndpointRef = null
 
@@ -132,29 +135,96 @@ object EventHubsUtils extends Logging {
     new JavaRDD(createRDD(jsc.sc, ehConf, offsetRanges))
   }
 
+  /**
+   * Track 2: Creates a receiver for a specific partition using EventHubsConsumerClient.
+   * Returns an iterator of EventData for the specified partition.
+   *
+   * @param consumerClient the EventHubsConsumerClient
+   * @param consumerGroup the consumer group
+   * @param partitionId the partition ID
+   * @param eventPosition the starting event position
+   * @return CompletableFuture with Iterable of EventData
+   */
   def createReceiverInner(
-      client: EventHubClient,
-      useExclusiveReceiver: Boolean,
+      consumerClient: EventHubConsumerClient,
       consumerGroup: String,
       partitionId: String,
-      eventPosition: ehep,
-      receiverOptions: ReceiverOptions): CompletableFuture[PartitionReceiver] = {
+      eventPosition: Track2EventPosition): CompletableFuture[java.lang.Iterable[EventData]] = {
     val taskId = EventHubsUtils.getTaskId
     logInfo(
-      s"(TID $taskId) creating receiver for Event Hub partition $partitionId, consumer group $consumerGroup " +
-        s"with epoch receiver option $useExclusiveReceiver")
+      s"(TID $taskId) creating receiver for Event Hub partition $partitionId, consumer group $consumerGroup")
 
-    if (useExclusiveReceiver) {
-      client.createEpochReceiver(consumerGroup,
-                                 partitionId,
-                                 eventPosition,
-                                 DefaultEpoch,
-                                 receiverOptions)
+    // Track 2: Get events from partition starting at the specified position
+    val future = new CompletableFuture[java.lang.Iterable[EventData]]()
+    try {
+      val received = consumerClient.receiveFromPartition(partitionId, 1, eventPosition)
+      val data = new ArrayList[EventData]()
+      val iter = received.iterator()
+      if (iter.hasNext) {
+        val event = iter.next()
+        if (event != null && event.getData != null) {
+          data.add(event.getData)
+        }
+      }
 
-    } else {
-      client.createReceiver(consumerGroup, partitionId, eventPosition, receiverOptions)
+      if (!data.isEmpty) {
+        future.complete(data)
+      } else {
+        future.complete(java.util.Collections.emptyList[EventData]())
+      }
+    } catch {
+      case e: Exception =>
+        logError(s"(TID $taskId) error creating receiver for partition $partitionId", e)
+        future.completeExceptionally(e)
     }
+    future
   }
+
+  // TODO: Track 1 receiver creation - deprecated, use createReceiverInner with consumerClient instead
+
+  def registerSimulatedEventMetadata(event: EventData,
+                                     seqNo: SequenceNumber,
+                                     enqueuedAtMs: Long): Unit = {
+    simulatedSequenceNumbers.put(event, Long.box(seqNo))
+    simulatedEnqueuedTimes.put(event, Long.box(enqueuedAtMs))
+  }
+
+  def getEventSequenceNumber(event: EventData): SequenceNumber = {
+    Option(event.getSequenceNumber)
+      .map(_.longValue())
+      .orElse {
+        Option(simulatedSequenceNumbers.get(event)).map(_.longValue())
+      }
+      .orElse {
+        Option(event.getProperties)
+          .flatMap(p => Option(p.get(SequenceNumberAnnotation)))
+          .flatMap {
+            case n: java.lang.Number => Some(n.longValue())
+            case s: String           => Try(s.toLong).toOption
+            case other               => Try(other.toString.toLong).toOption
+          }
+      }
+      .getOrElse(-1L)
+  }
+
+  def getEventEnqueuedTimeMillis(event: EventData): Long = {
+    Option(simulatedEnqueuedTimes.get(event))
+      .map(_.longValue())
+      .orElse {
+        Option(event.getEnqueuedTime).map(_.toEpochMilli)
+      }
+      .orElse {
+        Option(event.getProperties)
+          .flatMap(p => Option(p.get(EnqueuedTimeAnnotation)))
+          .flatMap {
+            case n: java.lang.Number => Some(n.longValue())
+            case s: String           => Try(s.toLong).toOption
+            case other               => Try(other.toString.toLong).toOption
+          }
+      }
+      .getOrElse(0L)
+  }
+
 
   def getTaskId: Long = {
     val taskContext = TaskContext.get()

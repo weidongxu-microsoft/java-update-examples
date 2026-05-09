@@ -18,6 +18,7 @@
 package org.apache.spark.eventhubs.rdd
 
 import org.apache.spark.eventhubs.EventHubsConf
+import org.apache.spark.eventhubs.EventHubsUtils
 import org.apache.spark.eventhubs.utils.EventHubsTestUtils
 import org.apache.spark.{ SparkConf, SparkContext, SparkFunSuite }
 import org.scalatest.BeforeAndAfterAll
@@ -67,7 +68,7 @@ class EventHubsRDDSuite extends SparkFunSuite with BeforeAndAfterAll {
     } yield OffsetRange(ehConf.name, partition, fromSeqNo, untilSeqNo, None)).toArray
 
     val rdd = new EventHubsRDD(sc, ehConf, offsetRanges)
-      .map(_.getBytes.map(_.toChar).mkString)
+      .map(_.getBody.map(_.toChar).mkString)
 
     assert(rdd.count == (untilSeqNo - fromSeqNo) * DefaultPartitionCount)
     assert(!rdd.isEmpty)
@@ -87,7 +88,7 @@ class EventHubsRDDSuite extends SparkFunSuite with BeforeAndAfterAll {
     } yield OffsetRange(ehConf.name, partition, fromSeqNo, untilSeqNo, None)).toArray
 
     val rdd = new EventHubsRDD(sc, ehConf, offsetRanges)
-      .map(_.getBytes.map(_.toChar).mkString)
+      .map(_.getBody.map(_.toChar).mkString)
 
     assert(rdd.count == (untilSeqNo - fromSeqNo) * DefaultPartitionCount)
     assert(!rdd.isEmpty)
@@ -105,7 +106,7 @@ class EventHubsRDDSuite extends SparkFunSuite with BeforeAndAfterAll {
     val offsetRanges = Array(OffsetRange(ehConf.name, 0, fromSeqNo, untilSeqNo, None))
 
     val rdd = new EventHubsRDD(sc, ehConf, offsetRanges)
-      .map(_.getSystemProperties.getSequenceNumber)
+      .map(EventHubsUtils.getEventSequenceNumber)
 
     assert(rdd.count == (untilSeqNo - fromSeqNo)) // no PartitionCount multiplier b/c we only have one partition
     assert(!rdd.isEmpty)
@@ -127,7 +128,7 @@ class EventHubsRDDSuite extends SparkFunSuite with BeforeAndAfterAll {
     } yield OffsetRange(ehConf.name, partition, fromSeqNo, untilSeqNo, None)).toArray
 
     val rdd = new EventHubsRDD(sc, ehConf, offsetRanges)
-      .map(_.getBytes.map(_.toChar).mkString)
+      .map(_.getBody.map(_.toChar).mkString)
       .repartition(20)
 
     assert(rdd.count == (untilSeqNo - fromSeqNo) * DefaultPartitionCount)
