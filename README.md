@@ -9,6 +9,7 @@
 - **azure-legacy-sdk-update-compute-java-create-vms-async-tracking-related-resources** – Parallel VM provisioning sample with asynchronous tracking and cleanup of related resources.
 - **azure-legacy-sdk-update-documentdb-java-todo-app** – Java EE todo list sample backed by Azure Cosmos DB (DocumentDB).
 - **azure-legacy-sdk-update-eventhubs-v3** – Event Hubs v3 SDK (azure-eventhubs and azure-eventhubs-eph) for sending and receiving events with Event Processor Host.
+- **azure-legacy-sdk-update-azure-event-hubs-spark** – Apache Spark connector for Azure Event Hubs with complex Track 1 client usage (connection pooling, partition receivers, streaming/structured-streaming adapters). Legacy Azure SDKs: `com.microsoft.azure:azure-eventhubs:3.3.0`, `com.microsoft.azure:qpid-proton-j-extensions:1.2.4`, `com.microsoft.azure:azure-client-authentication:1.7.3`, `com.microsoft.azure:azure-client-runtime:1.7.3`, `com.microsoft.azure:adal4j:1.6.4`, `com.microsoft.azure:azure-annotations:1.10.0`. Uses Maven, Java 8, Scala 2.11.
 - **azure-legacy-sdk-update-key-vault-java-manage-key-vaults** – Key Vault configuration and access policy sample.
 - **azure-legacy-sdk-update-servicebus-v3** – Service Bus v3 SDK (azure-servicebus) for sending and receiving queue messages with async CompletableFuture patterns.
 - **azure-legacy-sdk-update-keyvault-v1** – Key Vault v1 SDK (azure-keyvault) for managing keys, secrets and certificates.
@@ -51,6 +52,7 @@
 - https://github.com/yaravind/learn-azure-cosmosdb (use Maven, JDK 8)
 - https://github.com/crostonj/EventGridConnector (use Maven/Spring Boot, JDK 14)
 - https://github.com/llm-manus/llmops-java (use Maven, JDK 17)
+- https://github.com/Azure/azure-event-hubs-spark (use Maven, Java 8, Scala 2.11; dependency tree confirms Track 1 `com.microsoft.azure:azure-eventhubs:3.3.0`)
 
 
 ## Attempted but failed
