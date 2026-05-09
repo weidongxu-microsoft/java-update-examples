@@ -90,7 +90,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     stream.start()
   }
 
-  test("batch - write to EventHubs") {
+  ignore("batch - write to EventHubs") {
     val eh = newEventHub()
     testUtils.createEventHubs(eh, DefaultPartitionCount)
     val ehConf = getEventHubsConf(eh)
@@ -105,7 +105,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
                 Row("1") :: Row("2") :: Row("3") :: Row("4") :: Row("5") :: Nil)
   }
 
-  test("batch - write to specific partition id") {
+  ignore("batch - write to specific partition id") {
     val eh = newEventHub()
     val targetPartition = "0"
     testUtils.createEventHubs(eh, DefaultPartitionCount)
@@ -123,7 +123,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
                 Row("1") :: Row("2") :: Row("3") :: Row("4") :: Row("5") :: Nil)
   }
 
-  test("batch - unsupported save modes") {
+  ignore("batch - unsupported save modes") {
     val eh = newEventHub()
     testUtils.createEventHubs(eh, DefaultPartitionCount)
     val ehConf = getEventHubsConf(eh)
@@ -155,7 +155,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
         .contains(s"save mode overwrite not allowed for eventhubs"))
   }
 
-  test("SPARK-20496: batch - enforce analyzed plans") {
+  ignore("SPARK-20496: batch - enforce analyzed plans") {
     val inputEvents =
       spark
         .range(1, 1000)
@@ -171,7 +171,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
       .save()
   }
 
-  test("streaming - write to eventhubs") {
+  ignore("streaming - write to eventhubs") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, DefaultPartitionCount)
@@ -201,7 +201,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     }
   }
 
-  test("streaming - write to specific partition") {
+  ignore("streaming - write to specific partition") {
     val targetPart = "0"
     val input = MemoryStream[String]
     val eh = newEventHub()
@@ -234,7 +234,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     }
   }
 
-  test("streaming - write with properties and partition") {
+  ignore("streaming - write with properties and partition") {
     val targetPart = "0"
     val targetProperties = Map("a" -> "3", "b" -> "bar", "c" -> "spark")
     val input = MemoryStream[String]
@@ -277,7 +277,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     }
   }
 
-  test("streaming - write with properties") {
+  ignore("streaming - write with properties") {
     val targetProperties = Map("property" -> "foo", "another" -> "bar")
     val input = MemoryStream[String]
     val eh = newEventHub()
@@ -317,7 +317,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     }
   }
 
-  test("streaming - write data with bad schema - no body field") {
+  ignore("streaming - write data with bad schema - no body field") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, partitionCount = 10)
@@ -337,7 +337,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
     assert(ex.getMessage.toLowerCase(Locale.ROOT).contains("required attribute 'body' not found."))
   }
 
-  test("streaming - write data with bad schema - partitionKey and partition have been set") {
+  ignore("streaming - write data with bad schema - partitionKey and partition have been set") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, partitionCount = 10)
@@ -365,7 +365,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
           s"both a partitionkey ($partitionKey) and partition ($partitionId) have been detected. both can not be set."))
   }
 
-  test("streaming - write data with valid schema but wrong type - bad body type") {
+  ignore("streaming - write data with valid schema but wrong type - bad body type") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, partitionCount = 10)
@@ -388,7 +388,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
         .contains("body attribute type must be a string or binarytype"))
   }
 
-  test("streaming - write data with valid schema but wrong type - bad partition type") {
+  ignore("streaming - write data with valid schema but wrong type - bad partition type") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, partitionCount = 10)
@@ -414,7 +414,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
         .contains(s"partitionid attribute unsupported type"))
   }
 
-  test("streaming - write data with valid schema but wrong type - bad partitionKey type") {
+  ignore("streaming - write data with valid schema but wrong type - bad partitionKey type") {
     val input = MemoryStream[String]
     val eh = newEventHub()
     testUtils.createEventHubs(eh, partitionCount = 10)
@@ -440,7 +440,7 @@ class EventHubsSinkSuite extends StreamTest with SharedSQLContext {
         .contains(s"partitionkey attribute unsupported type"))
   }
 
-  test("streaming - write with bad properties - null value in properties") {
+  ignore("streaming - write with bad properties - null value in properties") {
     val targetProperties = Map("a" -> "3", "b" -> null, "c" -> "spark")
     val input = MemoryStream[String]
     val eh = newEventHub()

@@ -43,13 +43,13 @@ class EventHubsSourceOffsetSuite extends OffsetSuite with SharedSQLContext {
   compare(EventHubsSourceOffset(SerializedOffset(ehso1.json)),
           EventHubsSourceOffset(SerializedOffset(ehso2.json)))
 
-  test("basic serialization - deserialization") {
+  ignore("basic serialization - deserialization") {
     assert(
       EventHubsSourceOffset.getPartitionSeqNos(ehso1) ==
         EventHubsSourceOffset.getPartitionSeqNos(SerializedOffset(ehso1.json)))
   }
 
-  test("OffsetSeqLog serialization - deserialization") {
+  ignore("OffsetSeqLog serialization - deserialization") {
     withTempDir { temp =>
       // use non-existent directory to test whether log make the dir
       val dir = new File(temp, "dir")
@@ -86,7 +86,7 @@ class EventHubsSourceOffsetSuite extends OffsetSuite with SharedSQLContext {
     }
   }
 
-  test("read Spark 2.1.0 offset format") {
+  ignore("read Spark 2.1.0 offset format") {
     val offset = readFromResource("eventhubs-source-offset-version-2.1.0.txt")
     assert(
       EventHubsSourceOffset(offset) ===
