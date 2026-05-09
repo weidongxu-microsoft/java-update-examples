@@ -17,8 +17,7 @@
 
 package org.apache.spark.eventhubs.client
 
-import com.microsoft.azure.eventhubs._
-import com.microsoft.azure.eventhubs.impl.EventHubClientImpl
+import com.azure.messaging.eventhubs._
 import org.apache.spark.SparkEnv
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs.utils.RetryUtils._

@@ -25,11 +25,8 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-import com.microsoft.azure.eventhubs.{
+import com.azure.messaging.eventhubs.{
   EventData,
-  EventHubClient,
-  PartitionReceiver,
-  ReceiverOptions,
   EventPosition => ehep
 }
 
