@@ -52,7 +52,7 @@
 - https://github.com/yaravind/learn-azure-cosmosdb (use Maven, JDK 8)
 - https://github.com/crostonj/EventGridConnector (use Maven/Spring Boot, JDK 14)
 - https://github.com/llm-manus/llmops-java (use Maven, JDK 17)
-- https://github.com/Azure/azure-event-hubs-spark (use Maven, Java 8, Scala 2.11; dependency tree confirms Track 1 `com.microsoft.azure:azure-eventhubs:3.3.0`)
+- https://github.com/Azure/azure-event-hubs-spark (use Maven, Java 8, Scala 2.11)
 
 
 ## Attempted but failed
