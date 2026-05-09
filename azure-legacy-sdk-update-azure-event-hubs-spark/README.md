@@ -23,7 +23,13 @@ Spark Streaming and Structured Streaming are scalable and fault-tolerant stream 
 complex algorithms expressed with high-level functions like `map`, `reduce`, `join`, and `window`. This data can then be pushed to 
 filesystems, databases, or even back to Event Hubs.  
 
-By making Event Hubs and Spark easier to use together, we hope this connector makes building scalable, fault-tolerant applications easier for our users. 
+By making Event Hubs and Spark easier to use together, we hope this connector makes building scalable, fault-tolerant applications easier for our users.
+
+> **⚠️ Migration Status**: This repository sample is undergoing migration from Track 1 (`com.microsoft.azure:azure-eventhubs`) to Track 2 (`com.azure:azure-messaging-eventhubs`). 
+> See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) and [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md) for detailed migration information and current status.
+> - **Phase 1** ✅ Complete: Dependencies updated to Track 2
+> - **Phase 2** 🟡 In Progress: Source code refactoring
+> - **Phases 3-5** 🔲 Not Started: Tests, docs, validation
 
 ## Latest Releases
 
@@ -57,6 +63,7 @@ if you think anything needs to be added or clarified!
 For Scala/Java applications using SBT/Maven project definitions, link your application with the artifact below. 
 **Note:** See [Latest Releases](#latest-releases) to find the correct artifact for your version of Apache Spark (or Databricks)!
 
+#### Track 1 (Legacy - Original)
     groupId = com.microsoft.azure
     artifactId = azure-eventhubs-spark_2.11
     version = 2.3.22
@@ -66,6 +73,14 @@ or
     groupId = com.microsoft.azure
     artifactId = azure-eventhubs-spark_2.12
     version = 2.3.22
+
+#### Track 2 (Modern - In Migration)
+
+This sample is being migrated to use the modern Azure SDK. Once complete, the dependency will be:
+
+    groupId = com.azure
+    artifactId = azure-messaging-eventhubs
+    version = (managed by azure-sdk-bom)
 
 ### Documentation
 
