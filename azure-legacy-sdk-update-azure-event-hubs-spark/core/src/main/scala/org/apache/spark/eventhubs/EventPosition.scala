@@ -20,7 +20,7 @@ package org.apache.spark.eventhubs
 import java.time.Instant
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.{ EventPosition => ehep }
+import com.azure.messaging.eventhubs.{ EventPosition => track2EventPosition }
 
 /**
  * Defines a position of an event in an event hub partition.
@@ -34,13 +34,13 @@ case class EventPosition private (offset: String = null,
                                   isInclusive: Boolean = true)
     extends Serializable {
 
-  private[eventhubs] def convert: ehep = {
+  private[eventhubs] def convert: track2EventPosition = {
     if (offset != null) {
-      ehep.fromOffset(offset, isInclusive)
+      track2EventPosition.fromOffset(offset, isInclusive)
     } else if (seqNo >= 0L) {
-      ehep.fromSequenceNumber(seqNo, isInclusive)
+      track2EventPosition.fromSequenceNumber(seqNo, isInclusive)
     } else if (enqueuedTime != null) {
-      ehep.fromEnqueuedTime(enqueuedTime.toInstant)
+      track2EventPosition.fromEnqueuedTime(enqueuedTime.toInstant)
     } else {
       throw new IllegalStateException("No position has been set.")
     }
