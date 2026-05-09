@@ -218,22 +218,6 @@ private[sql] object EventHubsSourceProvider extends Serializable {
                     case default =>
                       UTF8String.fromString(p._1) -> UTF8String.fromString(Serialization.write(p._2))
                   }
-                }
-                .mapValues {
-                  case b: Binary =>
-                    val buf = b.asByteBuffer()
-                    val arr = new Array[Byte](buf.remaining)
-                    buf.get(arr)
-                    arr.asInstanceOf[AnyRef]
-                  case default => default
-                }
-                .map { p =>
-                  p._2 match {
-                    case s: String => UTF8String.fromString(p._1) -> UTF8String.fromString(s)
-                    case default =>
-                      UTF8String.fromString(p._1) -> UTF8String.fromString(
-                        Serialization.write(p._2))
-                  }
                 })
           )
         }

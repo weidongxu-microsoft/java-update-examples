@@ -20,12 +20,14 @@ package org.apache.spark.eventhubs
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CompletableFuture
 import java.util.Base64
+import java.util.ArrayList
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-import com.azure.messaging.eventhubs.EventData
+import com.azure.messaging.eventhubs.{ EventData, EventHubConsumerClient }
+import com.azure.messaging.eventhubs.models.{ EventPosition => Track2EventPosition }
 
 import org.apache.spark.api.java.{ JavaRDD, JavaSparkContext }
 import org.apache.spark.eventhubs.client.EventHubsClient
@@ -137,10 +139,10 @@ object EventHubsUtils extends Logging {
    * @return CompletableFuture with Iterable of EventData
    */
   def createReceiverInner(
-      consumerClient: AnyRef,
+      consumerClient: EventHubConsumerClient,
       consumerGroup: String,
       partitionId: String,
-      eventPosition: AnyRef): CompletableFuture[java.lang.Iterable[EventData]] = {
+      eventPosition: Track2EventPosition): CompletableFuture[java.lang.Iterable[EventData]] = {
     val taskId = EventHubsUtils.getTaskId
     logInfo(
       s"(TID $taskId) creating receiver for Event Hub partition $partitionId, consumer group $consumerGroup")
@@ -148,12 +150,18 @@ object EventHubsUtils extends Logging {
     // Track 2: Get events from partition starting at the specified position
     val future = new CompletableFuture[java.lang.Iterable[EventData]]()
     try {
-      // Receive a batch of events from the partition
-      val eventsIterator = consumerClient.receiveFromPartition(partitionId, eventPosition)
-        .blockFirst()
-      
-      if (eventsIterator != null) {
-        future.complete(eventsIterator)
+      val received = consumerClient.receiveFromPartition(partitionId, 1, eventPosition)
+      val data = new ArrayList[EventData]()
+      val iter = received.iterator()
+      if (iter.hasNext) {
+        val event = iter.next()
+        if (event != null && event.getData != null) {
+          data.add(event.getData)
+        }
+      }
+
+      if (!data.isEmpty) {
+        future.complete(data)
       } else {
         future.complete(java.util.Collections.emptyList[EventData]())
       }

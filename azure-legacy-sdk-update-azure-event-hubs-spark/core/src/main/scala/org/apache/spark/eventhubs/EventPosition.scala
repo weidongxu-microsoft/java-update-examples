@@ -36,7 +36,13 @@ case class EventPosition private (offset: String = null,
 
   private[eventhubs] def convert: track2EventPosition = {
     if (offset != null) {
-      track2EventPosition.fromOffset(offset, isInclusive)
+      if (offset == StartOfStream) {
+        track2EventPosition.earliest()
+      } else if (offset == EndOfStream) {
+        track2EventPosition.latest()
+      } else {
+        track2EventPosition.fromOffset(offset.toLong)
+      }
     } else if (seqNo >= 0L) {
       track2EventPosition.fromSequenceNumber(seqNo, isInclusive)
     } else if (enqueuedTime != null) {

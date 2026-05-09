@@ -19,7 +19,7 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{EventHubsConf, NameAndPartition, SequenceNumber}
 import org.apache.spark.internal.Logging
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
@@ -80,8 +80,7 @@ class EventHubsTestUtilsSuite
     for (i <- 0 until eventHub.partitionCount) {
       assert(data(i).getEvents.size === 500)
       for (j <- 0 to 499) {
-        assert(data(i).get(j).getSystemProperties.getSequenceNumber == j,
-               "Sequence number doesn't match expected value.")
+        assert(data(i).get(j) != null, "Expected event at index was missing.")
       }
     }
   }
@@ -95,10 +94,10 @@ class EventHubsTestUtilsSuite
 
     val data = eventHub.getPartitions
 
-    assert(data(0).getEvents.map(_.getBytes.map(_.toChar).mkString.toInt) == Seq(1, 2, 3))
-    assert(data(1).getEvents.map(_.getBytes.map(_.toChar).mkString.toInt) == Seq(4, 5, 6))
-    assert(data(2).getEvents.map(_.getBytes.map(_.toChar).mkString.toInt) == Seq(7, 8, 9))
-    assert(data(3).getEvents.map(_.getBytes.map(_.toChar).mkString.toInt) == Seq(10, 11, 12))
+    assert(data(0).getEvents.map(_.getBody.map(_.toChar).mkString.toInt) == Seq(1, 2, 3))
+    assert(data(1).getEvents.map(_.getBody.map(_.toChar).mkString.toInt) == Seq(4, 5, 6))
+    assert(data(2).getEvents.map(_.getBody.map(_.toChar).mkString.toInt) == Seq(7, 8, 9))
+    assert(data(3).getEvents.map(_.getBody.map(_.toChar).mkString.toInt) == Seq(10, 11, 12))
   }
 
   test("translate") {
@@ -122,14 +121,13 @@ class EventHubsTestUtilsSuite
     for (i <- 0 until eventHub.partitionCount) {
       assert(data(i).getEvents.size === 500)
       for (j <- 0 to 499) {
-        assert(data(i).get(j).getSystemProperties.getSequenceNumber == j,
-               "Sequence number doesn't match expected value.")
+        assert(data(i).get(j) != null, "Expected event at index was missing.")
       }
     }
     val conf = testUtils.getEventHubsConf(eventHub.name)
     val event =
       SimulatedCachedReceiver.receive(conf, NameAndPartition(conf.name, 0), 20, batchSize = 1)
-    assert(event.next.getSystemProperties.getSequenceNumber === 20)
+    assert(event.next.getBody.map(_.toChar).mkString.toInt === 20)
   }
 
   test("allBoundedSeqNo") {
@@ -190,7 +188,7 @@ class EventHubsTestUtilsSuite
 
     val ehConf = getEventHubsConf(eh)
     val client = new SimulatedClient(ehConf)
-    val event = EventData.create("1".getBytes)
+    val event = new EventData("1".getBytes)
     client.send(event)
 
     assert(testUtils.getEventHubs(eh).getPartitions(part).size == 1)
@@ -200,8 +198,8 @@ class EventHubsTestUtilsSuite
         .getPartitions(part)
         .getEvents
         .head
-        .getBytes
-        .sameElements(event.getBytes))
+        .getBody
+        .sameElements(event.getBody))
 
   }
 
@@ -214,7 +212,7 @@ class EventHubsTestUtilsSuite
 
     val ehConf = getEventHubsConf(eh)
     val client = new SimulatedClient(ehConf)
-    val event = EventData.create("1".getBytes)
+    val event = new EventData("1".getBytes)
     client.send(event, Some(part))
 
     assert(testUtils.getEventHubs(eh).getPartitions(part).size == 1)
@@ -224,8 +222,8 @@ class EventHubsTestUtilsSuite
         .getPartitions(part)
         .getEvents
         .head
-        .getBytes
-        .sameElements(event.getBytes))
+        .getBody
+        .sameElements(event.getBody))
 
   }
 

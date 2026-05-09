@@ -18,6 +18,7 @@
 package org.apache.spark.eventhubs.client
 
 import com.azure.messaging.eventhubs._
+import com.azure.messaging.eventhubs.models.SendOptions
 import org.apache.spark.SparkEnv
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs.utils.RetryUtils._
@@ -52,20 +53,20 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
 
   private var pendingWorks = new ListBuffer[Future[Any]]
 
-  private var producerClient: EventHubsProducerClient = _
-  private var consumerClient: EventHubsConsumerClient = _
+  private var producerClient: EventHubProducerClient = _
+  private var consumerClient: EventHubConsumerClient = _
 
   private var partitionCountCache: Int = 0
   private var partitionCountCacheUpdateTimestamp: Long = 0
 
-  private def getProducerClient: EventHubsProducerClient = synchronized {
+  private def getProducerClient: EventHubProducerClient = synchronized {
     if (producerClient == null) {
       producerClient = ClientConnectionPool.getProducerClient(ehConf)
     }
     producerClient
   }
 
-  private def getConsumerClient: EventHubsConsumerClient = synchronized {
+  private def getConsumerClient: EventHubConsumerClient = synchronized {
     if (consumerClient == null) {
       consumerClient = ClientConnectionPool.getConsumerClient(ehConf)
     }
@@ -97,25 +98,19 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
       p.putAll(properties.get.asJava)
     }
 
-    val sendTask = if (partition.isDefined) {
-      if (partitionId != partition.get) {
-        logInfo("Recreating batch for new partition.")
-        createPartitionSender(partition.get)
+    val sendTask = Future {
+      if (partition.isDefined) {
+        if (partitionId != partition.get) {
+          logInfo("Recreating batch for new partition.")
+          createPartitionSender(partition.get)
+        }
+        val pKey = partition.get.toString
+        getProducerClient.send(List(event).asJava, new SendOptions().setPartitionKey(pKey))
+      } else if (partitionKey.isDefined) {
+        getProducerClient.send(List(event).asJava, new SendOptions().setPartitionKey(partitionKey.get))
+      } else {
+        getProducerClient.send(List(event).asJava)
       }
-      // Track 2: Convert partition number to partition key for routing
-      val pKey = partition.get.toString
-      retryJava(
-        getProducerClient.send(List(event).asJava, new SendOptions().setPartitionKey(pKey)),
-        "send"
-      )
-    } else if (partitionKey.isDefined) {
-      retryJava(
-        getProducerClient
-          .send(List(event).asJava, new SendOptions().setPartitionKey(partitionKey.get)),
-        "send"
-      )
-    } else {
-      retryJava(getProducerClient.send(List(event).asJava), "send")
     }
 
     pendingWorks += sendTask
@@ -153,9 +148,9 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
       yield
         getPartitionPropertiesF(i) map { props =>
           val earliest =
-            if (props.getFirstEnqueuedSequenceNumber == -1L) 0L
+            if (props.getBeginningSequenceNumber == -1L) 0L
             else {
-              if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getFirstEnqueuedSequenceNumber
+              if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getBeginningSequenceNumber
             }
           val latest = props.getLastEnqueuedSequenceNumber + 1
           i -> ((earliest, latest): (Long, Long))
@@ -175,7 +170,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
   private def earliestSeqNoF(partition: PartitionId): Future[SequenceNumber] = {
     getPartitionPropertiesF(partition).map { props =>
       val seqNo =
-        if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getFirstEnqueuedSequenceNumber
+        if (props.isEmpty) props.getLastEnqueuedSequenceNumber + 1 else props.getBeginningSequenceNumber
       if (seqNo == -1L) 0L else seqNo
     }
   }
@@ -212,7 +207,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
       logDebug(
         s"partitionCountLazyVal makes a call to getPartitionIds to read the number of partitions")
       // Track 2: Get partition IDs from the producer client
-      getProducerClient.getPartitionIds.size()
+      getProducerClient.getPartitionIds.stream().count().toInt
     } catch {
       case e: Exception => throw e
     }
@@ -223,7 +218,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
       val currentTimeStamp = System.currentTimeMillis()
       if ((currentTimeStamp - partitionCountCacheUpdateTimestamp > UpdatePartitionCountIntervalMS) || (partitionCountCache == 0)) {
         // Track 2: Get partition count from producer client
-        partitionCountCache = getProducerClient.getPartitionIds.size()
+        partitionCountCache = getProducerClient.getPartitionIds.stream().count().toInt
         partitionCountCacheUpdateTimestamp = currentTimeStamp
         logDebug(
           s"partitionCountDynamic made a call to getPartitionIds to read the number of partitions = ${partitionCountCache}" +
@@ -347,9 +342,9 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
                   .flatMap { events =>
                     val iter = events.iterator
                     if (events != null && iter.hasNext) {
-                      Future.successful(iter.next.getSequenceNumber)
+                      Future.successful(iter.next.getSequenceNumber: SequenceNumber)
                     } else {
-                      Future.successful(partitionProps.getLastEnqueuedSequenceNumber + 1)
+                      Future.successful(partitionProps.getLastEnqueuedSequenceNumber + 1: SequenceNumber)
                     }
                   }
               }

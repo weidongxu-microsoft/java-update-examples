@@ -18,6 +18,10 @@
 package org.apache.spark.eventhubs.client
 
 import java.net.URI
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ Executors, ScheduledExecutorService }
+
+import com.azure.messaging.eventhubs.{ EventHubClientBuilder, EventHubConsumerClient, EventHubProducerClient }
 import org.apache.spark.eventhubs._
 import org.apache.spark.internal.Logging
 import scala.concurrent.{ Await, Future }
@@ -32,15 +36,15 @@ import scala.concurrent.ExecutionContext.Implicits.global
  */
 private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
 
-  private[this] var producerClient: AnyRef = _
-  private[this] var consumerClient: AnyRef = _
+  private[this] var producerClient: EventHubProducerClient = _
+  private[this] var consumerClient: EventHubConsumerClient = _
   private[this] val clientLock = new Object()
 
   /**
    * Creates or retrieves the producer client for this connection pool.
    * Track 2: Returns EventHubsProducerClient for sending events.
    */
-  private def getOrCreateProducerClient: AnyRef = {
+  private def getOrCreateProducerClient: EventHubProducerClient = {
     clientLock.synchronized {
       if (producerClient == null) {
         logInfo(
@@ -58,7 +62,7 @@ private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
    * Creates or retrieves the consumer client for this connection pool.
    * Track 2: Returns EventHubsConsumerClient for receiving events from all partitions.
    */
-  private def getOrCreateConsumerClient: AnyRef = {
+  private def getOrCreateConsumerClient: EventHubConsumerClient = {
     clientLock.synchronized {
       if (consumerClient == null) {
         val consumerGroup = ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)
@@ -77,22 +81,23 @@ private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
   /**
    * Creates a new EventHubsProducerClient using Track 2 builder pattern.
    */
-  private def createProducerClient(): AnyRef = {
-    // Track 2: Create producer client
-    // Note: Using reflection to instantiate since imports aren't resolving properly
-    logInfo(s"Creating producer client for ${ehConf.name}")
-    null // TODO: Implement Track 2 producer client creation
+  private def createProducerClient(): EventHubProducerClient = {
+    new EventHubClientBuilder()
+      .connectionString(ehConf.connectionString)
+      .eventHubName(ehConf.name)
+      .buildProducerClient()
   }
 
   /**
    * Creates a new EventHubsConsumerClient using Track 2 builder pattern.
    */
-  private def createConsumerClient(): AnyRef = {
-    // Track 2: Create consumer client
-    // Note: Using reflection to instantiate since imports aren't resolving properly
+  private def createConsumerClient(): EventHubConsumerClient = {
     val consumerGroup = ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)
-    logInfo(s"Creating consumer client for ${ehConf.name} with group $consumerGroup")
-    null // TODO: Implement Track 2 consumer client creation
+    new EventHubClientBuilder()
+      .connectionString(ehConf.connectionString)
+      .eventHubName(ehConf.name)
+      .consumerGroup(consumerGroup)
+      .buildConsumerClient()
   }
 
   /**
@@ -103,7 +108,7 @@ private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
       try {
         if (producerClient != null) {
           logInfo(s"Closing producer client for ${ehConf.name}")
-          // producerClient.close()
+          producerClient.close()
         }
       } catch {
         case e: Exception =>
@@ -112,7 +117,7 @@ private class ClientConnectionPool(val ehConf: EventHubsConf) extends Logging {
       try {
         if (consumerClient != null) {
           logInfo(s"Closing consumer client for ${ehConf.name}")
-          // consumerClient.close()
+          consumerClient.close()
         }
       } catch {
         case e: Exception =>
@@ -155,7 +160,7 @@ object ClientConnectionPool extends Logging {
    * Gets or creates a producer client for the given Event Hubs configuration.
    * Track 2: Returns EventHubsProducerClient for sending events.
    */
-  def getProducerClient(ehConf: EventHubsConf): AnyRef = {
+  def getProducerClient(ehConf: EventHubsConf): EventHubProducerClient = {
     val pool = getOrCreatePool(ehConf)
     pool.getOrCreateProducerClient
   }
@@ -164,7 +169,7 @@ object ClientConnectionPool extends Logging {
    * Gets or creates a consumer client for the given Event Hubs configuration.
    * Track 2: Returns EventHubsConsumerClient for receiving events.
    */
-  def getConsumerClient(ehConf: EventHubsConf): AnyRef = {
+  def getConsumerClient(ehConf: EventHubsConf): EventHubConsumerClient = {
     val pool = getOrCreatePool(ehConf)
     pool.getOrCreateConsumerClient
   }

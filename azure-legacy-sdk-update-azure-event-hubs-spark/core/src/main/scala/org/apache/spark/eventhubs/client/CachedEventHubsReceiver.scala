@@ -20,7 +20,8 @@ package org.apache.spark.eventhubs.client
 import java.time.Duration
 import java.util.concurrent._
 
-import com.azure.messaging.eventhubs._
+import com.azure.messaging.eventhubs.{ EventData, EventHubConsumerClient }
+import com.azure.messaging.eventhubs.models.{ EventPosition => Track2EventPosition }
 import org.apache.spark.SparkEnv
 import org.apache.spark.eventhubs.utils.MetricPlugin
 import org.apache.spark.eventhubs.utils.RetryUtils.{ after, retryJava, retryNotNull }
@@ -91,24 +92,23 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
 
   private lazy val metricPlugin: Option[MetricPlugin] = ehConf.metricPlugin()
 
-  // Track 2: Use EventHubsConsumerClient from the pool
-  private lazy val consumerClient: EventHubsConsumerClient = ClientConnectionPool.getConsumerClient(ehConf)
-  private lazy val consumerClient: AnyRef = ClientConnectionPool.getConsumerClient(ehConf)
+  // Track 2: Use EventHubConsumerClient from the pool
+  private lazy val consumerClient: EventHubConsumerClient = ClientConnectionPool.getConsumerClient(ehConf)
 
   // Track 2: Receive state for the partition
   private var lastReceivedSeqNo: SequenceNumber = -1
-  private var currentEventPosition: EventPosition = EventPosition.fromSequenceNumber(startSeqNo)
+  private var currentEventPosition: Track2EventPosition = Track2EventPosition.fromSequenceNumber(startSeqNo)
   private var isOpen: Boolean = true
 
   private var cachedData: CachedReceivedData = new CachedReceivedData(-1, -1, null)
 
-  private def createReceiver(seqNo: SequenceNumber): EventPosition = {
+  private def createReceiver(seqNo: SequenceNumber): Track2EventPosition = {
     val taskId = EventHubsUtils.getTaskId
     logInfo(
       s"(TID $taskId) creating receiver for namespaceUri: $namespaceUri EventHubNameAndPartition: $nAndP " +
         s"consumer group: $consumerGroup. seqNo: $seqNo")
     // Track 2: Set the starting position for the receiver
-    EventPosition.fromSequenceNumber(seqNo)
+    Track2EventPosition.fromSequenceNumber(seqNo)
   }
 
   private def lastReceivedOffset(): Future[Long] = {
@@ -131,18 +131,19 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
         // Track 2: Receive events from partition using consumer client
         val future = Future {
           try {
-            val events = consumerClient.receiveFromPartition(nAndP.partitionId.toString, currentEventPosition)
-              .blockFirst(timeout)
-            if (events != null && events.size() > 0) {
-              logDebug(s"(TID ${EventHubsUtils.getTaskId}) Received ${events.size()} events from partition ${nAndP.partitionId}")
-              // Update the position for next receive
-              val lastEvent = events.last
-              lastReceivedSeqNo = lastEvent.getSequenceNumber
-              currentEventPosition = EventPosition.fromSequenceNumber(lastReceivedSeqNo + 1)
-              events
+            val partitionEvents =
+              consumerClient.receiveFromPartition(nAndP.partitionId.toString, 1, currentEventPosition, timeout)
+            val iter = partitionEvents.iterator()
+            if (iter.hasNext) {
+              val pe = iter.next()
+              val event = pe.getData
+              logDebug(s"(TID ${EventHubsUtils.getTaskId}) Received 1 event from partition ${nAndP.partitionId}")
+              lastReceivedSeqNo = event.getSequenceNumber
+              currentEventPosition = Track2EventPosition.fromSequenceNumber(lastReceivedSeqNo + 1)
+              java.util.Collections.singletonList(event).asScala.toSeq
             } else {
               logDebug(s"(TID ${EventHubsUtils.getTaskId}) No events received from partition ${nAndP.partitionId}")
-              java.util.Collections.emptyList[EventData]()
+              Seq.empty[EventData]
             }
           } catch {
             case e: Exception =>
@@ -213,8 +214,8 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
         // Track 2: Get partition properties instead of runtime info
         val partitionProps = consumerClient.getPartitionProperties(nAndP.partitionId.toString)
 
-        if (requestSeqNo < partitionProps.getBeginSequenceNumber &&
-            movedSeqNo == partitionProps.getBeginSequenceNumber) {
+        if (requestSeqNo < partitionProps.getBeginningSequenceNumber &&
+          movedSeqNo == partitionProps.getBeginningSequenceNumber) {
           Future {
             movedEvent
           }
@@ -222,7 +223,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
           throw new IllegalStateException(
             s"In partition ${nAndP.partitionId}, with consumer group $consumerGroup, " +
               s"request seqNo $requestSeqNo is less than the received seqNo $receivedSeqNo. The earliest seqNo is " +
-              s"${partitionProps.getBeginSequenceNumber}, the last seqNo is ${partitionProps.getLastEnqueuedSequenceNumber}, and " +
+                s"${partitionProps.getBeginningSequenceNumber}, the last seqNo is ${partitionProps.getLastEnqueuedSequenceNumber}, and " +
               s"received seqNo $movedSeqNo")
         }
       } else {
@@ -394,19 +395,11 @@ private[spark] object CachedEventHubsReceiver extends CachedReceiver with Loggin
             s"EventHubNameAndPartition $nAndP consumer group ${ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)} " +
             s"failed with $completionExecution. Try to recreate the entire CachedEventHubsReceiver instance in order to " +
             s"use a fresh EventHubClient from the underlying java SDK, then try receiving events again.")
-          receiver.client.close();
           receiver = CachedEventHubsReceiver(ehConf, nAndP, requestSeqNo)
           receivers.synchronized {
             receivers.update(key(ehConf, nAndP), receiver)
           }
           receiver.receive(requestSeqNo, batchSize)
-        } else if (exceptionCause != null &&  exceptionCause.isInstanceOf[ReceiverDisconnectedException]) {
-          logInfo(s"(TID $taskId) EventHubsCachedReceiver receive execution for namespaceUri ${ehConf.namespaceUri} " +
-            s"EventHubNameAndPartition $nAndP consumer group ${ehConf.consumerGroup.getOrElse(DefaultConsumerGroup)} " +
-            s"failed because another receiver for the same <NS-EH-CG-Part> combo has been created and caused this one " +
-            s"to get disconnected. The full error is: $completionExecution. Throw the exception so that the driver can " +
-            s"retry the task.")
-          throw completionExecution
         } else {
           throw completionExecution
         }
