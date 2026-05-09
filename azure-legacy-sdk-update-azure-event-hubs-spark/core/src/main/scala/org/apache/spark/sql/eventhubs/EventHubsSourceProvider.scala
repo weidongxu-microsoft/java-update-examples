@@ -168,19 +168,21 @@ private[sql] object EventHubsSourceProvider extends Serializable {
     rdd.mapPartitionsWithIndex { (p, iter) =>
       {
         iter.map { ed =>
+          val seqNo = EventHubsUtils.getEventSequenceNumber(ed)
+          val enqueuedAtMs = EventHubsUtils.getEventEnqueuedTimeMillis(ed)
+          val appProperties = Option(ed.getProperties).map(_.asScala.toMap).getOrElse(Map.empty)
+
           InternalRow(
             ed.getBody,
             UTF8String.fromString(p.toString),
-            // Track 2: No offset property, use sequence number as offset
-            UTF8String.fromString(ed.getSequenceNumber.toString),
-            ed.getSequenceNumber,
-            DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(ed.getEnqueuedTime.toEpochMilli)),
+            UTF8String.fromString(seqNo.toString),
+            seqNo,
+            DateTimeUtils.fromJavaTimestamp(new java.sql.Timestamp(enqueuedAtMs)),
             // Track 2: Publisher not directly available, use empty string
             UTF8String.fromString(""),
             // Track 2: Use getPartitionKey() directly if available
             UTF8String.fromString(Option(ed.getPartitionKey).getOrElse("")),
-            ArrayBasedMapData(ed.getProperties.asScala
+            ArrayBasedMapData(appProperties
               .mapValues {
                 case b: Binary =>
                   val buf = b.asByteBuffer()
@@ -209,15 +211,11 @@ private[sql] object EventHubsSourceProvider extends Serializable {
             ArrayBasedMapData(
               // Track 2: Include basic system properties as map
               Map(
-                "sequenceNumber" -> ed.getSequenceNumber.asInstanceOf[AnyRef],
-                "enqueuedTime" -> ed.getEnqueuedTime.asInstanceOf[AnyRef]
+                "sequenceNumber" -> Long.box(seqNo),
+                "enqueuedTime" -> Long.box(enqueuedAtMs)
               )
                 .map { p =>
-                  p._2 match {
-                    case s: String => UTF8String.fromString(p._1) -> UTF8String.fromString(s)
-                    case default =>
-                      UTF8String.fromString(p._1) -> UTF8String.fromString(Serialization.write(p._2))
-                  }
+                  UTF8String.fromString(p._1) -> UTF8String.fromString(Serialization.write(p._2))
                 })
           )
         }

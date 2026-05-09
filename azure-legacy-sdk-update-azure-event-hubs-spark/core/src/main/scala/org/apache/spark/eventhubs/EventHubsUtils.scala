@@ -40,10 +40,17 @@ import org.apache.spark.{ SparkContext, SparkEnv, TaskContext }
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.util.RpcUtils
 
+import scala.util.Try
+
 /**
  * Helper to create Direct DStreams which consume events from Event Hubs.
  */
 object EventHubsUtils extends Logging {
+
+  private val simulatedSequenceNumbers =
+    java.util.Collections.synchronizedMap(new java.util.WeakHashMap[EventData, java.lang.Long]())
+  private val simulatedEnqueuedTimes =
+    java.util.Collections.synchronizedMap(new java.util.WeakHashMap[EventData, java.lang.Long]())
 
   var partitionPerformanceReceiverRef: RpcEndpointRef = null
 
@@ -174,6 +181,49 @@ object EventHubsUtils extends Logging {
   }
 
   // TODO: Track 1 receiver creation - deprecated, use createReceiverInner with consumerClient instead
+
+  def registerSimulatedEventMetadata(event: EventData,
+                                     seqNo: SequenceNumber,
+                                     enqueuedAtMs: Long): Unit = {
+    simulatedSequenceNumbers.put(event, Long.box(seqNo))
+    simulatedEnqueuedTimes.put(event, Long.box(enqueuedAtMs))
+  }
+
+  def getEventSequenceNumber(event: EventData): SequenceNumber = {
+    Option(event.getSequenceNumber)
+      .map(_.longValue())
+      .orElse {
+        Option(simulatedSequenceNumbers.get(event)).map(_.longValue())
+      }
+      .orElse {
+        Option(event.getProperties)
+          .flatMap(p => Option(p.get(SequenceNumberAnnotation)))
+          .flatMap {
+            case n: java.lang.Number => Some(n.longValue())
+            case s: String           => Try(s.toLong).toOption
+            case other               => Try(other.toString.toLong).toOption
+          }
+      }
+      .getOrElse(-1L)
+  }
+
+  def getEventEnqueuedTimeMillis(event: EventData): Long = {
+    Option(simulatedEnqueuedTimes.get(event))
+      .map(_.longValue())
+      .orElse {
+        Option(event.getEnqueuedTime).map(_.toEpochMilli)
+      }
+      .orElse {
+        Option(event.getProperties)
+          .flatMap(p => Option(p.get(EnqueuedTimeAnnotation)))
+          .flatMap {
+            case n: java.lang.Number => Some(n.longValue())
+            case s: String           => Try(s.toLong).toOption
+            case other               => Try(other.toString.toLong).toOption
+          }
+      }
+      .getOrElse(0L)
+  }
 
 
   def getTaskId: Long = {

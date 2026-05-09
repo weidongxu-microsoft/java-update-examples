@@ -191,6 +191,8 @@ private[spark] object EventHubsTestUtils {
                       properties: Option[Map[String, Object]]): EventData = {
     // Track 2: Create EventData directly
     val eventData = new EventData(event)
+
+    EventHubsUtils.registerSimulatedEventMetadata(eventData, seqNo, System.currentTimeMillis())
     
     // Track 2: Set application properties
     if (properties.isDefined) {

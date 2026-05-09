@@ -39,7 +39,7 @@ package object eventhubs {
   // Track 2: No direct equivalent to EventHubClientOptions.SILENT_OFF
   // Using Duration.ZERO to represent no idle timeout
   val DefaultMaxSilentTime: Duration = Duration.ZERO
-  val MinSilentTime: Duration = Duration.ofSeconds(1)
+  val MinSilentTime: Duration = Duration.ofSeconds(30)
   val DefaultOperationTimeout: Duration = Duration.ofSeconds(300)
   val DefaultMaxAcceptableBatchReceiveTime: Duration = Duration.ofSeconds(30)
   // Track 2: Default consumer group is "$Default"

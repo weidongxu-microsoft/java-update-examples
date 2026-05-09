@@ -342,7 +342,7 @@ private[spark] class EventHubsClient(private val ehConf: EventHubsConf)
                   .flatMap { events =>
                     val iter = events.iterator
                     if (events != null && iter.hasNext) {
-                      Future.successful(iter.next.getSequenceNumber: SequenceNumber)
+                      Future.successful(EventHubsUtils.getEventSequenceNumber(iter.next): SequenceNumber)
                     } else {
                       Future.successful(partitionProps.getLastEnqueuedSequenceNumber + 1: SequenceNumber)
                     }

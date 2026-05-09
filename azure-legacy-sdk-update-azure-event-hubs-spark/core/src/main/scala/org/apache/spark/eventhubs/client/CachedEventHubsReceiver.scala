@@ -138,7 +138,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
               val pe = iter.next()
               val event = pe.getData
               logDebug(s"(TID ${EventHubsUtils.getTaskId}) Received 1 event from partition ${nAndP.partitionId}")
-              lastReceivedSeqNo = event.getSequenceNumber
+              lastReceivedSeqNo = EventHubsUtils.getEventSequenceNumber(event)
               currentEventPosition = Track2EventPosition.fromSequenceNumber(lastReceivedSeqNo + 1)
               java.util.Collections.singletonList(event).asScala.toSeq
             } else {
@@ -199,7 +199,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
     val event = awaitReceiveMessage(
       receiveOne(ehConf.receiverTimeout.getOrElse(DefaultReceiverTimeout), "checkCursor initial"),
       requestSeqNo)
-    val receivedSeqNo = event.iterator.next.getSequenceNumber
+    val receivedSeqNo = EventHubsUtils.getEventSequenceNumber(event.iterator.next)
 
     if (receivedSeqNo != requestSeqNo) {
       logInfo(
@@ -209,7 +209,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
       val movedEvent = awaitReceiveMessage(
         receiveOne(ehConf.receiverTimeout.getOrElse(DefaultReceiverTimeout), "checkCursor move"),
         requestSeqNo)
-      val movedSeqNo = movedEvent.iterator.next.getSequenceNumber
+      val movedSeqNo = EventHubsUtils.getEventSequenceNumber(movedEvent.iterator.next)
       if (movedSeqNo != requestSeqNo) {
         // Track 2: Get partition properties instead of runtime info
         val partitionProps = consumerClient.getPartitionProperties(nAndP.partitionId.toString)
@@ -255,8 +255,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
     // Retrieve the events. First, we get the first event in the batch.
     // Then, if the succeeds, we collect the rest of the data.
     val first = Await.result(checkCursor(requestSeqNo), ehConf.internalOperationTimeout)
-    // Track 2: Use getSequenceNumber() directly instead of getSystemProperties().getSequenceNumber()
-    val firstSeqNo = first.iterator.next.getSequenceNumber
+    val firstSeqNo = EventHubsUtils.getEventSequenceNumber(first.iterator.next)
     val batchCount = (requestSeqNo + batchSize - firstSeqNo).toInt
 
     if (batchCount <= 0) {
@@ -269,10 +268,9 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
                           requestSeqNo)
     // Combine and sort the data.
     val combined = first ++ theRest.flatten
-    // Track 2: Update to use getSequenceNumber() directly
     val sortedSeq = combined.toSeq
       .sortWith((e1, e2) =>
-        e1.getSequenceNumber < e2.getSequenceNumber)
+        EventHubsUtils.getEventSequenceNumber(e1) < EventHubsUtils.getEventSequenceNumber(e2))
 
     cachedData = new CachedReceivedData(requestSeqNo, batchSize, sortedSeq)
 

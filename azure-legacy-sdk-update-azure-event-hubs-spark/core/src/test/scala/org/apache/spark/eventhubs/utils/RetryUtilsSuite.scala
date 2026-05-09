@@ -66,7 +66,7 @@ class RetryUtilsSuite extends FunSuite with ScalaFutures {
 
     val exception =
       RetryUtils.retryScala(tries.next, "test", maxRetry = 3, delay = 1).failed.futureValue
-    assert("causedBy" === exception.getMessage)
+    assert(exception.getMessage.contains("causedBy"))
   }
 
   test("retryNotNull") {

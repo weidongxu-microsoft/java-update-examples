@@ -113,12 +113,13 @@ private[spark] object RetryUtils extends Logging {
                           replaceTransientErrors: Future[T] = null): Future[T] = {
     def isTransientError(exception: Throwable): Boolean = exception match {
       case ae: com.azure.core.amqp.exception.AmqpException =>
-        // Track 2: Check error condition codes for transient errors
+        // Track 2: Prefer SDK transient classification and fall back to condition checks.
         val errorCondition = ae.getErrorCondition match {
           case ec if ec != null => ec.toString.toLowerCase
           case _ => ""
         }
-        errorCondition.contains("server-busy") ||
+        ae.isTransient ||
+          errorCondition.contains("server-busy") ||
           errorCondition.contains("operation-timeout") ||
           errorCondition.contains("timeout") ||
           errorCondition.contains("link-stolen")
