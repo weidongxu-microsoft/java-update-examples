@@ -17,9 +17,10 @@
 
 package org.apache.spark.eventhubs.utils
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.qpid.proton.amqp.messaging.ApplicationProperties
 import org.apache.spark.eventhubs.{ PartitionId, SequenceNumber }
+import org.apache.spark.eventhubs._
 
 /**
  * Simulated EventHubs instance. All partitions are empty on creation.
@@ -160,7 +161,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
     for (p <- partitions.keySet.toSeq.sorted) {
       str += s"""
         Partition: $p
-        ${partitions(p).getEvents.map(_.getBytes.map(_.toChar).mkString)})
+        ${partitions(p).getEvents.map(_.getBody.array.map(_.toChar).mkString)})
       """
       str += "\n"
     }
@@ -206,7 +207,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
      */
     private[utils] def send(event: EventData, properties: Option[Map[String, Object]]): Unit = {
       // Need to add a Seq No to the EventData to properly simulate the service.
-      val e = EventHubsTestUtils.createEventData(event.getBytes, data.size.toLong, properties)
+      val e = EventHubsTestUtils.createEventData(event.getBody.array, data.size.toLong, properties)
       synchronized(data = data :+ e)
     }
 
@@ -236,7 +237,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       if (data.isEmpty) {
         0L
       } else {
-        data.map(_.getSystemProperties.getSequenceNumber).min
+        0L
       }
     }
 
@@ -249,9 +250,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       if (data.isEmpty) {
         0L
       } else {
-        // The sequence number will start from 0L onwards
-        // In the case there is 1 single message, this will be 1L + 0L
-        1L + data.map(_.getSystemProperties.getSequenceNumber).max
+        data.size.toLong
       }
     }
   }

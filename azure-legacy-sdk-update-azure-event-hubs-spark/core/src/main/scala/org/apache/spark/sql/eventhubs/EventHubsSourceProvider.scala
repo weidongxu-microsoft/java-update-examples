@@ -168,15 +168,26 @@ private[sql] object EventHubsSourceProvider extends Serializable {
     rdd.mapPartitionsWithIndex { (p, iter) =>
       {
         iter.map { ed =>
+          // Modern EventData API: getSystemProperties() returns EventHubsSystemProperties (or Map in some versions)
+          val bodyBytes = ed.getBody
+          val sysPropsMap = ed.getSystemProperties
+          val offset = Option(sysPropsMap.get("x-opt-offset")).map(_.toString).getOrElse("0")
+          val seqNo =
+            Option(sysPropsMap.get("x-opt-sequence-number")).map(_.asInstanceOf[Long]).getOrElse(0L)
+          val enqueued = Option(sysPropsMap.get("x-opt-enqueued-time"))
+            .map(_.asInstanceOf[java.time.Instant])
+            .getOrElse(java.time.Instant.EPOCH)
+          val publisher = Option(sysPropsMap.get("x-opt-publisher")).map(_.toString).orNull
+          val partitionKey = Option(sysPropsMap.get("x-opt-partition-key")).map(_.toString).orNull
           InternalRow(
-            ed.getBytes,
+            bodyBytes,
             UTF8String.fromString(p.toString),
-            UTF8String.fromString(ed.getSystemProperties.getOffset),
-            ed.getSystemProperties.getSequenceNumber,
+            UTF8String.fromString(offset),
+            seqNo,
             DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(ed.getSystemProperties.getEnqueuedTime.toEpochMilli)),
-            UTF8String.fromString(ed.getSystemProperties.getPublisher),
-            UTF8String.fromString(ed.getSystemProperties.getPartitionKey),
+              new java.sql.Timestamp(enqueued.toEpochMilli)),
+            UTF8String.fromString(publisher),
+            UTF8String.fromString(partitionKey),
             ArrayBasedMapData(ed.getProperties.asScala
               .mapValues {
                 case b: Binary =>

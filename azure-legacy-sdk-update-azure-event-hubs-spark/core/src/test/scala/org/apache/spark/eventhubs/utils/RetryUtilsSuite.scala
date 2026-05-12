@@ -20,7 +20,7 @@ package org.apache.spark.eventhubs.utils
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
 
-import com.microsoft.azure.eventhubs.EventHubException
+import com.azure.messaging.eventhubs.models.EventPosition
 import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures
 
@@ -82,14 +82,20 @@ class RetryUtilsSuite extends FunSuite with ScalaFutures {
 }
 
 object RetryUtilsSuite {
-  def failedWithEHE(): Future[Int] = Future.failed(new EventHubException(true, "failedWith"))
+  private class TestTransientException(private val transient: Boolean, msg: String)
+      extends RuntimeException(msg) {
+    def getIsTransient: Boolean = transient
+  }
+
+  def failedWithEHE(): Future[Int] = Future.failed(new TestTransientException(true, "failedWith"))
 
   def causedByEHE(): Future[Int] = {
-    val causedBy = new EventHubException(true, "causedBy")
+    val causedBy = new TestTransientException(true, "causedBy")
     Future.failed(new IOException(causedBy))
   }
 
-  def nonTransientEHE(): Future[Int] = Future.failed(new EventHubException(false, "nonTransient"))
+  def nonTransientEHE(): Future[Int] =
+    Future.failed(new TestTransientException(false, "nonTransient"))
 
   def incrementFutureIterator(value: Int = 0): Iterator[Future[Int]] =
     Iterator.from(value).map(Future(_))

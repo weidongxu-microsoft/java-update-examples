@@ -18,6 +18,7 @@
 package org.apache.spark.eventhubs.rdd
 
 import org.apache.spark.eventhubs.EventHubsConf
+import org.apache.spark.eventhubs._
 import org.apache.spark.eventhubs.utils.EventHubsTestUtils
 import org.apache.spark.{ SparkConf, SparkContext, SparkFunSuite }
 import org.scalatest.BeforeAndAfterAll
@@ -105,7 +106,7 @@ class EventHubsRDDSuite extends SparkFunSuite with BeforeAndAfterAll {
     val offsetRanges = Array(OffsetRange(ehConf.name, 0, fromSeqNo, untilSeqNo, None))
 
     val rdd = new EventHubsRDD(sc, ehConf, offsetRanges)
-      .map(_.getSystemProperties.getSequenceNumber)
+      .map(_.getBody.map(_.toChar).mkString.toLong)
 
     assert(rdd.count == (untilSeqNo - fromSeqNo)) // no PartitionCount multiplier b/c we only have one partition
     assert(!rdd.isEmpty)

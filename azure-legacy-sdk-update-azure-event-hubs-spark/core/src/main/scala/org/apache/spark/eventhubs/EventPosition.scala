@@ -20,7 +20,7 @@ package org.apache.spark.eventhubs
 import java.time.Instant
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.{ EventPosition => ehep }
+import com.azure.messaging.eventhubs.models.{ EventPosition => ehep }
 
 /**
  * Defines a position of an event in an event hub partition.
@@ -36,7 +36,13 @@ case class EventPosition private (offset: String = null,
 
   private[eventhubs] def convert: ehep = {
     if (offset != null) {
-      ehep.fromOffset(offset, isInclusive)
+      if (offset == StartOfStream) {
+        ehep.earliest()
+      } else if (offset == EndOfStream) {
+        ehep.latest()
+      } else {
+        ehep.fromOffset(offset.toLong)
+      }
     } else if (seqNo >= 0L) {
       ehep.fromSequenceNumber(seqNo, isInclusive)
     } else if (enqueuedTime != null) {

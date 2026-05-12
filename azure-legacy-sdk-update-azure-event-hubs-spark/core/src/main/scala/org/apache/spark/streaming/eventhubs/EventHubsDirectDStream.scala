@@ -18,7 +18,7 @@
 package org.apache.spark.streaming.eventhubs
 
 import scala.collection.mutable
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.SparkContext
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs.client.Client

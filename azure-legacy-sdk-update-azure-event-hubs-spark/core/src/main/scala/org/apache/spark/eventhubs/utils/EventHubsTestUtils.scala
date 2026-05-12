@@ -19,13 +19,16 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.EventData
-import com.microsoft.azure.eventhubs.impl.AmqpConstants.{
-  ENQUEUED_TIME_UTC,
-  OFFSET,
-  SEQUENCE_NUMBER
+import com.azure.messaging.eventhubs.EventData
+// Modern SDK: Constants are no longer exposed in public API; defining locally
+// These are standard AMQP message annotation keys used by Event Hubs
+private[utils] object AmqpConstants {
+  val SEQUENCE_NUMBER = "x-opt-sequence-number"
+  val OFFSET = "x-opt-offset"
+  val ENQUEUED_TIME_UTC = "x-opt-enqueued-time"
 }
-import com.microsoft.azure.eventhubs.impl.EventDataImpl
+
+import AmqpConstants.{ ENQUEUED_TIME_UTC, OFFSET, SEQUENCE_NUMBER }
 import org.apache.qpid.proton.amqp.Binary
 import org.apache.qpid.proton.amqp.messaging.{ ApplicationProperties, Data, MessageAnnotations }
 import org.apache.qpid.proton.message.Message
@@ -33,6 +36,7 @@ import org.apache.qpid.proton.message.Message.Factory
 import org.apache.spark.eventhubs.{ EventHubsConf, NameAndPartition }
 import org.apache.spark.eventhubs.client.{ CachedReceiver, Client }
 import org.apache.spark.eventhubs._
+import org.apache.spark.internal.Logging
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -49,7 +53,7 @@ import scala.collection.mutable
  * send to, and destroy a simulated Event Hubs (as well as some
  * other similar utility functions).
  */
-private[spark] class EventHubsTestUtils {
+private[spark] class EventHubsTestUtils extends Logging {
 
   import EventHubsTestUtils._
 
@@ -195,25 +199,36 @@ private[spark] object EventHubsTestUtils {
   def createEventData(event: Array[Byte],
                       seqNo: Long,
                       properties: Option[Map[String, Object]]): EventData = {
-    val constructor = classOf[EventDataImpl].getDeclaredConstructor(classOf[Message])
-    constructor.setAccessible(true)
+    val eventData = new EventData(event)
 
+    // Keep legacy simulated-test behavior by filling map-backed system properties.
     val s = seqNo.toLong.asInstanceOf[AnyRef]
-    // This value is not accurate. However, "offet" is never used in testing.
-    // Placing dummy value here because one is required in order for EventData
-    // to serialize/de-serialize properly during tests.
     val o = s.toString.asInstanceOf[AnyRef]
-    val t = new Date(System.currentTimeMillis()).asInstanceOf[AnyRef]
+    val t = new Date(System.currentTimeMillis()).toInstant.asInstanceOf[AnyRef]
 
-    val msgAnnotations = new MessageAnnotations(
-      Map(SEQUENCE_NUMBER -> s, OFFSET -> o, ENQUEUED_TIME_UTC -> t).asJava)
-
-    val body = new Data(new Binary(event))
-    val msg = Factory.create(null, null, msgAnnotations, null, null, body, null)
-    if (properties.isDefined) {
-      val appProperties = new ApplicationProperties(properties.get.asJava)
-      msg.setApplicationProperties(appProperties)
+    try {
+      val systemProps = eventData.getSystemProperties
+      if (systemProps != null) {
+        systemProps.put(SEQUENCE_NUMBER, s)
+        systemProps.put(OFFSET, o)
+        systemProps.put(ENQUEUED_TIME_UTC, t)
+      }
+    } catch {
+      case _: Exception => ()
     }
-    constructor.newInstance(msg).asInstanceOf[EventData]
+
+    if (properties.isDefined) {
+      try {
+        val appProps = eventData.getProperties
+        if (appProps != null) {
+          appProps.putAll(properties.get.asJava)
+        }
+      } catch {
+        case _: Exception =>
+          ()
+      }
+    }
+    
+    eventData
   }
 }

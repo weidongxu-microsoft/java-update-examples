@@ -17,9 +17,12 @@
 
 package org.apache.spark
 
+import java.time.Instant
 import java.time.Duration
 
-import com.microsoft.azure.eventhubs.{ EventHubClient, EventHubClientOptions, PartitionReceiver }
+import com.azure.messaging.eventhubs.EventHubProducerAsyncClient
+import com.azure.messaging.eventhubs.EventHubConsumerAsyncClient
+// Note: PartitionReceiver is not directly available in modern SDK
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
 
@@ -37,14 +40,17 @@ package object eventhubs {
   val DefaultEndingPosition: EventPosition = EventPosition.fromEndOfStream
   val DefaultMaxRatePerPartition: Rate = 1000
   val DefaultReceiverTimeout: Duration = Duration.ofSeconds(60)
-  val DefaultMaxSilentTime: Duration = EventHubClientOptions.SILENT_OFF
-  val MinSilentTime: Duration = EventHubClientOptions.SILENT_MINIMUM
+  // Note: EventHubClientOptions not available in modern SDK; using reasonable defaults
+  val DefaultMaxSilentTime: Duration = Duration.ofMinutes(1)
+  val MinSilentTime: Duration = Duration.ofSeconds(30)
   val DefaultOperationTimeout: Duration = Duration.ofSeconds(300)
   val DefaultMaxAcceptableBatchReceiveTime: Duration = Duration.ofSeconds(30)
-  val DefaultConsumerGroup: String = EventHubClient.DEFAULT_CONSUMER_GROUP_NAME
-  val PrefetchCountMinimum: Int = PartitionReceiver.MINIMUM_PREFETCH_COUNT
-  val PrefetchCountMaximum: Int = PartitionReceiver.MAXIMUM_PREFETCH_COUNT
-  val DefaultPrefetchCount: Int = PartitionReceiver.DEFAULT_PREFETCH_COUNT
+  // Note: EventHubClient not available in modern SDK; using standard consumer group name
+  val DefaultConsumerGroup: String = "$Default"
+  // Note: PartitionReceiver not available in modern SDK; using standard prefetch counts
+  val PrefetchCountMinimum: Int = 1
+  val PrefetchCountMaximum: Int = 1000
+  val DefaultPrefetchCount: Int = 500
   val DefaultFailOnDataLoss = "true"
   val DefaultUseSimulatedClient = "false"
   val DefaultPartitionPreferredLocationStrategy = "Hash"
@@ -97,6 +103,40 @@ package object eventhubs {
     def toEnqueueTime: EnqueueTime = str.toLong
 
     def toSequenceNumber: SequenceNumber = str.toLong
+  }
+
+  // Legacy compatibility helpers for EventData#getSystemProperties map access.
+  implicit class EventHubsSystemPropertiesOps(val props: java.util.Map[String, Object])
+      extends AnyVal {
+    private def getAs[T](key: String): Option[T] = {
+      if (props == null) None else Option(props.get(key)).map(_.asInstanceOf[T])
+    }
+
+    def getSequenceNumber: Long = {
+      getAs[java.lang.Number](SequenceNumberAnnotation).map(_.longValue()).getOrElse(0L)
+    }
+
+    def getOffset: String = {
+      getAs[AnyRef](OffsetAnnotation).map(_.toString).orNull
+    }
+
+    def getEnqueuedTime: Instant = {
+      getAs[Instant](EnqueuedTimeAnnotation).getOrElse(Instant.EPOCH)
+    }
+
+    def getPublisher: String = {
+      getAs[AnyRef]("x-opt-publisher").map(_.toString).orNull
+    }
+
+    def getPartitionKey: String = {
+      getAs[AnyRef]("x-opt-partition-key").map(_.toString).orNull
+    }
+  }
+
+  // Legacy compatibility helper for EventData payload access.
+  implicit class EventDataCompatOps(val eventData: com.azure.messaging.eventhubs.EventData)
+      extends AnyVal {
+    def getBytes: Array[Byte] = eventData.getBody
   }
 
 }

@@ -18,20 +18,13 @@
 package org.apache.spark.eventhubs
 
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.CompletableFuture
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-import com.microsoft.azure.eventhubs.{
-  EventData,
-  EventHubClient,
-  PartitionReceiver,
-  ReceiverOptions,
-  EventPosition => ehep
-}
+import com.azure.messaging.eventhubs.EventData
 
 import org.apache.spark.api.java.{ JavaRDD, JavaSparkContext }
 import org.apache.spark.eventhubs.client.EventHubsClient
@@ -130,30 +123,6 @@ object EventHubsUtils extends Logging {
                 offsetRanges: Array[OffsetRange]): JavaRDD[EventData] = {
     createRpcEndpoint()
     new JavaRDD(createRDD(jsc.sc, ehConf, offsetRanges))
-  }
-
-  def createReceiverInner(
-      client: EventHubClient,
-      useExclusiveReceiver: Boolean,
-      consumerGroup: String,
-      partitionId: String,
-      eventPosition: ehep,
-      receiverOptions: ReceiverOptions): CompletableFuture[PartitionReceiver] = {
-    val taskId = EventHubsUtils.getTaskId
-    logInfo(
-      s"(TID $taskId) creating receiver for Event Hub partition $partitionId, consumer group $consumerGroup " +
-        s"with epoch receiver option $useExclusiveReceiver")
-
-    if (useExclusiveReceiver) {
-      client.createEpochReceiver(consumerGroup,
-                                 partitionId,
-                                 eventPosition,
-                                 DefaultEpoch,
-                                 receiverOptions)
-
-    } else {
-      client.createReceiver(consumerGroup, partitionId, eventPosition, receiverOptions)
-    }
   }
 
   def getTaskId: Long = {

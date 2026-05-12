@@ -19,7 +19,7 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.concurrent._
 
-import com.microsoft.azure.eventhubs.EventHubException
+import com.azure.messaging.eventhubs.models.EventPosition
 import org.apache.spark.internal.Logging
 
 import scala.compat.java8.FutureConverters.toScala
@@ -114,10 +114,11 @@ private[spark] object RetryUtils extends Logging {
     def retryHelper(fn: => Future[T], retryCount: Int): Future[T] = {
       val taskId = EventHubsUtils.getTaskId
       fn.recoverWith {
-        case eh: EventHubException if eh.getIsTransient =>
+        // Modern SDK uses AmqpException for transient errors
+        case t: Throwable if isTransientError(t) =>
           if (retryCount >= maxRetry) {
             logInfo(s"(TID $taskId) failure: $opName")
-            throw eh
+            throw t
           }
           if (replaceTransientErrors != null) {
             logInfo(s"(TID $taskId) ignoring transient failure in $opName")
@@ -128,10 +129,10 @@ private[spark] object RetryUtils extends Logging {
           }
         case t: Throwable =>
           t.getCause match {
-            case eh: EventHubException if eh.getIsTransient =>
+            case cause if cause != null && isTransientError(cause) =>
               if (retryCount >= maxRetry) {
                 logInfo(s"(TID $taskId) failure: $opName")
-                throw eh
+                throw cause
               }
               if (replaceTransientErrors != null) {
                 logInfo(s"(TID $taskId) ignoring transient failure in $opName")
@@ -168,6 +169,51 @@ private[spark] object RetryUtils extends Logging {
       } else {
         Future.successful(result)
       }
+    }
+  }
+
+  /**
+   * Check if an exception represents a transient error that should be retried.
+   * Modern SDK uses AmqpException with isTransient() or specific error codes.
+   * Legacy SDK used EventHubException with getIsTransient().
+   */
+  private def isTransientError(t: Throwable): Boolean = {
+    t match {
+      // Check if exception has isTransient method (both legacy and modern SDKs)
+      case _ if hasIsTransientMethod(t) => {
+        try {
+          val method =
+            if (t.getClass.getMethods.exists(_.getName == "getIsTransient")) {
+              t.getClass.getMethod("getIsTransient")
+            } else {
+              t.getClass.getMethod("isTransient")
+            }
+          method.invoke(t).asInstanceOf[Boolean]
+        } catch {
+          case _: Exception => false
+        }
+      }
+      // Check if it's a timeout or connection error (transient)
+      case _ if t.isInstanceOf[java.net.SocketTimeoutException] => true
+      case _ if t.isInstanceOf[java.net.ConnectException] => true
+      case _ if t.getMessage != null && (
+        t.getMessage.contains("timeout") || 
+        t.getMessage.contains("connection reset") ||
+        t.getMessage.contains("temporary")
+      ) => true
+      case _ => false
+    }
+  }
+
+  /**
+   * Check if exception class has getIsTransient or isTransient method
+   */
+  private def hasIsTransientMethod(t: Throwable): Boolean = {
+    try {
+      t.getClass.getMethod("getIsTransient") != null ||
+        t.getClass.getMethod("isTransient") != null
+    } catch {
+      case _: Exception => false
     }
   }
 }
