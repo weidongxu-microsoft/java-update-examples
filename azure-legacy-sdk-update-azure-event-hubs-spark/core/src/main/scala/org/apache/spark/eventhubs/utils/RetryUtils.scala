@@ -19,7 +19,7 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.concurrent._
 
-import com.microsoft.azure.eventhubs.EventHubException
+import com.azure.messaging.eventhubs.models.EventPosition
 import org.apache.spark.internal.Logging
 
 import scala.compat.java8.FutureConverters.toScala

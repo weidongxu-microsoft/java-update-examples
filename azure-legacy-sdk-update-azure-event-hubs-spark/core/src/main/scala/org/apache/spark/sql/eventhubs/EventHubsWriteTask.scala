@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.eventhubs
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{ EventHubsConf, EventHubsUtils }
 import org.apache.spark.eventhubs.client.Client
 import org.apache.spark.eventhubs.utils.MetricPlugin

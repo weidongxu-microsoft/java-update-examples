@@ -22,7 +22,7 @@ import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.{ AtomicInteger, AtomicLong }
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{ EventHubsConf, EventPosition, NameAndPartition }
 import org.apache.spark.eventhubs.utils.EventHubsTestUtils._
 import org.apache.spark.eventhubs.rdd.{ HasOffsetRanges, OffsetRange }

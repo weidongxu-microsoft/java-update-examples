@@ -19,13 +19,14 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.EventData
-import com.microsoft.azure.eventhubs.impl.AmqpConstants.{
+import com.azure.messaging.eventhubs.EventData
+import com.azure.messaging.eventhubs.implementation.AmqpConstants.{
   ENQUEUED_TIME_UTC,
   OFFSET,
   SEQUENCE_NUMBER
 }
-import com.microsoft.azure.eventhubs.impl.EventDataImpl
+// EventDataImpl is now internal in modern SDK, using EventData constructor instead
+// import com.microsoft.azure.eventhubs.impl.EventDataImpl
 import org.apache.qpid.proton.amqp.Binary
 import org.apache.qpid.proton.amqp.messaging.{ ApplicationProperties, Data, MessageAnnotations }
 import org.apache.qpid.proton.message.Message

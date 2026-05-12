@@ -25,32 +25,32 @@ class EventPositionSuite extends FunSuite {
 
   test("convert - offset") {
     val actual = EventPosition.fromOffset("123456789").convert
-    val expected = com.microsoft.azure.eventhubs.EventPosition.fromOffset("123456789", true)
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromOffset("123456789", true)
     assert(actual.toString === expected.toString)
   }
 
   test("convert - seq no") {
     val actual = EventPosition.fromSequenceNumber(42L).convert
-    val expected = com.microsoft.azure.eventhubs.EventPosition.fromSequenceNumber(42L, true)
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromSequenceNumber(42L, true)
     assert(actual.toString === expected.toString)
   }
 
   test("convert - enqueued time") {
     val instant = Instant.parse("2007-12-03T10:15:30.00Z")
     val actual = EventPosition.fromEnqueuedTime(instant).convert
-    val expected = com.microsoft.azure.eventhubs.EventPosition.fromEnqueuedTime(instant)
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromEnqueuedTime(instant)
     assert(actual.toString === expected.toString)
   }
 
   test("convert - start of stream") {
     val actual = EventPosition.fromStartOfStream.convert
-    val expected = com.microsoft.azure.eventhubs.EventPosition.fromStartOfStream()
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromStartOfStream()
     assert(actual.toString === expected.toString)
   }
 
   test("convert - end of stream") {
     val actual = EventPosition.fromEndOfStream.convert
-    val expected = com.microsoft.azure.eventhubs.EventPosition.fromEndOfStream()
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromEndOfStream()
     assert(actual.toString === expected.toString)
   }
 }

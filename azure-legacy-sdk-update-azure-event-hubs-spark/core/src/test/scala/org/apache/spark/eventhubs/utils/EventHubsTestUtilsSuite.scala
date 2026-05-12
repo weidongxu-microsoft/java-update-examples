@@ -19,7 +19,7 @@ package org.apache.spark.eventhubs.utils
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.spark.eventhubs.{EventHubsConf, NameAndPartition, SequenceNumber}
 import org.apache.spark.internal.Logging
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}

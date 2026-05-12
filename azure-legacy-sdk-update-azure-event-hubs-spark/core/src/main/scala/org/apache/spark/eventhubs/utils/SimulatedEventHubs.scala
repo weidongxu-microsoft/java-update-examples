@@ -17,7 +17,7 @@
 
 package org.apache.spark.eventhubs.utils
 
-import com.microsoft.azure.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventData
 import org.apache.qpid.proton.amqp.messaging.ApplicationProperties
 import org.apache.spark.eventhubs.{ PartitionId, SequenceNumber }
 
