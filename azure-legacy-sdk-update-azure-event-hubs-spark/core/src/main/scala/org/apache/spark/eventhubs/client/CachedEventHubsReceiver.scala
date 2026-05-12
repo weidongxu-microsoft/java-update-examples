@@ -296,7 +296,7 @@ private[client] class CachedEventHubsReceiver private (ehConf: EventHubsConf,
     if (metricPlugin.isDefined) {
       val (validateSize, batchSizeInBytes) =
         validate
-          .map(eventData => (1, eventData.getBytes.length.toLong))
+          .map(eventData => (1, eventData.getBody.length.toLong))
           .reduceOption { (countAndSize1, countAndSize2) =>
             (countAndSize1._1 + countAndSize2._1, countAndSize1._2 + countAndSize2._2)
           }

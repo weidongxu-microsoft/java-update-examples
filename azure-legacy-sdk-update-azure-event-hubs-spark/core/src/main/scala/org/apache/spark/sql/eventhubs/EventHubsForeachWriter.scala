@@ -60,8 +60,7 @@ case class EventHubsForeachWriter(ehConf: EventHubsConf)
     val event = new EventData(s"$body".getBytes("UTF-8"))
     client.send(event)
     totalMessageCount += 1
-    // Modern SDK: getBody returns ByteBuffer; use remaining() for byte count
-    totalMessageSizeInBytes += event.getBody.remaining()
+    totalMessageSizeInBytes += event.getBody.length
   }
 
   def close(errorOrNull: Throwable): Unit = {

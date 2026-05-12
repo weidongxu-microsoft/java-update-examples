@@ -129,7 +129,7 @@ private[spark] object RetryUtils extends Logging {
           }
         case t: Throwable =>
           t.getCause match {
-            case cause if isTransientError(cause) =>
+            case cause if cause != null && isTransientError(cause) =>
               if (retryCount >= maxRetry) {
                 logInfo(s"(TID $taskId) failure: $opName")
                 throw cause
@@ -182,7 +182,12 @@ private[spark] object RetryUtils extends Logging {
       // Check if exception has isTransient method (both legacy and modern SDKs)
       case _ if hasIsTransientMethod(t) => {
         try {
-          val method = t.getClass.getMethod("isTransient")
+          val method =
+            if (t.getClass.getMethods.exists(_.getName == "getIsTransient")) {
+              t.getClass.getMethod("getIsTransient")
+            } else {
+              t.getClass.getMethod("isTransient")
+            }
           method.invoke(t).asInstanceOf[Boolean]
         } catch {
           case _: Exception => false

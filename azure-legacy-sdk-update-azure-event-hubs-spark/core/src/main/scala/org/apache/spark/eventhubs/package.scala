@@ -17,6 +17,7 @@
 
 package org.apache.spark
 
+import java.time.Instant
 import java.time.Duration
 
 import com.azure.messaging.eventhubs.EventHubProducerAsyncClient
@@ -41,7 +42,7 @@ package object eventhubs {
   val DefaultReceiverTimeout: Duration = Duration.ofSeconds(60)
   // Note: EventHubClientOptions not available in modern SDK; using reasonable defaults
   val DefaultMaxSilentTime: Duration = Duration.ofMinutes(1)
-  val MinSilentTime: Duration = Duration.ofSeconds(0)
+  val MinSilentTime: Duration = Duration.ofSeconds(30)
   val DefaultOperationTimeout: Duration = Duration.ofSeconds(300)
   val DefaultMaxAcceptableBatchReceiveTime: Duration = Duration.ofSeconds(30)
   // Note: EventHubClient not available in modern SDK; using standard consumer group name
@@ -102,6 +103,40 @@ package object eventhubs {
     def toEnqueueTime: EnqueueTime = str.toLong
 
     def toSequenceNumber: SequenceNumber = str.toLong
+  }
+
+  // Legacy compatibility helpers for EventData#getSystemProperties map access.
+  implicit class EventHubsSystemPropertiesOps(val props: java.util.Map[String, Object])
+      extends AnyVal {
+    private def getAs[T](key: String): Option[T] = {
+      if (props == null) None else Option(props.get(key)).map(_.asInstanceOf[T])
+    }
+
+    def getSequenceNumber: Long = {
+      getAs[java.lang.Number](SequenceNumberAnnotation).map(_.longValue()).getOrElse(0L)
+    }
+
+    def getOffset: String = {
+      getAs[AnyRef](OffsetAnnotation).map(_.toString).orNull
+    }
+
+    def getEnqueuedTime: Instant = {
+      getAs[Instant](EnqueuedTimeAnnotation).getOrElse(Instant.EPOCH)
+    }
+
+    def getPublisher: String = {
+      getAs[AnyRef]("x-opt-publisher").map(_.toString).orNull
+    }
+
+    def getPartitionKey: String = {
+      getAs[AnyRef]("x-opt-partition-key").map(_.toString).orNull
+    }
+  }
+
+  // Legacy compatibility helper for EventData payload access.
+  implicit class EventDataCompatOps(val eventData: com.azure.messaging.eventhubs.EventData)
+      extends AnyVal {
+    def getBytes: Array[Byte] = eventData.getBody
   }
 
 }

@@ -170,16 +170,24 @@ private[sql] object EventHubsSourceProvider extends Serializable {
         iter.map { ed =>
           // Modern EventData API: getSystemProperties() returns EventHubsSystemProperties (or Map in some versions)
           val bodyBytes = ed.getBody
-          val sysPropsMap = ed.getSystemProperties  
+          val sysPropsMap = ed.getSystemProperties
+          val offset = Option(sysPropsMap.get("x-opt-offset")).map(_.toString).getOrElse("0")
+          val seqNo =
+            Option(sysPropsMap.get("x-opt-sequence-number")).map(_.asInstanceOf[Long]).getOrElse(0L)
+          val enqueued = Option(sysPropsMap.get("x-opt-enqueued-time"))
+            .map(_.asInstanceOf[java.time.Instant])
+            .getOrElse(java.time.Instant.EPOCH)
+          val publisher = Option(sysPropsMap.get("x-opt-publisher")).map(_.toString).orNull
+          val partitionKey = Option(sysPropsMap.get("x-opt-partition-key")).map(_.toString).orNull
           InternalRow(
             bodyBytes,
             UTF8String.fromString(p.toString),
-            UTF8String.fromString(sysPropsMap.get("x-opt-offset").toString),
-            sysPropsMap.get("x-opt-sequence-number").asInstanceOf[Long],
+            UTF8String.fromString(offset),
+            seqNo,
             DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(sysPropsMap.get("x-opt-enqueued-time").asInstanceOf[java.time.Instant].toEpochMilli)),
-            UTF8String.fromString(sysPropsMap.get("x-opt-publisher").toString),
-            UTF8String.fromString(sysPropsMap.get("x-opt-partition-key").toString),
+              new java.sql.Timestamp(enqueued.toEpochMilli)),
+            UTF8String.fromString(publisher),
+            UTF8String.fromString(partitionKey),
             ArrayBasedMapData(ed.getProperties.asScala
               .mapValues {
                 case b: Binary =>

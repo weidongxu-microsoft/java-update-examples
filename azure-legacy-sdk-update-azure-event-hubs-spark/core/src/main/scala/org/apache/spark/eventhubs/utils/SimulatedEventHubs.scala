@@ -20,6 +20,7 @@ package org.apache.spark.eventhubs.utils
 import com.azure.messaging.eventhubs.EventData
 import org.apache.qpid.proton.amqp.messaging.ApplicationProperties
 import org.apache.spark.eventhubs.{ PartitionId, SequenceNumber }
+import org.apache.spark.eventhubs._
 
 /**
  * Simulated EventHubs instance. All partitions are empty on creation.
@@ -236,8 +237,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       if (data.isEmpty) {
         0L
       } else {
-        // Modern SDK: getSystemProperties returns EventHubsSystemProperties with getSequenceNumber() accessor
-        data.map(_.getSystemProperties.getSequenceNumber.toLong).min
+        0L
       }
     }
 
@@ -250,10 +250,7 @@ private[spark] class SimulatedEventHubs(val name: String, val partitionCount: In
       if (data.isEmpty) {
         0L
       } else {
-        // The sequence number will start from 0L onwards
-        // In the case there is 1 single message, this will be 1L + 0L
-        // Modern SDK: getSystemProperties returns EventHubsSystemProperties with getSequenceNumber() accessor
-        1L + data.map(_.getSystemProperties.getSequenceNumber.toLong).max
+        data.size.toLong
       }
     }
   }

@@ -20,6 +20,7 @@ package org.apache.spark.eventhubs.utils
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
 
+import com.azure.messaging.eventhubs.EventHubException
 import com.azure.messaging.eventhubs.models.EventPosition
 import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures

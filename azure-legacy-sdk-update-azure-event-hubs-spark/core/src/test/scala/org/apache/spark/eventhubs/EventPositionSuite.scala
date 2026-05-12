@@ -25,7 +25,7 @@ class EventPositionSuite extends FunSuite {
 
   test("convert - offset") {
     val actual = EventPosition.fromOffset("123456789").convert
-    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromOffset("123456789", true)
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromOffset(123456789L)
     assert(actual.toString === expected.toString)
   }
 
@@ -44,13 +44,13 @@ class EventPositionSuite extends FunSuite {
 
   test("convert - start of stream") {
     val actual = EventPosition.fromStartOfStream.convert
-    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromStartOfStream()
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.earliest()
     assert(actual.toString === expected.toString)
   }
 
   test("convert - end of stream") {
     val actual = EventPosition.fromEndOfStream.convert
-    val expected = com.azure.messaging.eventhubs.models.EventPosition.fromEndOfStream()
+    val expected = com.azure.messaging.eventhubs.models.EventPosition.latest()
     assert(actual.toString === expected.toString)
   }
 }

@@ -341,7 +341,7 @@ class EventHubsDirectDStreamSuite
 
     val allReceived = new ConcurrentLinkedQueue[String]()
 
-    stream.map(_.getBytes.map(_.toChar).mkString).foreachRDD { rdd =>
+    stream.map(_.getBody.map(_.toChar).mkString).foreachRDD { rdd =>
       allReceived.addAll(util.Arrays.asList(rdd.collect(): _*))
     }
 

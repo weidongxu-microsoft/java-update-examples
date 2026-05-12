@@ -321,7 +321,7 @@ class ConnectionStringBuilder private () {
       throw new IllegalConnectionStringFormatException("Connection String cannot be parsed.")
     }
 
-    if (!StringUtil.isNullOrWhiteSpace(values(0))) {
+    if (values(0) != null && values(0).trim.nonEmpty) {
       throw new IllegalConnectionStringFormatException(
         String.format(Locale.US, "Cannot parse part of ConnectionString: %s", values(0)))
     }

@@ -25,14 +25,8 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-import com.azure.messaging.eventhubs.{
-  EventData,
-  EventHubConsumerAsyncClient,
-  PartitionReceiver => _, // Not available in modern SDK
-  ReceiverOptions => _, // Not available in modern SDK
-  EventPosition => ehep
-}
-import com.azure.messaging.eventhubs.models.EventPosition
+import com.azure.messaging.eventhubs.{ EventData, EventHubClient, PartitionReceiver, ReceiverOptions }
+import com.azure.messaging.eventhubs.models.{ EventPosition => ehep }
 
 import org.apache.spark.api.java.{ JavaRDD, JavaSparkContext }
 import org.apache.spark.eventhubs.client.EventHubsClient
