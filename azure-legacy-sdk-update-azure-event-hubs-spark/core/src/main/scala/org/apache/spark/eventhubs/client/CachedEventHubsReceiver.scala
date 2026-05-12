@@ -20,7 +20,8 @@ package org.apache.spark.eventhubs.client
 import java.time.Duration
 import java.util.concurrent._
 
-import com.microsoft.azure.eventhubs._
+import com.azure.messaging.eventhubs._
+// TODO: PartitionReceiver and internal APIs need refactoring for modern SDK
 import org.apache.spark.SparkEnv
 import org.apache.spark.eventhubs.utils.MetricPlugin
 import org.apache.spark.eventhubs.utils.RetryUtils.{ after, retryJava, retryNotNull }

@@ -56,10 +56,12 @@ case class EventHubsForeachWriter(ehConf: EventHubsConf)
   }
 
   def process(body: String): Unit = {
-    val event = EventData.create(s"$body".getBytes("UTF-8"))
+    // Modern EventData API: constructor takes byte array or ByteBuffer
+    val event = new EventData(s"$body".getBytes("UTF-8"))
     client.send(event)
     totalMessageCount += 1
-    totalMessageSizeInBytes += event.getBytes.length
+    // Modern SDK: getBody returns ByteBuffer; use remaining() for byte count
+    totalMessageSizeInBytes += event.getBody.remaining()
   }
 
   def close(errorOrNull: Throwable): Unit = {

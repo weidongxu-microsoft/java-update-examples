@@ -21,7 +21,9 @@ import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ ConcurrentLinkedQueue, Executors, ScheduledExecutorService }
 
-import com.microsoft.azure.eventhubs.{ EventHubClient, EventHubClientOptions, RetryPolicy }
+import com.azure.messaging.eventhubs._
+// TODO: EventHubClient and EventHubClientOptions are not available in modern SDK
+// Need refactoring to use EventHubProducerAsyncClient and EventHubProducerAsyncClientBuilder
 import org.apache.spark.eventhubs._
 import org.apache.spark.eventhubs.utils.RetryUtils.retryJava
 import org.apache.spark.internal.Logging

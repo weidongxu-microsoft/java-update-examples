@@ -1,7 +1,9 @@
 package org.apache.spark.eventhubs.utils
 
-import com.microsoft.azure.eventhubs.AzureActiveDirectoryTokenProvider.AuthenticationCallback
+import com.azure.core.credential.TokenCredential
 
-trait AadAuthenticationCallback extends AuthenticationCallback with Serializable {
+// NOTE: Modern Azure SDK uses TokenCredential instead of AuthenticationCallback.
+// Implementations should extend TokenCredential or use DefaultAzureCredential/ClientSecretCredential
+trait AadAuthenticationCallback extends TokenCredential with Serializable {
   def authority: String
 }

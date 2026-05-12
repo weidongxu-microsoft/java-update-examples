@@ -17,7 +17,8 @@
 
 package org.apache.spark.eventhubs.client
 
-import com.microsoft.azure.eventhubs.{ EventData, PartitionSender }
+import com.azure.messaging.eventhubs.EventData
+// Note: PartitionSender is not available in modern SDK; use EventHubProducerAsyncClient instead
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.eventhubs._
 

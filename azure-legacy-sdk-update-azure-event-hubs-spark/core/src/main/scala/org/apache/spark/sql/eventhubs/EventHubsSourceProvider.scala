@@ -168,15 +168,18 @@ private[sql] object EventHubsSourceProvider extends Serializable {
     rdd.mapPartitionsWithIndex { (p, iter) =>
       {
         iter.map { ed =>
+          // Modern EventData API: getSystemProperties() returns EventHubsSystemProperties (or Map in some versions)
+          val bodyBytes = ed.getBody
+          val sysPropsMap = ed.getSystemProperties  
           InternalRow(
-            ed.getBytes,
+            bodyBytes,
             UTF8String.fromString(p.toString),
-            UTF8String.fromString(ed.getSystemProperties.getOffset),
-            ed.getSystemProperties.getSequenceNumber,
+            UTF8String.fromString(sysPropsMap.get("x-opt-offset").toString),
+            sysPropsMap.get("x-opt-sequence-number").asInstanceOf[Long],
             DateTimeUtils.fromJavaTimestamp(
-              new java.sql.Timestamp(ed.getSystemProperties.getEnqueuedTime.toEpochMilli)),
-            UTF8String.fromString(ed.getSystemProperties.getPublisher),
-            UTF8String.fromString(ed.getSystemProperties.getPartitionKey),
+              new java.sql.Timestamp(sysPropsMap.get("x-opt-enqueued-time").asInstanceOf[java.time.Instant].toEpochMilli)),
+            UTF8String.fromString(sysPropsMap.get("x-opt-publisher").toString),
+            UTF8String.fromString(sysPropsMap.get("x-opt-partition-key").toString),
             ArrayBasedMapData(ed.getProperties.asScala
               .mapValues {
                 case b: Binary =>

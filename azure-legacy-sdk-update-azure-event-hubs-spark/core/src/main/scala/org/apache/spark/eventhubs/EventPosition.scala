@@ -20,7 +20,7 @@ package org.apache.spark.eventhubs
 import java.time.Instant
 import java.util.Date
 
-import com.microsoft.azure.eventhubs.{ EventPosition => ehep }
+import com.azure.messaging.eventhubs.models.{ EventPosition => ehep }
 
 /**
  * Defines a position of an event in an event hub partition.

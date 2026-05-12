@@ -21,7 +21,7 @@ import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.net.URI
 
-import com.microsoft.azure.eventhubs.AzureActiveDirectoryTokenProvider.AuthenticationCallback
+import com.azure.core.credential.TokenCredential
 import org.apache.spark.eventhubs.PartitionPreferredLocationStrategy.PartitionPreferredLocationStrategy
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.eventhubs.utils.{
