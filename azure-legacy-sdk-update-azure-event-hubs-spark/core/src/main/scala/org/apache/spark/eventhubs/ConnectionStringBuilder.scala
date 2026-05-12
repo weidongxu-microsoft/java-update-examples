@@ -217,7 +217,7 @@ class ConnectionStringBuilder private () {
   }
 
   /**
-   * OperationTimeout is applied in erroneous situations to notify the caller about the relevant [[com.microsoft.azure.eventhubs.EventHubException]]
+   * OperationTimeout is applied in erroneous situations to notify the caller about operation failures.
    *
    * @return operationTimeout
    */
