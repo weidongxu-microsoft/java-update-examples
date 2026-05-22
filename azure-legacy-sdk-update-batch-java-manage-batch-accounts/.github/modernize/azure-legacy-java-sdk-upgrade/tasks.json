@@ -1,0 +1,29 @@
+{
+  "tasks": [
+    {
+      "id": "001-upgrade-legacy-azure-java-sdk",
+      "type": "upgrade",
+      "description": "Upgrade from Legacy Azure SDKs for Java to the latest",
+      "requirements": "Replace the legacy Azure Java SDK usage in this sample with supported Azure SDK libraries and APIs, removing the com.microsoft.azure:azure dependency and the com.microsoft.azure.management.* client usage while preserving the Batch account management flow.",
+      "environmentConfiguration": null,
+      "kbId": "azure-legacy-java-sdk-upgrade",
+      "skills": [
+        {
+          "name": "azure-legacy-java-sdk-upgrade",
+          "location": "builtin"
+        }
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "passUnitTests": "false"
+      }
+    }
+  ],
+  "metadata": {
+    "language": "java",
+    "planName": "azure-legacy-java-sdk-upgrade",
+    "projectName": "batch-java-manage-batch-accounts",
+    "createdAt": "2026-05-22T00:00:00Z",
+    "version": "1.0"
+  }
+}
